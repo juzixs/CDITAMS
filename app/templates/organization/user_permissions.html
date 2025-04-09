@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+
+{% block styles %}
+<style>
+    .permission-tree-container {
+        max-height: 600px;
+        overflow-y: auto;
+        border: 1px solid #dee2e6;
+        border-radius: 0.25rem;
+        padding: 15px;
+    }
+    .permission-item {
+        margin-bottom: 5px;
+    }
+    .permission-children {
+        margin-left: 25px;
+    }
+    .permission-page {
+        font-weight: bold;
+    }
+    .permission-button {
+        color: #6c757d;
+    }
+    .permission-checked {
+        color: #198754;
+    }
+    .permission-unchecked {
+        color: #dc3545;
+        opacity: 0.6;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="card">
+        <div class="card-header bg-white">
+            <div class="row align-items-center">
+                <div class="col">
+                    <h4 class="mb-0">
+                        <i class="fas fa-key me-2"></i>
+                        用户权限 - {{ user.name }}
+                    </h4>
+                </div>
+                <div class="col text-end">
+                    <a href="{{ url_for('organization.users') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-1"></i> 返回
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">用户信息</h5>
+                        </div>
+                        <div class="card-body">
+                            <p><strong>工号：</strong> {{ user.employee_id }}</p>
+                            <p><strong>姓名：</strong> {{ user.name }}</p>
+                            <p><strong>部门：</strong> {{ user.department.name if user.department else '无' }}</p>
+                            <p><strong>角色：</strong> {{ user.role.name if user.role else '无' }}</p>
+                            <p>
+                                <strong>状态：</strong> 
+                                <span class="badge bg-{{ 'success' if user.is_active else 'danger' }}">
+                                    {{ '启用' if user.is_active else '禁用' }}
+                                </span>
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">权限说明</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="alert alert-info">
+                                <p><i class="fas fa-info-circle me-2"></i>权限说明：</p>
+                                <ul class="mb-0">
+                                    <li>用户通过角色获取权限</li>
+                                    <li>权限以树形结构组织</li>
+                                    <li><i class="fas fa-check-circle text-success"></i> 表示拥有权限</li>
+                                    <li><i class="fas fa-times-circle text-danger"></i> 表示无权限</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="card-title mb-0">权限列表</h5>
+                                <div>
+                                    <button type="button" class="btn btn-sm btn-outline-info" id="expandAll">展开所有</button>
+                                    <button type="button" class="btn btn-sm btn-outline-warning" id="collapseAll">收起所有</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="permission-tree-container">
+                                {% if permission_tree %}
+                                    {% for module in permission_tree %}
+                                    <div class="permission-module mb-3">
+                                        <div class="permission-item {{ 'permission-checked' if module.checked else 'permission-unchecked' }}">
+                                            <div class="d-flex align-items-center">
+                                                <i class="fas {{ 'fa-check-circle text-success' if module.checked else 'fa-times-circle text-danger' }} me-2"></i>
+                                                <span class="permission-page">{{ module.name }}</span>
+                                                <a href="#perm_children_{{ module.id }}" data-bs-toggle="collapse" class="text-decoration-none ms-2">
+                                                    <i class="fas fa-chevron-down"></i>
+                                                </a>
+                                            </div>
+                                        </div>
+                                        
+                                        <div id="perm_children_{{ module.id }}" class="permission-children collapse show">
+                                            {% for page in module.children %}
+                                            <div class="permission-page-group mb-2">
+                                                <div class="permission-item {{ 'permission-checked' if page.checked else 'permission-unchecked' }}">
+                                                    <div class="d-flex align-items-center">
+                                                        <i class="fas {{ 'fa-check-circle text-success' if page.checked else 'fa-times-circle text-danger' }} me-2"></i>
+                                                        <span>{{ page.name }}</span>
+                                                        {% if page.children and page.children|length > 0 %}
+                                                        <a href="#perm_children_{{ page.id }}" data-bs-toggle="collapse" class="text-decoration-none ms-2">
+                                                            <i class="fas fa-chevron-down"></i>
+                                                        </a>
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                                
+                                                {% if page.children and page.children|length > 0 %}
+                                                <div id="perm_children_{{ page.id }}" class="permission-children collapse show">
+                                                    {% for button in page.children %}
+                                                    <div class="permission-item {{ 'permission-checked' if button.checked else 'permission-unchecked' }}">
+                                                        <div class="d-flex align-items-center">
+                                                            <i class="fas {{ 'fa-check-circle text-success' if button.checked else 'fa-times-circle text-danger' }} me-2"></i>
+                                                            <span class="permission-button">{{ button.name }}</span>
+                                                        </div>
+                                                    </div>
+                                                    {% endfor %}
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <div class="alert alert-warning">
+                                        <i class="fas fa-exclamation-triangle me-2"></i>该用户没有分配任何角色或权限
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 展开/收起全部功能
+        document.getElementById('expandAll').addEventListener('click', function() {
+            document.querySelectorAll('.permission-children').forEach(container => {
+                container.classList.add('show');
+            });
+        });
+        
+        document.getElementById('collapseAll').addEventListener('click', function() {
+            document.querySelectorAll('.permission-children').forEach(container => {
+                container.classList.remove('show');
+            });
+        });
+    });
+</script>
+{% endblock %} 

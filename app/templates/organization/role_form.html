@@ -1,0 +1,286 @@
+{% extends "base.html" %}
+
+{% block styles %}
+<style>
+    .permission-tree-container {
+        max-height: 500px;
+        overflow-y: auto;
+        border: 1px solid #dee2e6;
+        border-radius: 0.25rem;
+        padding: 15px;
+    }
+    .permission-item {
+        margin-bottom: 5px;
+    }
+    .permission-children {
+        margin-left: 25px;
+    }
+    .permission-page {
+        font-weight: bold;
+    }
+    .permission-button {
+        color: #6c757d;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="card">
+        <div class="card-header bg-white">
+            <div class="row align-items-center">
+                <div class="col">
+                    <h4 class="mb-0">
+                        <i class="fas fa-user-tag me-2"></i>
+                        {% if role %}编辑角色{% else %}添加角色{% endif %}
+                    </h4>
+                </div>
+                <div class="col text-end">
+                    <a href="{{ url_for('organization.roles') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-1"></i> 返回
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            <form method="POST" novalidate>
+                {{ form.csrf_token }}
+                
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="form-group mb-3">
+                            {{ form.name.label(class="form-label") }}
+                            {{ form.name(class="form-control" + (" is-invalid" if form.name.errors else "")) }}
+                            {% if form.name.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.name.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="form-group mb-3">
+                            {{ form.identifier.label(class="form-label") }}
+                            {{ form.identifier(class="form-control" + (" is-invalid" if form.identifier.errors else "")) }}
+                            {% if form.identifier.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.identifier.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            <small class="form-text text-muted">角色标识是系统内部唯一标识符，建议使用英文和下划线</small>
+                        </div>
+                        
+                        <div class="form-group mb-3">
+                            {{ form.description.label(class="form-label") }}
+                            {{ form.description(class="form-control", rows="4" + (" is-invalid" if form.description.errors else "")) }}
+                            {% if form.description.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.description.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h5 class="mb-3">角色权限</h5>
+                        <div class="mb-2">
+                            <button type="button" class="btn btn-sm btn-outline-primary" id="selectAll">全选</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="deselectAll">取消全选</button>
+                            <button type="button" class="btn btn-sm btn-outline-info" id="expandAll">展开所有</button>
+                            <button type="button" class="btn btn-sm btn-outline-warning" id="collapseAll">收起所有</button>
+                        </div>
+                        <div class="permission-tree-container">
+                            {% if permission_tree %}
+                                {% for module in permission_tree %}
+                                <div class="permission-module mb-3">
+                                    <div class="permission-item">
+                                        <div class="form-check">
+                                            <input class="form-check-input permission-checkbox module-checkbox" 
+                                                   type="checkbox" 
+                                                   id="perm_{{ module.id }}" 
+                                                   name="permissions" 
+                                                   value="{{ module.id }}"
+                                                   {% if module.checked %}checked{% endif %}
+                                                   data-module="{{ module.identifier.split('.')[0] }}">
+                                            <label class="form-check-label permission-page" for="perm_{{ module.id }}">
+                                                {{ module.name }}
+                                            </label>
+                                            <a href="#children_{{ module.id }}" data-bs-toggle="collapse" class="text-decoration-none ms-2">
+                                                <i class="fas fa-chevron-down"></i>
+                                            </a>
+                                        </div>
+                                    </div>
+                                    
+                                    <div id="children_{{ module.id }}" class="permission-children collapse show">
+                                        {% for page in module.children %}
+                                        <div class="permission-page-group ms-4 mb-2">
+                                            <div class="permission-item">
+                                                <div class="form-check">
+                                                    <input class="form-check-input permission-checkbox page-checkbox" 
+                                                           type="checkbox" 
+                                                           id="perm_{{ page.id }}" 
+                                                           name="permissions" 
+                                                           value="{{ page.id }}"
+                                                           {% if page.checked %}checked{% endif %}
+                                                           data-parent="{{ module.id }}"
+                                                           data-module="{{ module.identifier.split('.')[0] }}">
+                                                    <label class="form-check-label" for="perm_{{ page.id }}">
+                                                        {{ page.name }}
+                                                    </label>
+                                                    {% if page.children and page.children|length > 0 %}
+                                                    <a href="#children_{{ page.id }}" data-bs-toggle="collapse" class="text-decoration-none ms-2">
+                                                        <i class="fas fa-chevron-down"></i>
+                                                    </a>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            
+                                            {% if page.children and page.children|length > 0 %}
+                                            <div id="children_{{ page.id }}" class="permission-children collapse show">
+                                                {% for button in page.children %}
+                                                <div class="permission-item">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input permission-checkbox button-checkbox" 
+                                                               type="checkbox" 
+                                                               id="perm_{{ button.id }}" 
+                                                               name="permissions" 
+                                                               value="{{ button.id }}"
+                                                               {% if button.checked %}checked{% endif %}
+                                                               data-parent="{{ page.id }}"
+                                                               data-module="{{ module.identifier.split('.')[0] }}">
+                                                        <label class="form-check-label permission-button" for="perm_{{ button.id }}">
+                                                            {{ button.name }}
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                                {% endfor %}
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>没有可用的权限数据
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col text-center">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i> 保存
+                        </button>
+                        <a href="{{ url_for('organization.roles') }}" class="btn btn-secondary">
+                            <i class="fas fa-times me-1"></i> 取消
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 级联选择功能
+        const permissionCheckboxes = document.querySelectorAll('.permission-checkbox');
+        
+        permissionCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                const isChecked = this.checked;
+                const id = this.id.replace('perm_', '');
+                
+                // 如果是模块或页面选择框，影响其子选择框
+                if (this.classList.contains('module-checkbox') || this.classList.contains('page-checkbox')) {
+                    const childrenContainer = document.getElementById('children_' + id);
+                    if (childrenContainer) {
+                        const childCheckboxes = childrenContainer.querySelectorAll('.permission-checkbox');
+                        childCheckboxes.forEach(childBox => {
+                            childBox.checked = isChecked;
+                        });
+                    }
+                }
+                
+                // 当子选项被选中时，父选项也应被选中
+                if (isChecked && this.hasAttribute('data-parent')) {
+                    const parentId = this.getAttribute('data-parent');
+                    const parentCheckbox = document.getElementById('perm_' + parentId);
+                    if (parentCheckbox) {
+                        parentCheckbox.checked = true;
+                        
+                        // 如果父级也有父级，向上级联
+                        if (parentCheckbox.hasAttribute('data-parent')) {
+                            const grandParentId = parentCheckbox.getAttribute('data-parent');
+                            const grandParentCheckbox = document.getElementById('perm_' + grandParentId);
+                            if (grandParentCheckbox) {
+                                grandParentCheckbox.checked = true;
+                            }
+                        }
+                    }
+                }
+                
+                // 当所有子项被取消选中时，可以考虑取消选中父项
+                if (!isChecked && this.hasAttribute('data-parent')) {
+                    const parentId = this.getAttribute('data-parent');
+                    const parentContainer = document.getElementById('children_' + parentId);
+                    if (parentContainer) {
+                        const siblingCheckboxes = parentContainer.querySelectorAll('.permission-checkbox');
+                        let allUnchecked = true;
+                        
+                        siblingCheckboxes.forEach(siblingBox => {
+                            if (siblingBox.checked) {
+                                allUnchecked = false;
+                            }
+                        });
+                        
+                        if (allUnchecked) {
+                            const parentCheckbox = document.getElementById('perm_' + parentId);
+                            if (parentCheckbox) {
+                                parentCheckbox.checked = false;
+                            }
+                        }
+                    }
+                }
+            });
+        });
+        
+        // 全选/取消全选功能
+        document.getElementById('selectAll').addEventListener('click', function() {
+            permissionCheckboxes.forEach(checkbox => {
+                checkbox.checked = true;
+            });
+        });
+        
+        document.getElementById('deselectAll').addEventListener('click', function() {
+            permissionCheckboxes.forEach(checkbox => {
+                checkbox.checked = false;
+            });
+        });
+        
+        // 展开/收起全部功能
+        document.getElementById('expandAll').addEventListener('click', function() {
+            document.querySelectorAll('.permission-children').forEach(container => {
+                container.classList.add('show');
+            });
+        });
+        
+        document.getElementById('collapseAll').addEventListener('click', function() {
+            document.querySelectorAll('.permission-children').forEach(container => {
+                container.classList.remove('show');
+            });
+        });
+    });
+</script>
+{% endblock %} 

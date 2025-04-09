@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="card-title">欢迎使用驰达IT资产管理系统</h2>
+                    <p class="card-text">CHIDA-IT Asset Management System (CDITAMS) 是一个综合性的IT资产管理平台，为您提供全方位的资产管理解决方案。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-6 col-lg-3 mb-4">
+            <div class="card bg-primary text-white h-100">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="fas fa-laptop-code me-2"></i>资产总数</h5>
+                    <h2 class="display-4">0</h2>
+                </div>
+                <div class="card-footer d-flex">
+                    查看详情
+                    <span class="ms-auto">
+                        <i class="fas fa-chevron-right"></i>
+                    </span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 col-lg-3 mb-4">
+            <div class="card bg-success text-white h-100">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="fas fa-user-tie me-2"></i>员工总数</h5>
+                    <h2 class="display-4">0</h2>
+                </div>
+                <div class="card-footer d-flex">
+                    查看详情
+                    <span class="ms-auto">
+                        <i class="fas fa-chevron-right"></i>
+                    </span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 col-lg-3 mb-4">
+            <div class="card bg-warning text-dark h-100">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="fas fa-tasks me-2"></i>待办任务</h5>
+                    <h2 class="display-4">0</h2>
+                </div>
+                <div class="card-footer d-flex">
+                    查看详情
+                    <span class="ms-auto">
+                        <i class="fas fa-chevron-right"></i>
+                    </span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 col-lg-3 mb-4">
+            <div class="card bg-danger text-white h-100">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="fas fa-exclamation-triangle me-2"></i>异常资产</h5>
+                    <h2 class="display-4">0</h2>
+                </div>
+                <div class="card-footer d-flex">
+                    查看详情
+                    <span class="ms-auto">
+                        <i class="fas fa-chevron-right"></i>
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-8 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">最近活动</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>欢迎使用驰达IT资产管理系统！
+                    </div>
+                    <p>系统目前处于初始化状态，您可以开始配置部门、角色和用户信息。</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">快速操作</h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group">
+                        <a href="{{ url_for('organization.users') }}" class="list-group-item list-group-item-action">
+                            <i class="fas fa-user me-2"></i>用户管理
+                        </a>
+                        <a href="{{ url_for('organization.departments') }}" class="list-group-item list-group-item-action">
+                            <i class="fas fa-building me-2"></i>部门管理
+                        </a>
+                        <a href="{{ url_for('organization.roles') }}" class="list-group-item list-group-item-action">
+                            <i class="fas fa-user-tag me-2"></i>角色管理
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

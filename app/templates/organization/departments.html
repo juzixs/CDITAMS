@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+
+{% block styles %}
+<style>
+    .department-tree {
+        margin-top: 20px;
+    }
+    .department-item {
+        cursor: pointer;
+        padding: 8px 5px;
+        border-radius: 4px;
+        margin-bottom: 2px;
+    }
+    .department-item:hover {
+        background-color: #f8f9fa;
+    }
+    .department-item.active {
+        background-color: #e9ecef;
+    }
+    .department-actions {
+        visibility: hidden;
+    }
+    .department-item:hover .department-actions {
+        visibility: visible;
+    }
+    .sortable-placeholder {
+        border: 1px dashed #ced4da;
+        height: 35px;
+        background-color: #f8f9fa;
+        margin-bottom: 5px;
+    }
+</style>
+{% endblock %}
+
+{% macro render_dept_tree(departments, parent_id=None, level=0) %}
+    <ul class="list-unstyled" {% if level > 0 %}style="padding-left: {{ level * 20 }}px;"{% endif %}>
+        {% for dept in departments %}
+            {% if dept.parent_id == parent_id %}
+                <li class="department-item" data-id="{{ dept.id }}">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="fas fa-folder text-warning me-2"></i>
+                            {{ dept.name }} {% if dept.code %}<small class="text-muted">({{ dept.code }})</small>{% endif %}
+                        </div>
+                        <div class="department-actions">
+                            <a href="{{ url_for('organization.edit_department', id=dept.id) }}" class="btn btn-sm btn-outline-primary me-1">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            <button type="button" class="btn btn-sm btn-outline-danger" 
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#deleteModal" 
+                                    data-dept-id="{{ dept.id }}"
+                                    data-dept-name="{{ dept.name }}">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </li>
+                {{ render_dept_tree(departments, dept.id, level + 1) }}
+            {% endif %}
+        {% endfor %}
+    </ul>
+{% endmacro %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="card">
+        <div class="card-header bg-white">
+            <div class="row align-items-center">
+                <div class="col">
+                    <h4 class="mb-0"><i class="fas fa-building me-2"></i>部门管理</h4>
+                </div>
+                <div class="col text-end">
+                    <a href="{{ url_for('organization.add_department') }}" class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i> 新增部门
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">部门结构</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="departmentTree" class="department-tree">
+                                {% if departments %}
+                                    {{ render_dept_tree(departments) }}
+                                {% else %}
+                                    <div class="text-muted">暂无部门数据</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-8">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">部门信息</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="departmentInfo">
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>请从左侧选择一个部门查看详细信息，或点击"新增部门"按钮创建新部门。
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 删除确认对话框 -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">确认删除</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                确定要删除部门 <span id="deleteDeptName" class="fw-bold"></span> 吗？此操作不可恢复！
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <form id="deleteForm" action="" method="POST">
+                    <button type="submit" class="btn btn-danger">删除</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 部门点击事件
+        document.querySelectorAll('.department-item').forEach(function(item) {
+            item.addEventListener('click', function(e) {
+                // 阻止点击编辑和删除按钮时的冒泡
+                if (e.target.closest('.department-actions')) {
+                    return;
+                }
+                
+                // 移除所有激活状态
+                document.querySelectorAll('.department-item.active').forEach(function(activeItem) {
+                    activeItem.classList.remove('active');
+                });
+                
+                // 添加激活状态
+                this.classList.add('active');
+                
+                // 加载部门信息
+                var deptId = this.dataset.id;
+                var deptName = this.querySelector('div > div').textContent.trim();
+                
+                // 构建编辑链接
+                var editUrl = "/organization/departments/edit/" + deptId;
+                
+                // 显示部门详情
+                var infoContainer = document.getElementById('departmentInfo');
+                var html = '<div class="card">';
+                html += '<div class="card-body">';
+                html += '<h5 class="card-title">' + deptName + '</h5>';
+                html += '<hr>';
+                html += '<div class="d-flex justify-content-end">';
+                html += '<a href="' + editUrl + '" class="btn btn-primary me-2">';
+                html += '<i class="fas fa-edit me-1"></i> 编辑';
+                html += '</a>';
+                html += '<button type="button" class="btn btn-danger" ';
+                html += 'data-bs-toggle="modal" ';
+                html += 'data-bs-target="#deleteModal" ';
+                html += 'data-dept-id="' + deptId + '" ';
+                html += 'data-dept-name="' + deptName + '">';
+                html += '<i class="fas fa-trash me-1"></i> 删除';
+                html += '</button>';
+                html += '</div>';
+                html += '</div>';
+                html += '</div>';
+                
+                infoContainer.innerHTML = html;
+            });
+        });
+        
+        // 删除确认框
+        var deleteModal = document.getElementById('deleteModal');
+        deleteModal.addEventListener('show.bs.modal', function (event) {
+            var button = event.relatedTarget;
+            var deptId = button.getAttribute('data-dept-id');
+            var deptName = button.getAttribute('data-dept-name');
+            
+            document.getElementById('deleteDeptName').textContent = deptName;
+            document.getElementById('deleteForm').action = '/organization/departments/delete/' + deptId;
+        });
+    });
+</script>
+{% endblock %} 

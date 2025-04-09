@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block styles %}
+<style>
+    .login-container {
+        max-width: 400px;
+        margin: 50px auto;
+        padding: 20px;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+        border-radius: 10px;
+        background-color: #fff;
+    }
+    .login-header {
+        text-align: center;
+        margin-bottom: 30px;
+    }
+    .login-header img {
+        width: 100px;
+        margin-bottom: 15px;
+    }
+    .login-header h2 {
+        font-size: 24px;
+        color: #333;
+    }
+    body {
+        background-color: #f8f9fa;
+    }
+    .form-control:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
+    .btn-login {
+        width: 100%;
+        padding: 10px;
+        font-size: 16px;
+    }
+    .form-floating {
+        margin-bottom: 15px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <div class="login-header">
+        <i class="fas fa-laptop fa-3x text-primary"></i>
+        <h2>驰达IT资产管理系统</h2>
+        <p class="text-muted">CHIDA-IT Asset Management System</p>
+    </div>
+    
+    <form method="POST" action="{{ url_for('auth.login') }}">
+        {{ form.csrf_token }}
+        
+        <div class="form-floating mb-3">
+            {{ form.employee_id(class="form-control", placeholder="工号", id="employee_id") }}
+            <label for="employee_id">工号</label>
+            {% if form.employee_id.errors %}
+                <div class="invalid-feedback d-block">
+                    {% for error in form.employee_id.errors %}
+                        {{ error }}
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+        
+        <div class="form-floating mb-3">
+            {{ form.password(class="form-control", placeholder="密码", id="password") }}
+            <label for="password">密码</label>
+            {% if form.password.errors %}
+                <div class="invalid-feedback d-block">
+                    {% for error in form.password.errors %}
+                        {{ error }}
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+        
+        <div class="form-check mb-3">
+            {{ form.remember_me(class="form-check-input", id="remember_me") }}
+            <label class="form-check-label" for="remember_me">记住我</label>
+        </div>
+        
+        <div class="d-grid gap-2">
+            {{ form.submit(class="btn btn-primary btn-login") }}
+        </div>
+    </form>
+    
+    <div class="mt-3 text-center">
+        <p class="text-muted">&copy; 2023 驰达集团</p>
+    </div>
+</div>
+{% endblock %} 
