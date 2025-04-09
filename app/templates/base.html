@@ -13,92 +13,138 @@
     {% block styles %}{% endblock %}
 </head>
 <body>
-    {% if current_user.is_authenticated %}
-    <!-- 导航栏 -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="{{ url_for('main.index') }}">
-                <i class="fas fa-laptop"></i> CDITAMS
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint.startswith('main.index') %}active{% endif %}" href="{{ url_for('main.index') }}">
-                            <i class="fas fa-home"></i> 首页
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#">
-                            <i class="fas fa-tasks"></i> 待办
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#">
-                            <i class="fas fa-laptop-code"></i> 资产
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#">
-                            <i class="fas fa-clipboard-check"></i> 盘点
-                        </a>
-                    </li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle {% if request.endpoint.startswith('organization') %}active{% endif %}" href="#" id="navbarDropdownOrg" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-sitemap"></i> 组织
-                        </a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="{{ url_for('organization.users') }}">用户管理</a></li>
-                            <li><a class="dropdown-item" href="{{ url_for('organization.departments') }}">部门管理</a></li>
-                            <li><a class="dropdown-item" href="{{ url_for('organization.roles') }}">角色管理</a></li>
-                        </ul>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#">
-                            <i class="fas fa-cog"></i> 设置
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#">
-                            <i class="fas fa-history"></i> 日志
-                        </a>
-                    </li>
-                </ul>
-                <ul class="navbar-nav">
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownUser" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-user-circle"></i> {{ current_user.name }}
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="#"><i class="fas fa-user"></i> 个人信息</a></li>
-                            <li><a class="dropdown-item" href="#"><i class="fas fa-key"></i> 修改密码</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}"><i class="fas fa-sign-out-alt"></i> 退出登录</a></li>
-                        </ul>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </nav>
-    {% endif %}
-
-    <!-- 内容区域 -->
-    <div class="container-fluid mt-3">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
+    <!-- 闪现消息区域 -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-messages position-fixed top-0 start-50 translate-middle-x mt-3" style="z-index: 1050;">
                 {% for category, message in messages %}
                 <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
                     {{ message }}
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
                 {% endfor %}
-            {% endif %}
-        {% endwith %}
-        
-        {% block content %}{% endblock %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    {% if current_user.is_authenticated %}
+    <!-- 侧边栏 -->
+    <nav class="sidebar">
+        <div class="sidebar-header d-flex align-items-center">
+            <div class="sidebar-title">
+                <a href="{{ url_for('main.index') }}" class="text-decoration-none text-white d-flex align-items-center">
+                    <i class="fas fa-laptop fs-4 me-2"></i>
+                    <span class="fs-4">CDITAMS</span>
+                </a>
+            </div>
+        </div>
+        <ul class="nav flex-column mt-3">
+            <li class="nav-item">
+                <a class="nav-link {% if request.endpoint.startswith('main.index') %}active{% endif %}" href="{{ url_for('main.index') }}">
+                    <i class="fas fa-home"></i>
+                    <span class="nav-text">首页</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#">
+                    <i class="fas fa-tasks"></i>
+                    <span class="nav-text">待办</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#">
+                    <i class="fas fa-laptop-code"></i>
+                    <span class="nav-text">资产</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#">
+                    <i class="fas fa-clipboard-check"></i>
+                    <span class="nav-text">盘点</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link has-submenu {% if request.endpoint.startswith('organization') %}active{% endif %}" href="#">
+                    <i class="fas fa-sitemap"></i>
+                    <span class="nav-text">组织</span>
+                    <i class="fas fa-chevron-down float-end mt-1"></i>
+                </a>
+                <ul class="sidebar-submenu {% if request.endpoint.startswith('organization') %}show{% endif %}">
+                    <li>
+                        <a class="nav-link {% if request.endpoint == 'organization.users' %}active{% endif %}" href="{{ url_for('organization.users') }}">
+                            <i class="fas fa-users"></i>
+                            <span class="nav-text">用户管理</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="nav-link {% if request.endpoint == 'organization.departments' %}active{% endif %}" href="{{ url_for('organization.departments') }}">
+                            <i class="fas fa-building"></i>
+                            <span class="nav-text">部门管理</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="nav-link {% if request.endpoint == 'organization.roles' %}active{% endif %}" href="{{ url_for('organization.roles') }}">
+                            <i class="fas fa-user-tag"></i>
+                            <span class="nav-text">角色管理</span>
+                        </a>
+                    </li>
+                </ul>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#">
+                    <i class="fas fa-cog"></i>
+                    <span class="nav-text">设置</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#">
+                    <i class="fas fa-history"></i>
+                    <span class="nav-text">日志</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+
+    <!-- 内容区域 -->
+    <div class="content-wrapper">
+        <!-- 顶部栏 -->
+        <div class="topbar d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center">
+                <!-- 侧边栏切换按钮 -->
+                <button id="sidebarToggleBtn" type="button" class="btn btn-sm sidebar-toggle me-2">
+                    <i class="fas fa-bars"></i>
+                </button>
+                
+                <h4 class="mb-0">{% block page_title %}驰达IT资产管理系统{% endblock %}</h4>
+            </div>
+            <div class="dropdown user-dropdown">
+                <a class="dropdown-toggle text-decoration-none text-dark d-flex align-items-center" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <span class="me-2">{{ current_user.name }}</span>
+                    <i class="fas fa-user-circle fs-4"></i>
+                </a>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                    <li><a class="dropdown-item" href="#"><i class="fas fa-user"></i> 个人信息</a></li>
+                    <li><a class="dropdown-item" href="#"><i class="fas fa-key"></i> 修改密码</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}"><i class="fas fa-sign-out-alt"></i> 退出登录</a></li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- 移动设备侧边栏背景遮罩 -->
+        <div class="sidebar-backdrop"></div>
+
+        <!-- 主要内容区域 -->
+        <div class="content">
+            {% block content %}{% endblock %}
+        </div>
     </div>
+    {% else %}
+    <!-- 未登录用户的界面 -->
+    <div class="login-container">
+        {% block auth_content %}{% endblock %}
+    </div>
+    {% endif %}
 
     <!-- Bootstrap 5 JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>

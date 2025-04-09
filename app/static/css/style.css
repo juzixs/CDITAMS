@@ -1,1 +1,404 @@
- 
+/* 全局样式 */
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    overflow-x: hidden;
+    background-color: #f5f7fa;
+}
+
+/* 侧边栏样式 */
+.sidebar {
+    width: 250px;
+    height: 100vh;
+    position: fixed;
+    left: 0;
+    top: 0;
+    background-color: #2c3e50;
+    color: #fff;
+    transition: all 0.3s ease;
+    z-index: 1030;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.sidebar::-webkit-scrollbar {
+    width: 5px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+}
+
+.sidebar-header {
+    padding: 1.2rem 1rem;
+    background-color: #1a2530;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sidebar .nav-link {
+    color: rgba(255, 255, 255, 0.7);
+    border-left: 3px solid transparent;
+    padding: 0.85rem 1rem;
+    transition: all 0.2s ease;
+    margin-bottom: 2px;
+    font-weight: 500;
+}
+
+.sidebar .nav-link:hover {
+    color: #fff;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-left-color: #3498db;
+}
+
+.sidebar .nav-link.active {
+    color: #fff;
+    background-color: rgba(255, 255, 255, 0.15);
+    border-left-color: #3498db;
+}
+
+.sidebar .nav-link i {
+    width: 24px;
+    margin-right: 8px;
+    text-align: center;
+    font-size: 1rem;
+}
+
+.sidebar .fa-chevron-down {
+    transition: transform 0.3s ease;
+    font-size: 0.75rem;
+    opacity: 0.7;
+}
+
+.sidebar .has-submenu.active .fa-chevron-down,
+.sidebar-submenu.show + .has-submenu .fa-chevron-down {
+    transform: rotate(180deg);
+}
+
+.sidebar-submenu {
+    padding-left: 1rem;
+    display: none;
+    background-color: rgba(0, 0, 0, 0.15);
+    border-radius: 0 0 4px 4px;
+}
+
+.sidebar-submenu.show {
+    display: block;
+}
+
+.sidebar-submenu .nav-link {
+    padding: 0.65rem 1rem;
+    font-weight: normal;
+}
+
+/* 侧边栏切换按钮 - 调整位置 */
+.sidebar-toggle {
+    background-color: #2c3e50;
+    color: #fff;
+    border: none;
+    position: fixed;
+    left: 250px; /* 恢复为侧边栏宽度，使按钮位于侧边栏右侧边缘 */
+    top: 12px;
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1031;
+    transition: all 0.3s;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    transform: translateX(-50%); /* 向左偏移自身宽度的一半，使按钮跨越侧边栏边缘 */
+}
+
+.sidebar-toggle:hover {
+    background-color: #3498db;
+}
+
+/* 内容区域样式 */
+.content-wrapper {
+    margin-left: 250px;
+    flex: 1;
+    transition: margin-left 0.3s ease;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    width: calc(100% - 250px);
+}
+
+.content {
+    flex: 1;
+    padding: 20px;
+    animation: fadeIn 0.5s;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.topbar {
+    background-color: #fff;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    padding: 0.7rem 1.5rem;
+    position: sticky;
+    top: 0;
+    z-index: 1020;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 60px;
+}
+
+.topbar h4 {
+    font-weight: 500;
+    color: #2c3e50;
+    margin: 0;
+    padding-left: 60px; /* 增加左内边距，为按钮留出空间 */
+}
+
+.user-dropdown {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    padding: 8px 12px;
+    border-radius: 30px;
+    transition: background-color 0.2s;
+}
+
+.user-dropdown:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* 卡片样式增强 */
+.card {
+    border: none;
+    box-shadow: 0 2px 15px rgba(0, 0, 0, 0.05);
+    border-radius: 8px;
+    margin-bottom: 20px;
+    transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.card:hover {
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+}
+
+.card-header {
+    background-color: #fff;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    padding: 1rem 1.25rem;
+    font-weight: 500;
+}
+
+/* 折叠侧边栏时的样式 */
+body.sidebar-collapsed .sidebar {
+    width: 60px;
+}
+
+body.sidebar-collapsed .sidebar-header .sidebar-title {
+    display: none;
+}
+
+body.sidebar-collapsed .sidebar .nav-text {
+    display: none;
+}
+
+body.sidebar-collapsed .sidebar-submenu {
+    display: none !important;
+}
+
+body.sidebar-collapsed .content-wrapper {
+    margin-left: 60px;
+    width: calc(100% - 60px);
+}
+
+body.sidebar-collapsed .sidebar-toggle {
+    left: 60px; /* 跟随折叠后的侧边栏宽度 */
+}
+
+body.sidebar-collapsed .fa-chevron-down {
+    display: none;
+}
+
+body.sidebar-collapsed .sidebar .nav-link {
+    text-align: center;
+    padding: 0.85rem 0;
+}
+
+body.sidebar-collapsed .sidebar .nav-link i {
+    margin-right: 0;
+    font-size: 1.1rem;
+}
+
+/* 子项目激活状态 */
+body.sidebar-collapsed .sidebar-submenu + .nav-link.active {
+    position: relative;
+}
+
+body.sidebar-collapsed .sidebar-submenu + .nav-link.active::after {
+    content: '';
+    position: absolute;
+    right: 5px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: #3498db;
+}
+
+/* 小屏幕设备的侧边栏样式 */
+@media (max-width: 991.98px) {
+    .sidebar {
+        margin-left: -250px;
+        box-shadow: none;
+    }
+    
+    body.sidebar-open .sidebar {
+        margin-left: 0;
+        box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+    }
+    
+    .content-wrapper {
+        margin-left: 0;
+        width: 100%;
+    }
+    
+    body.sidebar-open .content-wrapper {
+        margin-left: 0;
+    }
+    
+    .sidebar-toggle {
+        left: 15px; /* 小屏幕上固定在左侧 */
+        top: 12px;
+        background-color: rgba(44, 62, 80, 0.8); /* 半透明背景 */
+        transform: none; /* 取消偏移 */
+    }
+    
+    body.sidebar-open .sidebar-toggle {
+        left: auto; /* 不再跟随侧边栏 */
+        right: 15px; /* 位于右上角 */
+    }
+    
+    .topbar {
+        padding: 0.7rem 1rem;
+    }
+    
+    .topbar h4 {
+        font-size: 1.1rem;
+        padding-left: 60px; /* 保持与按钮的间距 */
+    }
+}
+
+/* 移动设备上的全屏覆盖模式 */
+@media (max-width: 767.98px) {
+    body.sidebar-open .sidebar {
+        width: 100%;
+    }
+    
+    body.sidebar-open .sidebar-toggle {
+        left: auto;
+        right: 15px;
+        top: 15px;
+        background-color: rgba(0, 0, 0, 0.3);
+    }
+    
+    .sidebar-backdrop {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 1025;
+        backdrop-filter: blur(2px);
+    }
+    
+    body.sidebar-open .sidebar-backdrop {
+        display: block;
+    }
+    
+    .content {
+        padding: 15px;
+    }
+    
+    /* 改进移动端顶部栏 */
+    .topbar {
+        height: 50px;
+    }
+    
+    .topbar h4 {
+        font-size: 1rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 180px;
+        padding-left: 50px; /* 略微调整移动端的间距 */
+    }
+    
+    .user-dropdown span {
+        display: none;
+    }
+}
+
+/* 下拉菜单样式调整 */
+.dropdown-menu {
+    border-radius: 0.5rem;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    border: none;
+    padding: 0.5rem 0;
+}
+
+.dropdown-item {
+    padding: 0.6rem 1.2rem;
+    transition: background-color 0.15s;
+}
+
+.dropdown-item:hover {
+    background-color: rgba(13, 110, 253, 0.1);
+}
+
+.dropdown-item:active {
+    background-color: #0d6efd;
+}
+
+.dropdown-item i {
+    width: 24px;
+    margin-right: 8px;
+    text-align: center;
+}
+
+/* 闪现消息样式 */
+.flash-messages {
+    top: 20px;
+    z-index: 1060;
+}
+
+.alert {
+    border: none;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+}
+
+/* 登录页面样式 */
+.login-container {
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.login-card {
+    max-width: 400px;
+    width: 100%;
+    box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.175);
+} 
