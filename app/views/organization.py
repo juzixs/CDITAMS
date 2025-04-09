@@ -8,6 +8,7 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, SelectField, BooleanField, SubmitField, TextAreaField, PasswordField
 from wtforms.validators import DataRequired, Length, Email, Optional, ValidationError
 import json
+from sqlalchemy.exc import IntegrityError
 
 organization = Blueprint('organization', __name__, url_prefix='/organization')
 
@@ -38,8 +39,17 @@ class DepartmentForm(FlaskForm):
     submit = SubmitField('提交')
     
     def __init__(self, *args, **kwargs):
+        self.department_id = kwargs.pop('department_id', None)
         super(DepartmentForm, self).__init__(*args, **kwargs)
         self.parent_id.choices = [(0, '无')] + [(d.id, d.name) for d in Department.query.order_by(Department.name).all()]
+    
+    def validate_code(self, field):
+        if field.data:
+            query = Department.query.filter_by(code=field.data)
+            if self.department_id:  # 如果是编辑现有部门
+                query = query.filter(Department.id != self.department_id)
+            if query.first():
+                raise ValidationError(f'部门编码 "{field.data}" 已被使用，请更换一个唯一的编码。')
 
 # 角色表单
 class RoleForm(FlaskForm):
@@ -208,9 +218,12 @@ def add_department():
     form = DepartmentForm()
     if form.validate_on_submit():
         parent_id = form.parent_id.data if form.parent_id.data != 0 else None
+        # 处理空编码，将空字符串转换为None
+        code = form.code.data.strip() if form.code.data else None
+        
         department = Department(
             name=form.name.data,
-            code=form.code.data,
+            code=code,
             parent_id=parent_id,
             description=form.description.data
         )
@@ -220,6 +233,12 @@ def add_department():
             db.session.commit()
             flash('部门添加成功。', 'success')
             return redirect(url_for('organization.departments'))
+        except IntegrityError as e:
+            db.session.rollback()
+            if 'UNIQUE constraint failed: departments.code' in str(e):
+                flash('部门编码必须是唯一的，请更换一个编码或留空。', 'danger')
+            else:
+                flash(f'添加部门失败: {str(e)}', 'danger')
         except Exception as e:
             db.session.rollback()
             flash(f'添加部门失败: {str(e)}', 'danger')
@@ -230,7 +249,7 @@ def add_department():
 @login_required
 def edit_department(id):
     department = Department.query.get_or_404(id)
-    form = DepartmentForm(obj=department)
+    form = DepartmentForm(obj=department, department_id=id)
     
     if department.parent_id:
         form.parent_id.data = department.parent_id
@@ -239,7 +258,8 @@ def edit_department(id):
     
     if form.validate_on_submit():
         department.name = form.name.data
-        department.code = form.code.data
+        # 处理空编码，将空字符串转换为None
+        department.code = form.code.data.strip() if form.code.data else None
         department.parent_id = form.parent_id.data if form.parent_id.data != 0 else None
         department.description = form.description.data
         
@@ -247,6 +267,12 @@ def edit_department(id):
             db.session.commit()
             flash('部门信息更新成功。', 'success')
             return redirect(url_for('organization.departments'))
+        except IntegrityError as e:
+            db.session.rollback()
+            if 'UNIQUE constraint failed: departments.code' in str(e):
+                flash('部门编码必须是唯一的，请更换一个编码或留空。', 'danger')
+            else:
+                flash(f'更新部门失败: {str(e)}', 'danger')
         except Exception as e:
             db.session.rollback()
             flash(f'更新部门失败: {str(e)}', 'danger')
@@ -281,23 +307,31 @@ def delete_department(id):
 @organization.route('/departments/update_order', methods=['POST'])
 @login_required
 def update_department_order():
-    data = request.json
     try:
+        data = request.json
+        
+        if not data or not isinstance(data, list):
+            return jsonify({"success": False, "error": "无效的请求数据"}), 400
+        
+        # 更新部门顺序和父级关系
         for item in data:
-            dept_id = item['id']
-            order = item['order']
+            dept_id = item.get('id')
+            order = item.get('order')
             parent_id = item.get('parent_id')
             
+            if dept_id is None or order is None:
+                continue
+                
             dept = Department.query.get(dept_id)
             if dept:
                 dept.order = order
                 dept.parent_id = parent_id
         
         db.session.commit()
-        return jsonify({'success': True})
+        return jsonify({"success": True, "message": "部门排序更新成功"})
     except Exception as e:
         db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)})
+        return jsonify({"success": False, "error": str(e)}), 500
 
 # 角色管理路由
 @organization.route('/roles')

@@ -47,6 +47,7 @@
                                 </div>
                             {% endif %}
                             <small class="form-text text-muted">部门编码是唯一的标识符（可选）</small>
+                            <small class="form-text text-danger d-block">注意：部门编码一旦设置后不能重复，请确保唯一性</small>
                         </div>
                     </div>
                     
@@ -77,15 +78,11 @@
                     </div>
                 </div>
                 
-                <div class="row">
-                    <div class="col text-center">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-save me-1"></i> 保存
-                        </button>
-                        <a href="{{ url_for('organization.departments') }}" class="btn btn-secondary">
-                            <i class="fas fa-times me-1"></i> 取消
-                        </a>
-                    </div>
+                <div class="d-flex justify-content-end">
+                    <a href="{{ url_for('organization.departments') }}" class="btn btn-outline-secondary me-2">取消</a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i> 保存
+                    </button>
                 </div>
             </form>
         </div>

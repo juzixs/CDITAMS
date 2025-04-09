@@ -29,16 +29,32 @@
         background-color: #f8f9fa;
         margin-bottom: 5px;
     }
+    .sortable-ghost {
+        opacity: 0.5;
+        background-color: #e9ecef;
+    }
+    .sortable-handle {
+        cursor: move;
+        color: #adb5bd;
+        margin-right: 5px;
+    }
+    /* 改进子部门缩进样式 */
+    .dept-level-1 { padding-left: 15px; }
+    .dept-level-2 { padding-left: 30px; }
+    .dept-level-3 { padding-left: 45px; }
+    .dept-level-4 { padding-left: 60px; }
+    .dept-level-5 { padding-left: 75px; }
 </style>
 {% endblock %}
 
 {% macro render_dept_tree(departments, parent_id=None, level=0) %}
-    <ul class="list-unstyled" {% if level > 0 %}style="padding-left: {{ level * 20 }}px;"{% endif %}>
+    <ul class="list-unstyled sortable-list" data-parent-id="{{ parent_id if parent_id else 'null' }}">
         {% for dept in departments %}
             {% if dept.parent_id == parent_id %}
-                <li class="department-item" data-id="{{ dept.id }}">
+                <li class="department-item {% if level > 0 %}dept-level-{{ level }}{% endif %}" data-id="{{ dept.id }}">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
+                            <i class="fas fa-grip-vertical sortable-handle"></i>
                             <i class="fas fa-folder text-warning me-2"></i>
                             {{ dept.name }} {% if dept.code %}<small class="text-muted">({{ dept.code }})</small>{% endif %}
                         </div>
@@ -81,8 +97,11 @@
             <div class="row">
                 <div class="col-md-4">
                     <div class="card">
-                        <div class="card-header">
+                        <div class="card-header d-flex justify-content-between align-items-center">
                             <h5 class="card-title mb-0">部门结构</h5>
+                            <button id="saveOrderBtn" type="button" class="btn btn-sm btn-success">
+                                <i class="fas fa-save me-1"></i> 保存排序
+                            </button>
                         </div>
                         <div class="card-body">
                             <div id="departmentTree" class="department-tree">
@@ -137,13 +156,15 @@
 {% endblock %}
 
 {% block scripts %}
+<!-- 引入Sortable.js库 -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         // 部门点击事件
         document.querySelectorAll('.department-item').forEach(function(item) {
             item.addEventListener('click', function(e) {
                 // 阻止点击编辑和删除按钮时的冒泡
-                if (e.target.closest('.department-actions')) {
+                if (e.target.closest('.department-actions') || e.target.closest('.sortable-handle')) {
                     return;
                 }
                 
@@ -197,6 +218,76 @@
             document.getElementById('deleteDeptName').textContent = deptName;
             document.getElementById('deleteForm').action = '/organization/departments/delete/' + deptId;
         });
+
+        // 初始化拖拽排序
+        var sortableLists = document.querySelectorAll('.sortable-list');
+        sortableLists.forEach(function(list) {
+            new Sortable(list, {
+                group: 'nested',
+                animation: 150,
+                fallbackOnBody: true,
+                handle: '.sortable-handle',
+                ghostClass: 'sortable-ghost',
+                chosenClass: 'sortable-chosen',
+                dragClass: 'sortable-drag',
+                filter: '.department-actions',
+                onEnd: function(evt) {
+                    saveOrder();
+                }
+            });
+        });
+
+        // 保存排序
+        function saveOrder() {
+            var data = [];
+            
+            // 获取所有部门项及其顺序
+            document.querySelectorAll('.department-item').forEach(function(item, index) {
+                var deptId = parseInt(item.dataset.id);
+                var parentList = item.closest('.sortable-list');
+                var parentId = parentList ? parentList.dataset.parentId : null;
+                
+                // 处理"null"字符串转为实际的null
+                if (parentId === "null") {
+                    parentId = null;
+                } else if (parentId) {
+                    parentId = parseInt(parentId);
+                }
+                
+                data.push({
+                    id: deptId,
+                    order: index,
+                    parent_id: parentId
+                });
+            });
+
+            // 发送到服务器保存
+            fetch('/organization/departments/update_order', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    // 添加成功提示
+                    alert('部门排序更新成功');
+                    console.log('部门排序更新成功');
+                } else {
+                    console.error('部门排序更新失败:', result.error);
+                    alert('排序保存失败: ' + result.error);
+                }
+            })
+            .catch(error => {
+                console.error('保存排序时出错:', error);
+                alert('排序保存出错，请重试');
+            });
+        }
+
+        // 绑定保存排序按钮点击事件
+        document.getElementById('saveOrderBtn').addEventListener('click', saveOrder);
     });
 </script>
 {% endblock %} 
