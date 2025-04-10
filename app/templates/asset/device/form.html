@@ -45,6 +45,30 @@
     .select2-container--default .select2-results__option[aria-selected=true] {
         background-color: #e9ecef;
     }
+    
+    /* 分类层级样式 */
+    .category-level-1 {
+        font-weight: bold;
+        color: #333;
+    }
+    
+    .category-level-2 {
+        padding-left: 15px;
+    }
+    
+    .category-level-3 {
+        padding-left: 30px;
+    }
+    
+    .category-level-4 {
+        padding-left: 45px;
+    }
+    
+    /* 层级图标样式 */
+    .category-icon {
+        margin-right: 5px;
+        color: #6c757d;
+    }
 </style>
 {% endblock %}
 
@@ -69,16 +93,16 @@
                                 <option value="">请选择分类</option>
                                 {% for category in categories %}
                                 {% if category.level == 1 %}
-                                <option value="{{ category.id }}" disabled style="font-weight:bold;color:#999;">{{ category.name }} [{{ category.code }}]</option>
+                                <option value="{{ category.id }}" disabled data-level="1">{{ category.name }} [{{ category.code }}]</option>
                                     {% for child in categories %}
                                     {% if child.parent_id == category.id %}
-                                    <option value="{{ child.id }}" disabled style="color:#999;padding-left:15px;">— {{ child.name }} [{{ child.code }}]</option>
+                                    <option value="{{ child.id }}" disabled data-level="2">{{ child.name }} [{{ child.code }}]</option>
                                         {% for grandchild in categories %}
                                         {% if grandchild.parent_id == child.id %}
-                                        <option value="{{ grandchild.id }}" disabled style="color:#999;padding-left:30px;">—— {{ grandchild.name }} [{{ grandchild.code }}]</option>
+                                        <option value="{{ grandchild.id }}" disabled data-level="3">{{ grandchild.name }} [{{ grandchild.code }}]</option>
                                             {% for greatgrandchild in categories %}
                                             {% if greatgrandchild.parent_id == grandchild.id %}
-                                            <option value="{{ greatgrandchild.id }}" style="padding-left:45px;">——— {{ greatgrandchild.name }} [{{ greatgrandchild.code }}]</option>
+                                            <option value="{{ greatgrandchild.id }}" data-level="4">{{ greatgrandchild.name }} [{{ greatgrandchild.code }}]</option>
                                             {% endif %}
                                             {% endfor %}
                                         {% endif %}
@@ -88,18 +112,13 @@
                                 {% endif %}
                                 {% endfor %}
                             </select>
-                            <small class="form-text text-muted">请选择末级分类，带有缩进的项目表示层级关系</small>
+                            <small class="form-text text-muted">请选择末级分类，图标表示层级关系</small>
                         </div>
                     </div>
                     <div class="col-md-6">
                         <div class="form-group">
                             <label>资产编号 <span class="text-danger">*</span></label>
-                            <div class="input-group">
-                                <input type="text" class="form-control" v-model="form.asset_number" required>
-                                <div class="input-group-append">
-                                    <button type="button" class="btn btn-outline-secondary" @click="generateAssetNumber">生成</button>
-                                </div>
-                            </div>
+                            <input type="text" class="form-control" v-model="form.asset_number" required>
                         </div>
                     </div>
                 </div>
@@ -311,7 +330,8 @@
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
-    new Vue({
+    // Vue实例
+    var app = new Vue({
         el: '#app',
         delimiters: ['[[', ']]'],
         data: {
@@ -350,6 +370,45 @@
             categories: []
         },
         methods: {
+            // 格式化分类选项，添加图标和样式
+            formatCategoryOption: function(option) {
+                if (!option.id) {
+                    return option.text;
+                }
+                
+                var level = $(option.element).data('level');
+                var $option = $('<span></span>');
+                
+                // 根据级别添加不同的图标和样式
+                switch(level) {
+                    case 1:
+                        $option.append($('<i class="fas fa-folder mr-1"></i>'));
+                        $option.addClass('font-weight-bold');
+                        break;
+                    case 2:
+                        $option.css('padding-left', '15px');
+                        $option.append($('<i class="fas fa-level-down-alt mr-1"></i>'));
+                        break;
+                    case 3:
+                        $option.css('padding-left', '30px');
+                        $option.append($('<i class="fas fa-long-arrow-alt-right mr-1"></i>'));
+                        break;
+                    case 4:
+                        $option.css('padding-left', '45px');
+                        $option.append($('<i class="fas fa-angle-double-right mr-1"></i>'));
+                        break;
+                }
+                
+                $option.append(option.text);
+                return $option;
+            },
+            // 格式化选中项
+            formatCategorySelection: function(option) {
+                if (!option.id) {
+                    return option.text;
+                }
+                return option.text;
+            },
             fetchCategories() {
                 // 初始化Select2
                 this.$nextTick(() => {
@@ -365,15 +424,14 @@
                         },
                         escapeMarkup: function(markup) {
                             return markup;
-                        }
+                        },
+                        templateResult: this.formatCategoryOption,
+                        templateSelection: this.formatCategorySelection
                     });
                     
                     // 监听select2的change事件
                     $('#category-select').on('change', (e) => {
                         this.form.category_id = $('#category-select').val();
-                        if (this.form.category_id) {
-                            this.generateAssetNumber();
-                        }
                     });
                     
                     // 如果是编辑模式，设置选中值
@@ -558,6 +616,11 @@
                             delete deviceData.department_id;
                             this.form = {...this.form, ...deviceData};
                             this.customFieldValues = data.custom_fields || {};
+                            
+                            // 设置Select2的值
+                            this.$nextTick(() => {
+                                $('.category-select').val(this.form.category_id).trigger('change');
+                            });
                         } else {
                             alert('获取设备详情失败');
                         }
