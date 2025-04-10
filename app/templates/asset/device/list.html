@@ -219,6 +219,12 @@
                         if (data.success) {
                             this.fields = data.data;
                             console.log("已加载字段定义，总数:", this.fields.length);
+                            console.log("字段列表:", this.fields.map(f => f.name + "(" + f.field_key + ")"));
+                            
+                            // 检查可见字段数量
+                            const visibleFields = this.fields.filter(field => field.is_visible);
+                            console.log("可见字段数量:", visibleFields.length);
+                            console.log("可见字段列表:", visibleFields.map(f => f.name + "(" + f.field_key + ")"));
                         } else {
                             console.error('获取字段定义失败');
                         }

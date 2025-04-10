@@ -345,8 +345,6 @@ def init_system_fields():
                     db.session.rollback()
                     print(f"创建字段 {field['name']} 失败: {str(e)}")
         
-        # 确保所有字段都有有效ID
-        SYSTEM_FIELDS = [field for field in SYSTEM_FIELDS if 'id' in field and field['id'] is not None]
         print(f"系统字段初始化完成，共 {len(SYSTEM_FIELDS)} 个字段")
     except Exception as e:
         print(f"初始化系统字段时发生错误: {str(e)}")
@@ -406,6 +404,7 @@ def get_devices():
     fields_data = json.loads(field_response.data).get('data', [])
     sorted_fields = sorted(fields_data, key=lambda x: x.get('sort_order', 999))
     
+    print(f"正在返回设备列表，字段数量: {len(sorted_fields)}")
     print(f"正在返回设备列表，字段排序为: {[f['name'] for f in sorted_fields]}")
     
     # 转换为dict
@@ -473,7 +472,8 @@ def device_detail(id):
 @asset.route('/devices/create')
 @login_required
 def device_create():
-    categories = AssetCategory.query.filter_by(level=1).all()
+    # 获取所有分类而不仅仅是一级分类
+    categories = AssetCategory.query.order_by(AssetCategory.level, AssetCategory.code).all()
     return render_template('asset/device/form.html', categories=categories)
 
 # 编辑设备页面
@@ -481,7 +481,8 @@ def device_create():
 @login_required
 def device_edit(id):
     device = Device.query.get_or_404(id)
-    categories = AssetCategory.query.filter_by(level=1).all()
+    # 获取所有分类而不仅仅是一级分类
+    categories = AssetCategory.query.order_by(AssetCategory.level, AssetCategory.code).all()
     return render_template('asset/device/form.html', device=device, categories=categories)
 
 # 保存设备
@@ -489,12 +490,20 @@ def device_edit(id):
 @login_required
 def save_device():
     data = request.json
+    print(f"接收到保存设备请求数据: {data}")
     
     device_id = data.get('id')
-    if device_id:
-        device = Device.query.get_or_404(device_id)
+    if device_id and device_id != 'null':
+        try:
+            device_id = int(device_id)
+            device = Device.query.get_or_404(device_id)
+            print(f"编辑设备ID: {device_id}")
+        except (ValueError, TypeError) as e:
+            print(f"设备ID类型转换错误: {e}")
+            return jsonify({'success': False, 'message': f'设备ID格式错误: {str(e)}'}), 400
     else:
         device = Device()
+        print("新增设备")
     
     # 必填项检查
     if not data.get('category_id'):
@@ -503,19 +512,77 @@ def save_device():
     if not data.get('asset_number'):
         return jsonify({'success': False, 'message': '资产编号不能为空'}), 400
     
-    # 设置属性
+    # 临时存储自定义字段值，稍后处理
+    custom_fields = {}
     for key, value in data.items():
-        if key != 'id' and hasattr(device, key):
-            setattr(device, key, value)
+        if key not in ['id'] and not hasattr(device, key):
+            custom_fields[key] = value
+    
+    # 设置基本属性
+    try:
+        for key, value in data.items():
+            if key != 'id' and hasattr(device, key):
+                # 类型转换处理
+                if key == 'category_id' and value:
+                    value = int(value)
+                elif key == 'location_id' and value and value != '':
+                    value = int(value)
+                # 布尔值处理
+                elif key in ['is_fixed_asset', 'secret_inventory']:
+                    value = bool(value)
+                # 设置属性值
+                setattr(device, key, value)
+                print(f"设置属性 {key} = {value}")
+    except Exception as e:
+        print(f"设置属性时发生错误: {str(e)}")
+        return jsonify({'success': False, 'message': f'设置属性时发生错误: {str(e)}'}), 400
     
     # 保存
     try:
-        if not device_id:
+        # 保存设备基本信息
+        if not device_id or device_id == 'null':
             db.session.add(device)
+            print("添加新设备到会话")
+        
         db.session.commit()
+        print(f"设备基本信息保存成功, ID: {device.id}")
+        
+        # 保存自定义字段值
+        if custom_fields:
+            print(f"处理自定义字段: {custom_fields}")
+            try:
+                for field_key, value in custom_fields.items():
+                    # 查找是否已存在该字段值
+                    field_value = DeviceFieldValue.query.filter_by(
+                        device_id=device.id, field_key=field_key
+                    ).first()
+                    
+                    if field_value:
+                        # 更新现有字段值
+                        field_value.value = value
+                        print(f"更新字段值 {field_key} = {value}")
+                    else:
+                        # 创建新字段值记录
+                        new_field_value = DeviceFieldValue(
+                            device_id=device.id,
+                            field_key=field_key,
+                            value=value
+                        )
+                        db.session.add(new_field_value)
+                        print(f"添加字段值 {field_key} = {value}")
+                
+                db.session.commit()
+                print("自定义字段保存成功")
+            except Exception as e:
+                db.session.rollback()
+                print(f"保存自定义字段失败: {str(e)}")
+                # 即使自定义字段保存失败，基本信息已经保存，仍然返回成功
+                return jsonify({'success': True, 'message': '设备基本信息已保存，但自定义字段保存失败', 'id': device.id})
+        
         return jsonify({'success': True, 'message': '保存成功', 'id': device.id})
     except Exception as e:
         db.session.rollback()
+        print(f"保存设备失败: {str(e)}")
         return jsonify({'success': False, 'message': f'保存失败: {str(e)}'}), 500
 
 # 删除设备
@@ -764,6 +831,9 @@ def get_fields():
             db.session.rollback()
             print(f"重置字段排序失败: {str(e)}")
     
+    # 重新初始化系统字段，确保使用最新的数据库配置
+    init_system_fields()
+    
     # 获取系统字段
     system_fields_response = get_system_fields()
     system_fields = json.loads(system_fields_response.data).get('data', [])
@@ -776,9 +846,19 @@ def get_fields():
     all_fields = system_fields + custom_fields
     sorted_fields = sorted(all_fields, key=lambda x: x.get('sort_order', 999))
     
-    print(f"获取所有字段, 排序后共 {len(sorted_fields)} 条")
+    # 检查是否有重复的field_key，这可能导致显示问题
+    field_keys = {}
+    unique_fields = []
+    for field in sorted_fields:
+        key = field.get('field_key')
+        if key not in field_keys:
+            field_keys[key] = True
+            unique_fields.append(field)
     
-    return jsonify({'success': True, 'data': sorted_fields})
+    print(f"获取所有字段, 排序后共 {len(unique_fields)} 条")
+    print(f"字段键名列表: {[f.get('field_key') for f in unique_fields]}")
+    
+    return jsonify({'success': True, 'data': unique_fields})
 
 # 保存字段
 @asset.route('/api/asset/fields', methods=['POST'])

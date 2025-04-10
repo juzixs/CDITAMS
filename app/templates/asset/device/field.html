@@ -101,7 +101,7 @@
                                     <button class="btn btn-sm" :class="isSpecialField(field.field_key) ? 'btn-secondary disabled' : 'btn-primary'" @click="!isSpecialField(field.field_key) && showEditModal(field)">
                                         <i class="fas fa-edit"></i>
                                     </button>
-                                    <button class="btn btn-sm btn-danger" @click="deleteField(field.id)">
+                                    <button class="btn btn-sm" :class="isSpecialField(field.field_key) ? 'btn-secondary disabled' : 'btn-danger'" @click="!isSpecialField(field.field_key) && deleteField(field.id)">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 </div>
