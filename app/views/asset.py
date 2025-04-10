@@ -314,12 +314,31 @@ def delete_category(id):
 def device_fields():
     return render_template('asset/device/field.html')
 
+# 系统内置字段列表
+SYSTEM_FIELD_KEYS = ['category_id', 'asset_number', 'device_number', 'name', 'model', 'serial_number', 'status', 
+                     'security_level', 'user_id', 'department_id', 'location_id', 'purchase_date', 
+                     'activation_date', 'mac_address', 'ip_address', 'operating_system', 
+                     'installation_date', 'disk_serial', 'purpose', 'remarks', 'is_fixed_asset', 
+                     'card_number', 'secret_inventory', 'inventory_category', 'qr_code']
+
 # 获取系统默认字段列表
 @asset.route('/api/asset/system-fields', methods=['GET'])
 @login_required
 def get_system_fields():
     # 定义设备模型中的默认字段，包含字段名、键名和类型等信息
+    # 按照指定的默认排序顺序定义
     system_fields = [
+        # 1. 分类
+        {
+            'name': '分类',
+            'field_key': 'category_id',
+            'field_type': 'select',
+            'is_required': True,
+            'is_visible': True,
+            'options': None,
+            'is_system': True
+        },
+        # 2. 资产编号
         {
             'name': '资产编号',
             'field_key': 'asset_number',
@@ -329,6 +348,7 @@ def get_system_fields():
             'options': None,
             'is_system': True
         },
+        # 3. 设备编号
         {
             'name': '设备编号',
             'field_key': 'device_number',
@@ -338,6 +358,7 @@ def get_system_fields():
             'options': None,
             'is_system': True
         },
+        # 4. 名称
         {
             'name': '设备名称',
             'field_key': 'name',
@@ -347,6 +368,7 @@ def get_system_fields():
             'options': None,
             'is_system': True
         },
+        # 5. 型号
         {
             'name': '设备型号',
             'field_key': 'model',
@@ -356,6 +378,7 @@ def get_system_fields():
             'options': None,
             'is_system': True
         },
+        # 6. 序列号
         {
             'name': '序列号',
             'field_key': 'serial_number',
@@ -365,6 +388,7 @@ def get_system_fields():
             'options': None,
             'is_system': True
         },
+        # 7. 设备状态
         {
             'name': '设备状态',
             'field_key': 'status',
@@ -374,6 +398,7 @@ def get_system_fields():
             'options': json.dumps(['正常', '维修中', '已报废', '借出', '丢失']),
             'is_system': True
         },
+        # 8. 密级
         {
             'name': '密级',
             'field_key': 'security_level',
@@ -383,6 +408,7 @@ def get_system_fields():
             'options': json.dumps(['非密', '内部', '秘密', '机密', '绝密']),
             'is_system': True
         },
+        # 9. 用户
         {
             'name': '使用人',
             'field_key': 'user_id',
@@ -392,6 +418,7 @@ def get_system_fields():
             'options': None,
             'is_system': True
         },
+        # 10. 部门
         {
             'name': '部门',
             'field_key': 'department_id',
@@ -401,6 +428,7 @@ def get_system_fields():
             'options': None,
             'is_system': True
         },
+        # 11. 位置
         {
             'name': '位置',
             'field_key': 'location_id',
@@ -410,6 +438,7 @@ def get_system_fields():
             'options': None,
             'is_system': True
         },
+        # 12. 购入日期
         {
             'name': '购入日期',
             'field_key': 'purchase_date',
@@ -419,6 +448,7 @@ def get_system_fields():
             'options': None,
             'is_system': True
         },
+        # 13. 启用时间
         {
             'name': '启用时间',
             'field_key': 'activation_date',
@@ -428,6 +458,7 @@ def get_system_fields():
             'options': None,
             'is_system': True
         },
+        # 14. MAC
         {
             'name': 'MAC地址',
             'field_key': 'mac_address',
@@ -437,6 +468,7 @@ def get_system_fields():
             'options': None,
             'is_system': True
         },
+        # 15. IP
         {
             'name': 'IP地址',
             'field_key': 'ip_address',
@@ -446,6 +478,7 @@ def get_system_fields():
             'options': None,
             'is_system': True
         },
+        # 16. 操作系统
         {
             'name': '操作系统',
             'field_key': 'operating_system',
@@ -455,6 +488,7 @@ def get_system_fields():
             'options': None,
             'is_system': True
         },
+        # 17. 安装时间
         {
             'name': '安装时间',
             'field_key': 'installation_date',
@@ -464,6 +498,7 @@ def get_system_fields():
             'options': None,
             'is_system': True
         },
+        # 18. 硬盘序列号
         {
             'name': '硬盘序列号',
             'field_key': 'disk_serial',
@@ -473,6 +508,7 @@ def get_system_fields():
             'options': None,
             'is_system': True
         },
+        # 19. 用途
         {
             'name': '用途',
             'field_key': 'purpose',
@@ -482,6 +518,7 @@ def get_system_fields():
             'options': None,
             'is_system': True
         },
+        # 20. 备注
         {
             'name': '备注',
             'field_key': 'remarks',
@@ -491,6 +528,7 @@ def get_system_fields():
             'options': None,
             'is_system': True
         },
+        # 21. 固资在账
         {
             'name': '固资在账',
             'field_key': 'is_fixed_asset',
@@ -500,6 +538,7 @@ def get_system_fields():
             'options': json.dumps(['是', '否']),
             'is_system': True
         },
+        # 22. 卡片编号
         {
             'name': '卡片编号',
             'field_key': 'card_number',
@@ -509,6 +548,7 @@ def get_system_fields():
             'options': None,
             'is_system': True
         },
+        # 23. 保密台账
         {
             'name': '保密台账',
             'field_key': 'secret_inventory',
@@ -518,9 +558,20 @@ def get_system_fields():
             'options': json.dumps(['是', '否']),
             'is_system': True
         },
+        # 24. 台账分类
         {
             'name': '台账分类',
             'field_key': 'inventory_category',
+            'field_type': 'text',
+            'is_required': False,
+            'is_visible': True,
+            'options': None,
+            'is_system': True
+        },
+        # 25. 二维码
+        {
+            'name': '二维码',
+            'field_key': 'qr_code',
             'field_type': 'text',
             'is_required': False,
             'is_visible': True,
@@ -547,8 +598,9 @@ def get_system_fields():
             # 从数据库字段列表中移除，剩下的就是自定义字段
             db_field_keys.pop(field_key)
         else:
-            # 为未在数据库中配置的系统字段设置默认排序
-            field['sort_order'] = idx * 10
+            # 为未在数据库中配置的系统字段设置默认ID和排序
+            field['id'] = idx + 1
+            field['sort_order'] = idx + 1
             
         result.append(field)
     
@@ -558,15 +610,8 @@ def get_system_fields():
 @asset.route('/api/asset/custom-fields', methods=['GET'])
 @login_required
 def get_custom_fields():
-    # 获取系统内置字段键名列表
-    system_field_keys = ['asset_number', 'device_number', 'name', 'model', 'serial_number', 'status', 
-                         'security_level', 'user_id', 'department_id', 'location_id', 'purchase_date', 
-                         'activation_date', 'mac_address', 'ip_address', 'operating_system', 
-                         'installation_date', 'disk_serial', 'purpose', 'remarks', 'is_fixed_asset', 
-                         'card_number', 'secret_inventory', 'inventory_category']
-    
     # 查询非系统字段
-    fields = DeviceField.query.filter(~DeviceField.field_key.in_(system_field_keys)).order_by(DeviceField.sort_order).all()
+    fields = DeviceField.query.filter(~DeviceField.field_key.in_(SYSTEM_FIELD_KEYS)).order_by(DeviceField.sort_order).all()
     
     result = []
     for field in fields:
@@ -610,10 +655,14 @@ def save_field():
     
     field_id = data.get('id')
     is_system = data.get('is_system', False)
+    field_key = data.get('field_key')
     
-    # 如果是系统字段，只更新可见性和必填状态
-    if is_system:
-        field_key = data.get('field_key')
+    # 特殊字段列表，这些字段不能修改类型和选项
+    special_fields = ['category_id', 'asset_number', 'status', 'location_id', 'qr_code']
+    is_special_field = field_key in special_fields
+    
+    # 如果是系统字段或特殊字段，只更新可见性和必填状态
+    if is_system or is_special_field:
         # 查询是否已存在配置记录
         field = DeviceField.query.filter_by(field_key=field_key).first()
         
@@ -630,7 +679,6 @@ def save_field():
         # 更新可配置的属性
         field.is_visible = data.get('is_visible', True)
         field.is_required = data.get('is_required', False)
-        field.sort_order = data.get('sort_order', 0)
     else:
         # 自定义字段的保存逻辑
         if field_id:
@@ -665,13 +713,7 @@ def delete_field(id):
     field = DeviceField.query.get_or_404(id)
     
     # 检查是否为系统字段
-    system_field_keys = ['asset_number', 'device_number', 'name', 'model', 'serial_number', 'status', 
-                         'security_level', 'user_id', 'department_id', 'location_id', 'purchase_date', 
-                         'activation_date', 'mac_address', 'ip_address', 'operating_system', 
-                         'installation_date', 'disk_serial', 'purpose', 'remarks', 'is_fixed_asset', 
-                         'card_number', 'secret_inventory', 'inventory_category']
-    
-    if field.field_key in system_field_keys:
+    if field.field_key in SYSTEM_FIELD_KEYS:
         return jsonify({'success': False, 'message': '系统默认字段不能删除，但可以设为不可见'}), 400
     
     try:
@@ -681,6 +723,36 @@ def delete_field(id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'message': f'删除失败: {str(e)}'}), 500
+
+# 更新字段排序
+@asset.route('/api/asset/fields/update-order', methods=['POST'])
+@login_required
+def update_fields_order():
+    try:
+        data = request.json
+        ordered_ids = data.get('ordered_ids', [])
+        
+        if not ordered_ids:
+            return jsonify({'success': False, 'message': '无效的排序数据'}), 400
+        
+        # 逐个更新字段的排序值
+        for idx, field_id in enumerate(ordered_ids):
+            field = DeviceField.query.get(field_id)
+            if field:
+                field.sort_order = idx + 1  # 从1开始排序
+        
+        # 查找未在排序列表中的字段，可能是新添加的字段
+        other_fields = DeviceField.query.filter(~DeviceField.id.in_(ordered_ids)).all()
+        next_order = len(ordered_ids) + 1
+        for field in other_fields:
+            field.sort_order = next_order
+            next_order += 1
+        
+        db.session.commit()
+        return jsonify({'success': True, 'message': '字段排序更新成功'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'更新排序失败: {str(e)}'}), 500
 
 # 位置设置
 @asset.route('/devices/settings/locations')

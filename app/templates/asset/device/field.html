@@ -27,18 +27,18 @@
                             <th>是否必填</th>
                             <th>是否可见</th>
                             <th>选项</th>
-                            <th>排序</th>
                             <th width="120">操作</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        <tr v-for="field in sortedFields" :key="field.id" :class="{'table-light': !field.is_visible}">
+                    <tbody id="sortableFields">
+                        <tr v-for="field in sortedFields" :key="field.id" :class="{'table-light': !field.is_visible}" :data-id="field.id">
                             <td>[[ field.id ]]</td>
                             <td>
                                 <span class="fw-bold">
                                     <i class="fas fa-tag me-1"></i>
                                     [[ field.name ]]
                                 </span>
+                                <i v-if="isSpecialField(field.field_key)" class="fas fa-lock ms-1 text-muted" title="系统特殊字段"></i>
                             </td>
                             <td><code>[[ field.field_key ]]</code></td>
                             <td>
@@ -63,20 +63,24 @@
                                 </span>
                                 <span v-else>-</span>
                             </td>
-                            <td>[[ field.sort_order ]]</td>
                             <td>
-                                <div class="btn-group">
-                                    <button class="btn btn-sm btn-primary" @click="showEditModal(field)">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-danger" @click="deleteField(field.id)">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
+                                <div class="d-flex">
+                                    <div class="sortable-handle me-2">
+                                        <i class="fas fa-grip-lines"></i>
+                                    </div>
+                                    <div class="btn-group">
+                                        <button class="btn btn-sm btn-primary" @click="showEditModal(field)">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-danger" @click="deleteField(field.id)">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
                                 </div>
                             </td>
                         </tr>
                         <tr v-if="!fields.length">
-                            <td colspan="9" class="text-center py-4">暂无数据</td>
+                            <td colspan="8" class="text-center py-4">暂无数据</td>
                         </tr>
                     </tbody>
                 </table>
@@ -103,7 +107,7 @@
                             <input type="text" class="form-control" v-model="form.field_key" required :readonly="isEditing">
                             <small class="form-text text-muted" v-if="!isEditing">键名只能包含字母、数字和下划线，且不能以数字开头</small>
                         </div>
-                        <div class="form-group mb-3">
+                        <div class="form-group mb-3" v-if="!isSpecialField(form.field_key)">
                             <label>字段类型 <span class="text-danger">*</span></label>
                             <select class="form-control" v-model="form.field_type">
                                 <option value="text">文本</option>
@@ -113,7 +117,7 @@
                                 <option value="textarea">多行文本</option>
                             </select>
                         </div>
-                        <div class="form-group mb-3" v-if="form.field_type === 'select'">
+                        <div class="form-group mb-3" v-if="form.field_type === 'select' && !isSpecialField(form.field_key)">
                             <label>选项 <span class="text-danger">*</span></label>
                             <textarea class="form-control" v-model="form.options" rows="3" placeholder="每行一个选项"></textarea>
                             <small class="form-text text-muted">每行输入一个选项</small>
@@ -136,10 +140,6 @@
                                 </label>
                             </div>
                         </div>
-                        <div class="form-group mb-3">
-                            <label>排序</label>
-                            <input type="number" class="form-control" v-model.number="form.sort_order" min="0">
-                        </div>
                     </form>
                 </div>
                 <div class="modal-footer">
@@ -157,10 +157,25 @@
     .table-hover tbody tr:hover {
         background-color: rgba(0, 0, 0, 0.05) !important;
     }
+    .sortable-handle {
+        cursor: move;
+        color: #adb5bd;
+        display: flex;
+        align-items: center;
+    }
+    .sortable-ghost {
+        opacity: 0.5;
+        background-color: #e9ecef !important;
+    }
+    .sortable-chosen {
+        background-color: #f8f9fa;
+    }
 </style>
 {% endblock %}
 
 {% block scripts %}
+<!-- 引入Sortable.js库 -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
 <script>
     new Vue({
         el: '#app',
@@ -175,13 +190,17 @@
                 field_type: 'text',
                 is_required: false,
                 is_visible: true,
-                options: '',
-                sort_order: 0
-            }
+                options: ''
+            },
+            sortable: null,
+            // 特殊字段列表，这些字段不能修改类型和选项
+            specialFields: [
+                'category_id', 'asset_number', 'status', 'location_id', 'qr_code'
+            ]
         },
         computed: {
             sortedFields() {
-                return [...this.fields].sort((a, b) => a.sort_order - b.sort_order);
+                return [...this.fields];
             }
         },
         methods: {
@@ -191,6 +210,10 @@
                     .then(data => {
                         if (data.success) {
                             this.fields = data.data;
+                            // 初始化拖拽排序
+                            this.$nextTick(() => {
+                                this.initSortable();
+                            });
                         } else {
                             console.error('获取字段列表失败');
                             alert('获取字段列表失败');
@@ -200,6 +223,50 @@
                         console.error('获取字段列表失败:', error);
                         alert('获取字段列表失败');
                     });
+            },
+            initSortable() {
+                // 如果已经初始化过，先销毁
+                if (this.sortable) {
+                    this.sortable.destroy();
+                }
+                
+                // 初始化Sortable
+                this.sortable = new Sortable(document.getElementById('sortableFields'), {
+                    handle: '.sortable-handle',
+                    animation: 150,
+                    ghostClass: 'sortable-ghost',
+                    chosenClass: 'sortable-chosen',
+                    onEnd: this.handleSort
+                });
+            },
+            handleSort(evt) {
+                // 获取排序后的所有字段ID
+                const rows = document.querySelectorAll('#sortableFields tr[data-id]');
+                const orderedIds = Array.from(rows).map(row => parseInt(row.dataset.id));
+                
+                // 更新字段顺序
+                fetch('/api/asset/fields/update-order', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ ordered_ids: orderedIds })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        console.log('字段顺序更新成功');
+                        // 刷新字段列表
+                        this.fetchFields();
+                    } else {
+                        console.error('字段顺序更新失败:', data.message);
+                        alert('字段顺序更新失败: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('更新字段顺序失败:', error);
+                    alert('更新字段顺序失败');
+                });
             },
             parseOptions(options) {
                 if (!options) return [];
@@ -219,8 +286,7 @@
                     field_type: 'text',
                     is_required: false,
                     is_visible: true,
-                    options: '',
-                    sort_order: this.fields.length
+                    options: ''
                 };
                 
                 var fieldModal = new bootstrap.Modal(document.getElementById('fieldModal'));
@@ -245,6 +311,9 @@
                 var fieldModal = new bootstrap.Modal(document.getElementById('fieldModal'));
                 fieldModal.show();
             },
+            isSpecialField(fieldKey) {
+                return this.specialFields.includes(fieldKey);
+            },
             validateFieldKey(key) {
                 // 验证字段键名格式：只能包含字母、数字和下划线，且不能以数字开头
                 return /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(key);
@@ -267,7 +336,7 @@
                 }
                 
                 // 如果是选择类型，验证选项
-                if (this.form.field_type === 'select' && !this.form.options) {
+                if (this.form.field_type === 'select' && !this.form.options && !this.isSpecialField(this.form.field_key)) {
                     alert('请输入选项');
                     return;
                 }
@@ -277,7 +346,7 @@
                     // 将多行文本转换为JSON数组
                     const options = this.form.options.split('\n').filter(Boolean).map(item => item.trim());
                     this.form.options = JSON.stringify(options);
-                } else if (this.form.field_type !== 'select') {
+                } else if (this.form.field_type !== 'select' && !this.isSpecialField(this.form.field_key)) {
                     // 非选择类型，清空选项
                     this.form.options = '';
                 }
