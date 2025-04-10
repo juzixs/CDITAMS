@@ -12,4 +12,10 @@ def index():
 @main.route('/dashboard')
 @login_required
 def dashboard():
-    return render_template('main/dashboard.html', title='仪表盘 - CDITAMS') 
+    return render_template('main/dashboard.html', title='仪表盘 - CDITAMS')
+
+# 资产模块路由重定向
+@main.route('/assets')
+@login_required
+def assets():
+    return render_template('asset/index.html') 

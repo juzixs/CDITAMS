@@ -1,0 +1,381 @@
+{% extends "base.html" %}
+{% block title %}设备分类设置{% endblock %}
+
+{% block content %}
+<div class="container-fluid" id="app">
+    <div class="card shadow">
+        <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+            <h6 class="m-0 font-weight-bold text-primary">设备分类设置</h6>
+            <div>
+                <a href="/devices/settings" class="btn btn-sm btn-light">
+                    <i class="fas fa-arrow-left"></i> 返回
+                </a>
+                <button class="btn btn-sm btn-primary" @click="showAddModal(null)">
+                    <i class="fas fa-plus"></i> 新增分类
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover">
+                    <thead class="thead-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>分类名称</th>
+                            <th>级别</th>
+                            <th>上级分类</th>
+                            <th>编码</th>
+                            <th>描述</th>
+                            <th width="120">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template v-for="category in topCategories">
+                            <tr :key="category.id" class="category-level-1">
+                                <td>[[ category.id ]]</td>
+                                <td>
+                                    <span class="category-name fw-bold text-primary">
+                                        <i class="fas fa-folder me-1"></i>
+                                        [[ category.name ]]
+                                    </span>
+                                </td>
+                                <td>[[ category.level ]]</td>
+                                <td>-</td>
+                                <td>[[ category.code ]]</td>
+                                <td>[[ category.description ]]</td>
+                                <td>
+                                    <div class="btn-group">
+                                        <button class="btn btn-sm btn-info" @click="showAddModal(category.id)">
+                                            <i class="fas fa-plus"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-primary" @click="showEditModal(category)">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-danger" @click="deleteCategory(category.id)">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <template v-for="child in childCategories(category.id)">
+                                <tr :key="child.id" class="category-level-2">
+                                    <td>[[ child.id ]]</td>
+                                    <td>
+                                        <span class="category-name ps-3 text-info">
+                                            <i class="fas fa-level-down-alt fa-rotate-90 me-1"></i>
+                                            <i class="fas fa-folder-open me-1"></i>
+                                            [[ child.name ]]
+                                        </span>
+                                    </td>
+                                    <td>[[ child.level ]]</td>
+                                    <td>[[ getCategoryName(child.parent_id) ]]</td>
+                                    <td>[[ child.code ]]</td>
+                                    <td>[[ child.description ]]</td>
+                                    <td>
+                                        <div class="btn-group">
+                                            <button class="btn btn-sm btn-info" @click="showAddModal(child.id)">
+                                                <i class="fas fa-plus"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-primary" @click="showEditModal(child)">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-danger" @click="deleteCategory(child.id)">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <template v-for="grandchild in childCategories(child.id)">
+                                    <tr :key="grandchild.id" class="category-level-3">
+                                        <td>[[ grandchild.id ]]</td>
+                                        <td>
+                                            <span class="category-name ps-5 text-success">
+                                                <i class="fas fa-long-arrow-alt-right me-1"></i>
+                                                <i class="fas fa-file-alt me-1"></i>
+                                                [[ grandchild.name ]]
+                                            </span>
+                                        </td>
+                                        <td>[[ grandchild.level ]]</td>
+                                        <td>[[ getCategoryName(grandchild.parent_id) ]]</td>
+                                        <td>[[ grandchild.code ]]</td>
+                                        <td>[[ grandchild.description ]]</td>
+                                        <td>
+                                            <div class="btn-group">
+                                                <button class="btn btn-sm btn-info" @click="showAddModal(grandchild.id)">
+                                                    <i class="fas fa-plus"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-primary" @click="showEditModal(grandchild)">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-danger" @click="deleteCategory(grandchild.id)">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <template v-for="greatgrandchild in childCategories(grandchild.id)">
+                                        <tr :key="greatgrandchild.id" class="category-level-4">
+                                            <td>[[ greatgrandchild.id ]]</td>
+                                            <td>
+                                                <span class="category-name ps-5 ms-4 text-secondary">
+                                                    <i class="fas fa-caret-right me-1"></i>
+                                                    <i class="fas fa-file me-1"></i>
+                                                    [[ greatgrandchild.name ]]
+                                                </span>
+                                            </td>
+                                            <td>[[ greatgrandchild.level ]]</td>
+                                            <td>[[ getCategoryName(greatgrandchild.parent_id) ]]</td>
+                                            <td>[[ greatgrandchild.code ]]</td>
+                                            <td>[[ greatgrandchild.description ]]</td>
+                                            <td>
+                                                <div class="btn-group">
+                                                    <button class="btn btn-sm btn-primary" @click="showEditModal(greatgrandchild)">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-danger" @click="deleteCategory(greatgrandchild.id)">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </template>
+                            </template>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 添加/编辑分类模态框 -->
+    <div class="modal fade" id="categoryModal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalTitle">[[ isEditing ? '编辑' : '新增' ]]分类</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form @submit.prevent="saveCategory">
+                        <div class="form-group mb-3">
+                            <label>分类名称 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" v-model="form.name" required>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label>上级分类</label>
+                            <select class="form-control" v-model="form.parent_id" @change="updateLevel">
+                                <option value="">顶级分类</option>
+                                <option v-for="category in validParentCategories" :value="category.id">
+                                    [[ category.name ]]
+                                </option>
+                            </select>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label>级别</label>
+                            <input type="number" class="form-control" v-model="form.level" readonly>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label>编码 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" v-model="form.code" required>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label>描述</label>
+                            <textarea class="form-control" v-model="form.description" rows="3"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" @click="saveCategory">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block styles %}
+<style>
+    .category-level-1 {
+        background-color: rgba(0, 123, 255, 0.05);
+    }
+    .category-level-2 {
+        background-color: rgba(23, 162, 184, 0.05);
+    }
+    .category-level-3 {
+        background-color: rgba(40, 167, 69, 0.05);
+    }
+    .category-level-4 {
+        background-color: rgba(108, 117, 125, 0.05);
+    }
+    .category-name {
+        display: flex;
+        align-items: center;
+    }
+    .table-hover tbody tr:hover {
+        background-color: rgba(0, 0, 0, 0.075) !important;
+    }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    new Vue({
+        el: '#app',
+        delimiters: ['[[', ']]'],
+        data: {
+            categories: [],
+            isEditing: false,
+            form: {
+                id: null,
+                name: '',
+                parent_id: '',
+                level: 1,
+                code: '',
+                description: ''
+            }
+        },
+        computed: {
+            topCategories() {
+                return this.categories.filter(c => !c.parent_id);
+            },
+            validParentCategories() {
+                if (!this.isEditing) {
+                    return this.categories.filter(c => c.level < 4);
+                } else {
+                    // 编辑时，不能选择自己或其子分类作为父级
+                    const invalidIds = this.getChildIds(this.form.id);
+                    invalidIds.push(this.form.id);
+                    return this.categories.filter(c => !invalidIds.includes(c.id) && c.level < 4);
+                }
+            }
+        },
+        methods: {
+            fetchCategories() {
+                fetch('/api/asset/categories')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            this.categories = data.data;
+                        } else {
+                            console.error('获取分类列表失败');
+                            alert('获取分类列表失败');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('获取分类列表失败:', error);
+                        alert('获取分类列表失败');
+                    });
+            },
+            childCategories(parentId) {
+                return this.categories.filter(c => c.parent_id === parentId);
+            },
+            getChildIds(parentId) {
+                const result = [];
+                const children = this.childCategories(parentId);
+                
+                for (const child of children) {
+                    result.push(child.id);
+                    result.push(...this.getChildIds(child.id));
+                }
+                
+                return result;
+            },
+            getCategoryName(id) {
+                const category = this.categories.find(c => c.id === id);
+                return category ? category.name : '-';
+            },
+            updateLevel() {
+                if (!this.form.parent_id) {
+                    this.form.level = 1;
+                } else {
+                    const parent = this.categories.find(c => c.id === this.form.parent_id);
+                    if (parent) {
+                        this.form.level = parent.level + 1;
+                    }
+                }
+            },
+            showAddModal(parentId) {
+                this.isEditing = false;
+                this.form = {
+                    id: null,
+                    name: '',
+                    parent_id: parentId || '',
+                    level: 1,
+                    code: '',
+                    description: ''
+                };
+                
+                this.updateLevel();
+                var categoryModal = new bootstrap.Modal(document.getElementById('categoryModal'));
+                categoryModal.show();
+            },
+            showEditModal(category) {
+                this.isEditing = true;
+                this.form = { ...category };
+                var categoryModal = new bootstrap.Modal(document.getElementById('categoryModal'));
+                categoryModal.show();
+            },
+            saveCategory() {
+                // 表单验证
+                if (!this.form.name) {
+                    alert('请输入分类名称');
+                    return;
+                }
+                
+                if (!this.form.code) {
+                    alert('请输入编码');
+                    return;
+                }
+                
+                fetch('/api/asset/categories', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(this.form)
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert(data.message);
+                            var categoryModal = bootstrap.Modal.getInstance(document.getElementById('categoryModal'));
+                            categoryModal.hide();
+                            this.fetchCategories();
+                        } else {
+                            alert(data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('保存分类失败:', error);
+                        alert('保存分类失败');
+                    });
+            },
+            deleteCategory(id) {
+                if (confirm('确定要删除该分类吗？')) {
+                    fetch(`/api/asset/categories/${id}`, {
+                        method: 'DELETE'
+                    })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                alert(data.message);
+                                this.fetchCategories();
+                            } else {
+                                alert(data.message);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('删除分类失败:', error);
+                            alert('删除分类失败');
+                        });
+                }
+            }
+        },
+        mounted() {
+            this.fetchCategories();
+        }
+    });
+</script>
+{% endblock %} 

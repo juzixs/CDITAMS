@@ -1,0 +1,334 @@
+{% extends "base.html" %}
+{% block title %}设备字段设置{% endblock %}
+
+{% block content %}
+<div class="container-fluid" id="app">
+    <div class="card shadow">
+        <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+            <h6 class="m-0 font-weight-bold text-primary">设备字段设置</h6>
+            <div>
+                <a href="/devices/settings" class="btn btn-sm btn-light">
+                    <i class="fas fa-arrow-left"></i> 返回
+                </a>
+                <button class="btn btn-sm btn-primary" @click="showAddModal()">
+                    <i class="fas fa-plus"></i> 新增字段
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover">
+                    <thead class="thead-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>字段名称</th>
+                            <th>字段键名</th>
+                            <th>字段类型</th>
+                            <th>是否必填</th>
+                            <th>是否可见</th>
+                            <th>选项</th>
+                            <th>排序</th>
+                            <th width="120">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="field in sortedFields" :key="field.id" :class="{'table-light': !field.is_visible}">
+                            <td>[[ field.id ]]</td>
+                            <td>
+                                <span class="fw-bold">
+                                    <i class="fas fa-tag me-1"></i>
+                                    [[ field.name ]]
+                                </span>
+                            </td>
+                            <td><code>[[ field.field_key ]]</code></td>
+                            <td>
+                                <span class="badge bg-info text-white" v-if="field.field_type === 'text'">文本</span>
+                                <span class="badge bg-success text-white" v-else-if="field.field_type === 'select'">下拉选择</span>
+                                <span class="badge bg-warning text-dark" v-else-if="field.field_type === 'date'">日期</span>
+                                <span class="badge bg-secondary text-white" v-else>[[ field.field_type ]]</span>
+                            </td>
+                            <td>
+                                <i class="fas fa-check-circle text-success" v-if="field.is_required"></i>
+                                <i class="fas fa-times-circle text-muted" v-else></i>
+                            </td>
+                            <td>
+                                <i class="fas fa-eye text-success" v-if="field.is_visible"></i>
+                                <i class="fas fa-eye-slash text-muted" v-else></i>
+                            </td>
+                            <td>
+                                <span v-if="field.options">
+                                    <span class="badge bg-light text-dark me-1" v-for="option in parseOptions(field.options)">
+                                        [[ option ]]
+                                    </span>
+                                </span>
+                                <span v-else>-</span>
+                            </td>
+                            <td>[[ field.sort_order ]]</td>
+                            <td>
+                                <div class="btn-group">
+                                    <button class="btn btn-sm btn-primary" @click="showEditModal(field)">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-danger" @click="deleteField(field.id)">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr v-if="!fields.length">
+                            <td colspan="9" class="text-center py-4">暂无数据</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 添加/编辑字段模态框 -->
+    <div class="modal fade" id="fieldModal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalTitle">[[ isEditing ? '编辑' : '新增' ]]字段</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form @submit.prevent="saveField">
+                        <div class="form-group mb-3">
+                            <label>字段名称 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" v-model="form.name" required>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label>字段键名 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" v-model="form.field_key" required :readonly="isEditing">
+                            <small class="form-text text-muted" v-if="!isEditing">键名只能包含字母、数字和下划线，且不能以数字开头</small>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label>字段类型 <span class="text-danger">*</span></label>
+                            <select class="form-control" v-model="form.field_type">
+                                <option value="text">文本</option>
+                                <option value="select">下拉选择</option>
+                                <option value="date">日期</option>
+                                <option value="number">数字</option>
+                                <option value="textarea">多行文本</option>
+                            </select>
+                        </div>
+                        <div class="form-group mb-3" v-if="form.field_type === 'select'">
+                            <label>选项 <span class="text-danger">*</span></label>
+                            <textarea class="form-control" v-model="form.options" rows="3" placeholder="每行一个选项"></textarea>
+                            <small class="form-text text-muted">每行输入一个选项</small>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label>是否必填</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" v-model="form.is_required" id="isRequired">
+                                <label class="form-check-label" for="isRequired">
+                                    必填
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label>是否可见</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" v-model="form.is_visible" id="isVisible">
+                                <label class="form-check-label" for="isVisible">
+                                    可见
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label>排序</label>
+                            <input type="number" class="form-control" v-model.number="form.sort_order" min="0">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" @click="saveField">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block styles %}
+<style>
+    .table-hover tbody tr:hover {
+        background-color: rgba(0, 0, 0, 0.05) !important;
+    }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    new Vue({
+        el: '#app',
+        delimiters: ['[[', ']]'],
+        data: {
+            fields: [],
+            isEditing: false,
+            form: {
+                id: null,
+                name: '',
+                field_key: '',
+                field_type: 'text',
+                is_required: false,
+                is_visible: true,
+                options: '',
+                sort_order: 0
+            }
+        },
+        computed: {
+            sortedFields() {
+                return [...this.fields].sort((a, b) => a.sort_order - b.sort_order);
+            }
+        },
+        methods: {
+            fetchFields() {
+                fetch('/api/asset/fields')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            this.fields = data.data;
+                        } else {
+                            console.error('获取字段列表失败');
+                            alert('获取字段列表失败');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('获取字段列表失败:', error);
+                        alert('获取字段列表失败');
+                    });
+            },
+            parseOptions(options) {
+                if (!options) return [];
+                try {
+                    const parsed = JSON.parse(options);
+                    return Array.isArray(parsed) ? parsed : [];
+                } catch (e) {
+                    return options.split('\n').filter(Boolean);
+                }
+            },
+            showAddModal() {
+                this.isEditing = false;
+                this.form = {
+                    id: null,
+                    name: '',
+                    field_key: '',
+                    field_type: 'text',
+                    is_required: false,
+                    is_visible: true,
+                    options: '',
+                    sort_order: this.fields.length
+                };
+                
+                var fieldModal = new bootstrap.Modal(document.getElementById('fieldModal'));
+                fieldModal.show();
+            },
+            showEditModal(field) {
+                this.isEditing = true;
+                this.form = { ...field };
+                
+                // 如果选项是JSON字符串，则解析为多行文本
+                if (field.options && field.field_type === 'select') {
+                    try {
+                        const options = JSON.parse(field.options);
+                        if (Array.isArray(options)) {
+                            this.form.options = options.join('\n');
+                        }
+                    } catch (e) {
+                        this.form.options = field.options;
+                    }
+                }
+                
+                var fieldModal = new bootstrap.Modal(document.getElementById('fieldModal'));
+                fieldModal.show();
+            },
+            validateFieldKey(key) {
+                // 验证字段键名格式：只能包含字母、数字和下划线，且不能以数字开头
+                return /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(key);
+            },
+            saveField() {
+                // 表单验证
+                if (!this.form.name) {
+                    alert('请输入字段名称');
+                    return;
+                }
+                
+                if (!this.form.field_key) {
+                    alert('请输入字段键名');
+                    return;
+                }
+                
+                if (!this.validateFieldKey(this.form.field_key)) {
+                    alert('字段键名格式不正确，只能包含字母、数字和下划线，且不能以数字开头');
+                    return;
+                }
+                
+                // 如果是选择类型，验证选项
+                if (this.form.field_type === 'select' && !this.form.options) {
+                    alert('请输入选项');
+                    return;
+                }
+                
+                // 处理选项格式
+                if (this.form.field_type === 'select' && this.form.options) {
+                    // 将多行文本转换为JSON数组
+                    const options = this.form.options.split('\n').filter(Boolean).map(item => item.trim());
+                    this.form.options = JSON.stringify(options);
+                } else if (this.form.field_type !== 'select') {
+                    // 非选择类型，清空选项
+                    this.form.options = '';
+                }
+                
+                fetch('/api/asset/fields', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(this.form)
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert(data.message);
+                            var fieldModal = bootstrap.Modal.getInstance(document.getElementById('fieldModal'));
+                            fieldModal.hide();
+                            this.fetchFields();
+                        } else {
+                            alert(data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('保存字段失败:', error);
+                        alert('保存字段失败');
+                    });
+            },
+            deleteField(id) {
+                if (confirm('确定要删除该字段吗？')) {
+                    fetch(`/api/asset/fields/${id}`, {
+                        method: 'DELETE'
+                    })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                alert(data.message);
+                                this.fetchFields();
+                            } else {
+                                alert(data.message);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('删除字段失败:', error);
+                            alert('删除字段失败');
+                        });
+                }
+            }
+        },
+        mounted() {
+            this.fetchFields();
+        }
+    });
+</script>
+{% endblock %} 

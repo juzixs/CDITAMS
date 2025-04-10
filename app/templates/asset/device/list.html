@@ -1,0 +1,406 @@
+{% extends "base.html" %}
+{% block title %}设备管理{% endblock %}
+
+{% block content %}
+<div class="container-fluid" id="app">
+    <div class="card shadow">
+        <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+            <h6 class="m-0 font-weight-bold text-primary">设备列表</h6>
+        </div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col">
+                    <!-- 批量操作按钮（隐藏/显示） -->
+                    <div class="btn-group" v-if="selectedIds.length > 0">
+                        <button class="btn btn-danger btn-sm" @click="batchDelete">
+                            <i class="fas fa-trash"></i> 批量删除
+                        </button>
+                        <button class="btn btn-primary btn-sm" @click="batchAssign">
+                            <i class="fas fa-user"></i> 批量分配
+                        </button>
+                        <button class="btn btn-warning btn-sm" @click="batchReport">
+                            <i class="fas fa-exclamation-triangle"></i> 批量报障
+                        </button>
+                        <button class="btn btn-danger btn-sm" @click="batchScrap">
+                            <i class="fas fa-trash-alt"></i> 批量报废
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="col-auto">
+                    <div class="btn-toolbar" role="toolbar">
+                        <div class="btn-group mr-2">
+                            <button class="btn btn-light btn-sm" @click="fetchDevices">
+                                <i class="fas fa-sync-alt"></i> 刷新
+                            </button>
+                        </div>
+                        <div class="input-group mr-2">
+                            <input type="text" class="form-control form-control-sm" placeholder="搜索..." v-model="searchQuery" @keyup.enter="search">
+                            <div class="input-group-append">
+                                <button class="btn btn-primary btn-sm" @click="search">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="btn-group mr-2">
+                            <button class="btn btn-light btn-sm" data-toggle="dropdown">
+                                <i class="fas fa-filter"></i> 筛选
+                            </button>
+                            <div class="dropdown-menu">
+                                <!-- 筛选选项 -->
+                                <a class="dropdown-item" href="#">按分类筛选</a>
+                                <a class="dropdown-item" href="#">按状态筛选</a>
+                                <a class="dropdown-item" href="#">按部门筛选</a>
+                            </div>
+                        </div>
+                        <div class="btn-group mr-2">
+                            <button class="btn btn-light btn-sm" @click="printLabels">
+                                <i class="fas fa-print"></i> 打印标签
+                            </button>
+                        </div>
+                        <div class="btn-group mr-2">
+                            <button class="btn btn-light btn-sm" @click="goToMap">
+                                <i class="fas fa-map-marked-alt"></i> 设备地图
+                            </button>
+                        </div>
+                        <div class="btn-group mr-2">
+                            <button class="btn btn-success btn-sm" @click="createDevice">
+                                <i class="fas fa-plus"></i> 新增
+                            </button>
+                        </div>
+                        <div class="btn-group mr-2">
+                            <button class="btn btn-primary btn-sm" @click="importDevices">
+                                <i class="fas fa-file-import"></i> 导入
+                            </button>
+                        </div>
+                        <div class="btn-group mr-2">
+                            <button class="btn btn-primary btn-sm" @click="exportDevices">
+                                <i class="fas fa-file-export"></i> 导出
+                            </button>
+                        </div>
+                        <div class="btn-group">
+                            <button class="btn btn-light btn-sm" @click="goToSettings">
+                                <i class="fas fa-cog"></i> 设置
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="table-responsive">
+                <table class="table table-bordered table-striped table-hover">
+                    <thead class="thead-light">
+                        <tr>
+                            <th width="40">
+                                <input type="checkbox" @change="toggleSelectAll" :checked="isAllSelected">
+                            </th>
+                            <th>ID</th>
+                            <th>分类</th>
+                            <th>资产编号</th>
+                            <th>设备编号</th>
+                            <th>名称</th>
+                            <th>型号</th>
+                            <th>序列号</th>
+                            <th>设备状态</th>
+                            <th>密级</th>
+                            <th>用户</th>
+                            <th>部门</th>
+                            <th>位置</th>
+                            <th>购入日期</th>
+                            <th>启用时间</th>
+                            <th>MAC</th>
+                            <th>IP</th>
+                            <th>操作系统</th>
+                            <th>安装时间</th>
+                            <th>硬盘序列号</th>
+                            <th>用途</th>
+                            <th>备注</th>
+                            <th>固资在账</th>
+                            <th>卡片编号</th>
+                            <th>保密台账</th>
+                            <th>台账分类</th>
+                            <th>二维码</th>
+                            <th width="180">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="device in devices" :key="device.id">
+                            <td>
+                                <input type="checkbox" v-model="selectedIds" :value="device.id">
+                            </td>
+                            <td>[[ device.id ]]</td>
+                            <td>[[ device.category ]]</td>
+                            <td>[[ device.asset_number ]]</td>
+                            <td>[[ device.device_number ]]</td>
+                            <td>[[ device.name ]]</td>
+                            <td>[[ device.model ]]</td>
+                            <td>[[ device.serial_number ]]</td>
+                            <td>[[ device.status ]]</td>
+                            <td>[[ device.security_level ]]</td>
+                            <td>[[ device.user ]]</td>
+                            <td>[[ device.department ]]</td>
+                            <td>[[ device.location ]]</td>
+                            <td>[[ device.purchase_date ]]</td>
+                            <td>[[ device.activation_date ]]</td>
+                            <td>[[ device.mac_address ]]</td>
+                            <td>[[ device.ip_address ]]</td>
+                            <td>[[ device.operating_system ]]</td>
+                            <td>[[ device.installation_date ]]</td>
+                            <td>[[ device.disk_serial ]]</td>
+                            <td>[[ device.purpose ]]</td>
+                            <td>[[ device.remarks ]]</td>
+                            <td>[[ device.is_fixed_asset ]]</td>
+                            <td>[[ device.card_number ]]</td>
+                            <td>[[ device.secret_inventory ]]</td>
+                            <td>[[ device.inventory_category ]]</td>
+                            <td>
+                                <a href="#" v-if="device.qr_code" @click.prevent="showQrCode(device)">查看</a>
+                                <span v-else>-</span>
+                            </td>
+                            <td>
+                                <div class="btn-group">
+                                    <button class="btn btn-primary btn-sm" @click="editDevice(device.id)">
+                                        <i class="fas fa-edit"></i> 编辑
+                                    </button>
+                                    <button class="btn btn-danger btn-sm" @click="deleteDevice(device.id)">
+                                        <i class="fas fa-trash"></i> 删除
+                                    </button>
+                                    <button class="btn btn-info btn-sm" @click="assignDevice(device.id)">
+                                        <i class="fas fa-user"></i> 分配
+                                    </button>
+                                    <button class="btn btn-warning btn-sm" @click="reportIssue(device.id)">
+                                        <i class="fas fa-exclamation-triangle"></i> 报障
+                                    </button>
+                                    <button class="btn btn-danger btn-sm" @click="scrapDevice(device.id)">
+                                        <i class="fas fa-trash-alt"></i> 报废
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="row">
+                <div class="col">
+                    <p>显示 [[ pagination.page ]] / [[ pagination.pages ]] 页，共 [[ pagination.total ]] 条记录</p>
+                </div>
+                <div class="col-auto">
+                    <nav>
+                        <ul class="pagination pagination-sm">
+                            <li class="page-item" :class="{ disabled: pagination.page <= 1 }">
+                                <a class="page-link" href="#" @click.prevent="goToPage(pagination.page - 1)">上一页</a>
+                            </li>
+                            <li class="page-item" v-for="page in pageNumbers" :key="page" :class="{ active: page === pagination.page }">
+                                <a class="page-link" href="#" @click.prevent="goToPage(page)">[[ page ]]</a>
+                            </li>
+                            <li class="page-item" :class="{ disabled: pagination.page >= pagination.pages }">
+                                <a class="page-link" href="#" @click.prevent="goToPage(pagination.page + 1)">下一页</a>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    new Vue({
+        el: '#app',
+        delimiters: ['[[', ']]'],
+        data: {
+            devices: [],
+            selectedIds: [],
+            searchQuery: '',
+            pagination: {
+                page: 1,
+                size: 10,
+                total: 0,
+                pages: 0
+            }
+        },
+        computed: {
+            isAllSelected() {
+                return this.devices.length > 0 && this.selectedIds.length === this.devices.length;
+            },
+            pageNumbers() {
+                const pages = [];
+                const maxPages = 5;
+                const halfMaxPages = Math.floor(maxPages / 2);
+                
+                let startPage = Math.max(1, this.pagination.page - halfMaxPages);
+                let endPage = Math.min(this.pagination.pages, startPage + maxPages - 1);
+                
+                if (endPage - startPage + 1 < maxPages) {
+                    startPage = Math.max(1, endPage - maxPages + 1);
+                }
+                
+                for (let i = startPage; i <= endPage; i++) {
+                    pages.push(i);
+                }
+                
+                return pages;
+            }
+        },
+        methods: {
+            fetchDevices() {
+                const params = new URLSearchParams({
+                    page: this.pagination.page,
+                    size: this.pagination.size,
+                    search: this.searchQuery
+                });
+                
+                fetch(`/api/devices?${params.toString()}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        this.devices = data.data;
+                        this.pagination.total = data.total;
+                        this.pagination.pages = data.pages;
+                        this.pagination.page = data.page;
+                        this.pagination.size = data.size;
+                        
+                        // 清空选中状态
+                        this.selectedIds = [];
+                    })
+                    .catch(error => {
+                        console.error('获取设备列表失败:', error);
+                        alert('获取设备列表失败');
+                    });
+            },
+            search() {
+                this.pagination.page = 1;
+                this.fetchDevices();
+            },
+            goToPage(page) {
+                if (page < 1 || page > this.pagination.pages) {
+                    return;
+                }
+                
+                this.pagination.page = page;
+                this.fetchDevices();
+            },
+            toggleSelectAll(event) {
+                if (event.target.checked) {
+                    this.selectedIds = this.devices.map(device => device.id);
+                } else {
+                    this.selectedIds = [];
+                }
+            },
+            createDevice() {
+                window.location.href = '/devices/create';
+            },
+            editDevice(id) {
+                window.location.href = `/devices/${id}/edit`;
+            },
+            deleteDevice(id) {
+                if (confirm('确定要删除这台设备吗？')) {
+                    fetch(`/api/devices/${id}`, {
+                        method: 'DELETE'
+                    })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                alert(data.message);
+                                this.fetchDevices();
+                            } else {
+                                alert(data.message);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('删除设备失败:', error);
+                            alert('删除设备失败');
+                        });
+                }
+            },
+            batchDelete() {
+                if (this.selectedIds.length === 0) {
+                    alert('请选择要删除的设备');
+                    return;
+                }
+                
+                if (confirm(`确定要删除选中的 ${this.selectedIds.length} 台设备吗？`)) {
+                    fetch('/api/devices/batch', {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            ids: this.selectedIds
+                        })
+                    })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                alert(data.message);
+                                this.fetchDevices();
+                            } else {
+                                alert(data.message);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('批量删除设备失败:', error);
+                            alert('批量删除设备失败');
+                        });
+                }
+            },
+            assignDevice(id) {
+                alert('分配设备功能待实现');
+            },
+            batchAssign() {
+                if (this.selectedIds.length === 0) {
+                    alert('请选择要分配的设备');
+                    return;
+                }
+                
+                alert('批量分配设备功能待实现');
+            },
+            reportIssue(id) {
+                alert('报障功能待实现');
+            },
+            batchReport() {
+                if (this.selectedIds.length === 0) {
+                    alert('请选择要报障的设备');
+                    return;
+                }
+                
+                alert('批量报障功能待实现');
+            },
+            scrapDevice(id) {
+                alert('报废功能待实现');
+            },
+            batchScrap() {
+                if (this.selectedIds.length === 0) {
+                    alert('请选择要报废的设备');
+                    return;
+                }
+                
+                alert('批量报废功能待实现');
+            },
+            importDevices() {
+                alert('导入设备功能待实现');
+            },
+            exportDevices() {
+                alert('导出设备功能待实现');
+            },
+            printLabels() {
+                alert('打印标签功能待实现');
+            },
+            goToMap() {
+                window.location.href = '/devices/map';
+            },
+            goToSettings() {
+                window.location.href = '/devices/settings';
+            },
+            showQrCode(device) {
+                alert('查看二维码功能待实现');
+            }
+        },
+        mounted() {
+            this.fetchDevices();
+        }
+    });
+</script>
+{% endblock %} 

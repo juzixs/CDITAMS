@@ -1,0 +1,463 @@
+{% extends "base.html" %}
+{% block title %}{{ device.id ? '编辑' : '新增' }}设备{% endblock %}
+
+{% block content %}
+<div class="container-fluid" id="app">
+    <div class="card shadow">
+        <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+            <h6 class="m-0 font-weight-bold text-primary">{{ device.id ? '编辑' : '新增' }}设备</h6>
+            <div>
+                <a href="/devices" class="btn btn-sm btn-light">
+                    <i class="fas fa-arrow-left"></i> 返回
+                </a>
+            </div>
+        </div>
+        <div class="card-body">
+            <form @submit.prevent="saveDevice">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>分类 <span class="text-danger">*</span></label>
+                            <select class="form-control" v-model="form.category_id" required @change="generateAssetNumber">
+                                <option value="">请选择分类</option>
+                                {% for category in categories %}
+                                <option value="{{ category.id }}">{{ category.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>资产编号 <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" v-model="form.asset_number" required>
+                                <div class="input-group-append">
+                                    <button type="button" class="btn btn-outline-secondary" @click="generateAssetNumber">生成</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>设备编号</label>
+                            <input type="text" class="form-control" v-model="form.device_number">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>名称</label>
+                            <input type="text" class="form-control" v-model="form.name">
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>型号</label>
+                            <input type="text" class="form-control" v-model="form.model">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>序列号</label>
+                            <input type="text" class="form-control" v-model="form.serial_number">
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>设备状态</label>
+                            <select class="form-control" v-model="form.status">
+                                <option value="正常">正常</option>
+                                <option value="维修中">维修中</option>
+                                <option value="闲置">闲置</option>
+                                <option value="报废">报废</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>密级</label>
+                            <select class="form-control" v-model="form.security_level">
+                                <option value="">请选择</option>
+                                <option value="公开">公开</option>
+                                <option value="内部">内部</option>
+                                <option value="秘密">秘密</option>
+                                <option value="机密">机密</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>用户</label>
+                            <select class="form-control" v-model="form.user_id">
+                                <option value="">请选择</option>
+                                <!-- 用户列表将通过API获取 -->
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>部门</label>
+                            <select class="form-control" v-model="form.department_id">
+                                <option value="">请选择</option>
+                                <!-- 部门列表将通过API获取 -->
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>位置</label>
+                            <select class="form-control" v-model="form.location_id">
+                                <option value="">请选择</option>
+                                <!-- 位置列表将通过API获取 -->
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>购入日期</label>
+                            <input type="date" class="form-control" v-model="form.purchase_date">
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>启用时间</label>
+                            <input type="date" class="form-control" v-model="form.activation_date">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>MAC地址</label>
+                            <input type="text" class="form-control" v-model="form.mac_address">
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>IP地址</label>
+                            <input type="text" class="form-control" v-model="form.ip_address">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>操作系统</label>
+                            <input type="text" class="form-control" v-model="form.operating_system">
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>安装时间</label>
+                            <input type="date" class="form-control" v-model="form.installation_date">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>硬盘序列号</label>
+                            <input type="text" class="form-control" v-model="form.disk_serial">
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>用途</label>
+                            <textarea class="form-control" v-model="form.purpose" rows="3"></textarea>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>备注</label>
+                            <textarea class="form-control" v-model="form.remarks" rows="3"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="isFixedAsset" v-model="form.is_fixed_asset">
+                                <label class="custom-control-label" for="isFixedAsset">固资在账</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>卡片编号</label>
+                            <input type="text" class="form-control" v-model="form.card_number">
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="secretInventory" v-model="form.secret_inventory">
+                                <label class="custom-control-label" for="secretInventory">保密台账</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>台账分类</label>
+                            <input type="text" class="form-control" v-model="form.inventory_category">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 设备自定义字段会在这里动态渲染 -->
+                <div v-if="customFields.length > 0" class="mt-4">
+                    <h5>自定义字段</h5>
+                    <hr>
+                    <div class="row" v-for="(field, index) in customFields" :key="field.id">
+                        <div class="col-md-6" v-if="index % 2 === 0">
+                            <div class="form-group">
+                                <label>[[ field.name ]] <span class="text-danger" v-if="field.is_required">*</span></label>
+                                <component :is="getFieldComponent(field)" v-model="customFieldValues[field.field_key]" 
+                                           :options="getFieldOptions(field)" :required="field.is_required"></component>
+                            </div>
+                        </div>
+                        <div class="col-md-6" v-if="index % 2 === 1">
+                            <div class="form-group">
+                                <label>[[ field.name ]] <span class="text-danger" v-if="field.is_required">*</span></label>
+                                <component :is="getFieldComponent(field)" v-model="customFieldValues[field.field_key]" 
+                                           :options="getFieldOptions(field)" :required="field.is_required"></component>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> 保存
+                    </button>
+                    <a href="/devices" class="btn btn-light ml-2">取消</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    new Vue({
+        el: '#app',
+        delimiters: ['[[', ']]'],
+        data: {
+            form: {
+                id: {% if device.id %}{{ device.id }}{% else %}null{% endif %},
+                category_id: "{% if device.category_id %}{{ device.category_id }}{% else %}{% endif %}",
+                asset_number: "{% if device.asset_number %}{{ device.asset_number }}{% else %}{% endif %}",
+                device_number: "{% if device.device_number %}{{ device.device_number }}{% else %}{% endif %}",
+                name: "{% if device.name %}{{ device.name }}{% else %}{% endif %}",
+                model: "{% if device.model %}{{ device.model }}{% else %}{% endif %}",
+                serial_number: "{% if device.serial_number %}{{ device.serial_number }}{% else %}{% endif %}",
+                status: "{% if device.status %}{{ device.status }}{% else %}正常{% endif %}",
+                security_level: "{% if device.security_level %}{{ device.security_level }}{% else %}{% endif %}",
+                user_id: "{% if device.user_id %}{{ device.user_id }}{% else %}{% endif %}",
+                department_id: "{% if device.department_id %}{{ device.department_id }}{% else %}{% endif %}",
+                location_id: "{% if device.location_id %}{{ device.location_id }}{% else %}{% endif %}",
+                purchase_date: "{% if device.purchase_date %}{{ device.purchase_date }}{% else %}{% endif %}",
+                activation_date: "{% if device.activation_date %}{{ device.activation_date }}{% else %}{% endif %}",
+                mac_address: "{% if device.mac_address %}{{ device.mac_address }}{% else %}{% endif %}",
+                ip_address: "{% if device.ip_address %}{{ device.ip_address }}{% else %}{% endif %}",
+                operating_system: "{% if device.operating_system %}{{ device.operating_system }}{% else %}{% endif %}",
+                installation_date: "{% if device.installation_date %}{{ device.installation_date }}{% else %}{% endif %}",
+                disk_serial: "{% if device.disk_serial %}{{ device.disk_serial }}{% else %}{% endif %}",
+                purpose: "{% if device.purpose %}{{ device.purpose }}{% else %}{% endif %}",
+                remarks: "{% if device.remarks %}{{ device.remarks }}{% else %}{% endif %}",
+                is_fixed_asset: {% if device.is_fixed_asset %}true{% else %}false{% endif %},
+                card_number: "{% if device.card_number %}{{ device.card_number }}{% else %}{% endif %}",
+                secret_inventory: {% if device.secret_inventory %}true{% else %}false{% endif %},
+                inventory_category: "{% if device.inventory_category %}{{ device.inventory_category }}{% else %}{% endif %}"
+            },
+            users: [],
+            departments: [],
+            locations: [],
+            customFields: [],
+            customFieldValues: {}
+        },
+        methods: {
+            fetchUsers() {
+                fetch('/api/users')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            this.users = data.data;
+                        } else {
+                            console.error('获取用户列表失败');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('获取用户列表失败:', error);
+                    });
+            },
+            fetchDepartments() {
+                fetch('/api/departments')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            this.departments = data.data;
+                        } else {
+                            console.error('获取部门列表失败');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('获取部门列表失败:', error);
+                    });
+            },
+            fetchLocations() {
+                fetch('/api/asset/locations')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            this.locations = data.data;
+                        } else {
+                            console.error('获取位置列表失败');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('获取位置列表失败:', error);
+                    });
+            },
+            fetchCustomFields() {
+                fetch('/api/asset/fields')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            this.customFields = data.data.filter(f => f.is_visible);
+                        } else {
+                            console.error('获取自定义字段失败');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('获取自定义字段失败:', error);
+                    });
+            },
+            generateAssetNumber() {
+                if (!this.form.category_id) {
+                    return;
+                }
+                
+                fetch('/api/devices/generate-asset-number', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        category_id: this.form.category_id
+                    })
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            this.form.asset_number = data.asset_number;
+                        } else {
+                            alert(data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('生成资产编号失败:', error);
+                        alert('生成资产编号失败');
+                    });
+            },
+            saveDevice() {
+                // 表单验证
+                if (!this.form.category_id) {
+                    alert('请选择分类');
+                    return;
+                }
+                
+                if (!this.form.asset_number) {
+                    alert('请输入资产编号');
+                    return;
+                }
+                
+                // 合并自定义字段值
+                const formData = { ...this.form, ...this.customFieldValues };
+                
+                fetch('/api/devices', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert(data.message);
+                            window.location.href = '/devices';
+                        } else {
+                            alert(data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('保存设备失败:', error);
+                        alert('保存设备失败');
+                    });
+            },
+            getFieldComponent(field) {
+                switch (field.field_type) {
+                    case 'select':
+                        return 'select';
+                    case 'date':
+                        return 'input';
+                    case 'textarea':
+                        return 'textarea';
+                    default:
+                        return 'input';
+                }
+            },
+            getFieldOptions(field) {
+                if (field.field_type === 'select' && field.options) {
+                    try {
+                        return JSON.parse(field.options);
+                    } catch (e) {
+                        return [];
+                    }
+                }
+                return [];
+            }
+        },
+        mounted() {
+            // 获取用户、部门和位置列表
+            this.fetchUsers();
+            this.fetchDepartments();
+            this.fetchLocations();
+            this.fetchCustomFields();
+            
+            // 如果是编辑设备，获取设备详情
+            if (this.form.id) {
+                fetch(`/api/devices/${this.form.id}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            this.form = data.data;
+                            this.customFieldValues = data.custom_fields || {};
+                        } else {
+                            alert('获取设备详情失败');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('获取设备详情失败:', error);
+                        alert('获取设备详情失败');
+                    });
+            }
+        }
+    });
+</script>
+{% endblock %} 

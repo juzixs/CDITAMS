@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+{% block title %}设备设置{% endblock %}
+
+{% block content %}
+<div class="container-fluid" id="app">
+    <div class="card shadow">
+        <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+            <h6 class="m-0 font-weight-bold text-primary">设备设置</h6>
+            <div>
+                <a href="/devices" class="btn btn-sm btn-light">
+                    <i class="fas fa-arrow-left"></i> 返回设备列表
+                </a>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3 mb-4">
+                    <div class="card border-left-primary shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">分类设置</div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">设备分类管理</div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-folder fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                            <a href="/devices/settings/categories" class="btn btn-primary btn-block mt-3">
+                                <i class="fas fa-cog"></i> 管理分类
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-4">
+                    <div class="card border-left-success shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-success text-uppercase mb-1">字段设置</div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">自定义设备字段</div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-list fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                            <a href="/devices/settings/fields" class="btn btn-success btn-block mt-3">
+                                <i class="fas fa-cog"></i> 管理字段
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-4">
+                    <div class="card border-left-info shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-info text-uppercase mb-1">位置设置</div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">设备位置管理</div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-map-marker-alt fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                            <a href="/devices/settings/locations" class="btn btn-info btn-block mt-3">
+                                <i class="fas fa-cog"></i> 管理位置
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-4">
+                    <div class="card border-left-warning shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">标签设置</div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">设备标签模板</div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-tag fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                            <a href="/devices/settings/labels" class="btn btn-warning btn-block mt-3">
+                                <i class="fas fa-cog"></i> 管理标签
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row mt-4">
+                <div class="col-md-6">
+                    <div class="card shadow mb-4">
+                        <div class="card-header py-3">
+                            <h6 class="m-0 font-weight-bold text-primary">设备统计</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-pie pt-4 pb-2">
+                                <canvas id="devicesByCategory"></canvas>
+                            </div>
+                            <div class="mt-4 text-center small">
+                                <span class="mr-2">
+                                    <i class="fas fa-circle text-primary"></i> 按分类
+                                </span>
+                                <span class="mr-2">
+                                    <i class="fas fa-circle text-success"></i> 按状态
+                                </span>
+                                <span class="mr-2">
+                                    <i class="fas fa-circle text-info"></i> 按部门
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card shadow mb-4">
+                        <div class="card-header py-3">
+                            <h6 class="m-0 font-weight-bold text-primary">设备列表自定义</h6>
+                        </div>
+                        <div class="card-body">
+                            <p>设置设备列表的显示字段和排序：</p>
+                            <form>
+                                <div class="form-group">
+                                    <label>每页显示数量</label>
+                                    <select class="form-control" v-model="settings.pageSize">
+                                        <option value="10">10</option>
+                                        <option value="20">20</option>
+                                        <option value="50">50</option>
+                                        <option value="100">100</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>默认排序字段</label>
+                                    <select class="form-control" v-model="settings.sortField">
+                                        <option value="id">ID</option>
+                                        <option value="asset_number">资产编号</option>
+                                        <option value="name">名称</option>
+                                        <option value="created_at">创建时间</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>排序方式</label>
+                                    <select class="form-control" v-model="settings.sortOrder">
+                                        <option value="asc">升序</option>
+                                        <option value="desc">降序</option>
+                                    </select>
+                                </div>
+                                <button type="button" class="btn btn-primary" @click="saveSettings">
+                                    <i class="fas fa-save"></i> 保存设置
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.4/dist/Chart.min.js"></script>
+<script>
+    new Vue({
+        el: '#app',
+        delimiters: ['[[', ']]'],
+        data: {
+            settings: {
+                pageSize: 10,
+                sortField: 'id',
+                sortOrder: 'desc'
+            }
+        },
+        methods: {
+            saveSettings() {
+                localStorage.setItem('deviceSettings', JSON.stringify(this.settings));
+                alert('设置已保存');
+            },
+            loadSettings() {
+                const savedSettings = localStorage.getItem('deviceSettings');
+                if (savedSettings) {
+                    try {
+                        this.settings = JSON.parse(savedSettings);
+                    } catch (e) {
+                        console.error('加载设置失败:', e);
+                    }
+                }
+            },
+            initCharts() {
+                fetch('/api/devices/stats')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            this.renderCategoryChart(data.by_category);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('获取统计数据失败:', error);
+                    });
+            },
+            renderCategoryChart(data) {
+                const ctx = document.getElementById('devicesByCategory');
+                if (!ctx) return;
+                
+                // 模拟数据
+                const mockData = {
+                    labels: ['计算机', '网络设备', '外设', '存储设备', '其他'],
+                    data: [45, 25, 15, 10, 5]
+                };
+                
+                new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: mockData.labels,
+                        datasets: [{
+                            data: mockData.data,
+                            backgroundColor: ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b'],
+                            hoverBackgroundColor: ['#2e59d9', '#17a673', '#2c9faf', '#dda20a', '#be2617'],
+                            hoverBorderColor: "rgba(234, 236, 244, 1)",
+                        }],
+                    },
+                    options: {
+                        maintainAspectRatio: false,
+                        tooltips: {
+                            backgroundColor: "rgb(255,255,255)",
+                            bodyFontColor: "#858796",
+                            borderColor: '#dddfeb',
+                            borderWidth: 1,
+                            xPadding: 15,
+                            yPadding: 15,
+                            displayColors: false,
+                            caretPadding: 10,
+                        },
+                        legend: {
+                            display: false
+                        },
+                        cutoutPercentage: 80,
+                    },
+                });
+            }
+        },
+        mounted() {
+            this.loadSettings();
+            this.initCharts();
+        }
+    });
+</script>
+{% endblock %} 

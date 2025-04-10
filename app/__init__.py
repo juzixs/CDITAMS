@@ -27,17 +27,19 @@ def create_app():
     from app.views.auth import auth
     from app.views.main import main
     from app.views.organization import organization
+    from app.views.asset import asset
     
     app.register_blueprint(auth)
     app.register_blueprint(main)
     app.register_blueprint(organization)
+    app.register_blueprint(asset)
     
     # 创建数据库表
     with app.app_context():
         db.create_all()
         
         # 导入models以确保创建所有表
-        from app.models import User, Department, Role, Permission
+        from app.models import User, Department, Role, Permission, Device, AssetCategory, AssetLocation, DeviceField
         
         # 插入默认权限和角色
         Permission.insert_default_permissions()
