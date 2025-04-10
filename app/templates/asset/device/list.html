@@ -94,32 +94,10 @@
                             <th width="40">
                                 <input type="checkbox" @change="toggleSelectAll" :checked="isAllSelected">
                             </th>
-                            <th>ID</th>
-                            <th>分类</th>
-                            <th>资产编号</th>
-                            <th>设备编号</th>
-                            <th>名称</th>
-                            <th>型号</th>
-                            <th>序列号</th>
-                            <th>设备状态</th>
-                            <th>密级</th>
-                            <th>用户</th>
-                            <th>部门</th>
-                            <th>位置</th>
-                            <th>购入日期</th>
-                            <th>启用时间</th>
-                            <th>MAC</th>
-                            <th>IP</th>
-                            <th>操作系统</th>
-                            <th>安装时间</th>
-                            <th>硬盘序列号</th>
-                            <th>用途</th>
-                            <th>备注</th>
-                            <th>固资在账</th>
-                            <th>卡片编号</th>
-                            <th>保密台账</th>
-                            <th>台账分类</th>
-                            <th>二维码</th>
+                            <!-- 动态生成表头 -->
+                            <th v-for="field in visibleFields" :key="field.field_key">
+                                [[ field.name ]]
+                            </th>
                             <th width="180">操作</th>
                         </tr>
                     </thead>
@@ -128,34 +106,14 @@
                             <td>
                                 <input type="checkbox" v-model="selectedIds" :value="device.id">
                             </td>
-                            <td>[[ device.id ]]</td>
-                            <td>[[ device.category ]]</td>
-                            <td>[[ device.asset_number ]]</td>
-                            <td>[[ device.device_number ]]</td>
-                            <td>[[ device.name ]]</td>
-                            <td>[[ device.model ]]</td>
-                            <td>[[ device.serial_number ]]</td>
-                            <td>[[ device.status ]]</td>
-                            <td>[[ device.security_level ]]</td>
-                            <td>[[ device.user ]]</td>
-                            <td>[[ device.department ]]</td>
-                            <td>[[ device.location ]]</td>
-                            <td>[[ device.purchase_date ]]</td>
-                            <td>[[ device.activation_date ]]</td>
-                            <td>[[ device.mac_address ]]</td>
-                            <td>[[ device.ip_address ]]</td>
-                            <td>[[ device.operating_system ]]</td>
-                            <td>[[ device.installation_date ]]</td>
-                            <td>[[ device.disk_serial ]]</td>
-                            <td>[[ device.purpose ]]</td>
-                            <td>[[ device.remarks ]]</td>
-                            <td>[[ device.is_fixed_asset ]]</td>
-                            <td>[[ device.card_number ]]</td>
-                            <td>[[ device.secret_inventory ]]</td>
-                            <td>[[ device.inventory_category ]]</td>
-                            <td>
-                                <a href="#" v-if="device.qr_code" @click.prevent="showQrCode(device)">查看</a>
-                                <span v-else>-</span>
+                            <!-- 动态生成数据单元格 -->
+                            <td v-for="field in visibleFields" :key="field.field_key">
+                                <template v-if="field.field_key === 'qr_code' && device[field.field_key]">
+                                    <a href="#" @click.prevent="showQrCode(device)">查看</a>
+                                </template>
+                                <template v-else>
+                                    [[ device[field.field_key] || '-' ]]
+                                </template>
                             </td>
                             <td>
                                 <div class="btn-group">
@@ -213,6 +171,7 @@
         delimiters: ['[[', ']]'],
         data: {
             devices: [],
+            fields: [], // 所有字段定义
             selectedIds: [],
             searchQuery: '',
             pagination: {
@@ -225,6 +184,12 @@
         computed: {
             isAllSelected() {
                 return this.devices.length > 0 && this.selectedIds.length === this.devices.length;
+            },
+            visibleFields() {
+                // 获取可见且按排序值排序的字段
+                return this.fields
+                    .filter(field => field.is_visible)
+                    .sort((a, b) => a.sort_order - b.sort_order);
             },
             pageNumbers() {
                 const pages = [];
@@ -246,6 +211,22 @@
             }
         },
         methods: {
+            fetchFields() {
+                // 获取字段定义
+                fetch('/api/asset/fields')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            this.fields = data.data;
+                            console.log("已加载字段定义，总数:", this.fields.length);
+                        } else {
+                            console.error('获取字段定义失败');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('获取字段定义失败:', error);
+                    });
+            },
             fetchDevices() {
                 const params = new URLSearchParams({
                     page: this.pagination.page,
@@ -399,6 +380,9 @@
             }
         },
         mounted() {
+            // 首先加载字段定义
+            this.fetchFields();
+            // 然后加载设备列表
             this.fetchDevices();
         }
     });

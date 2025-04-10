@@ -3,6 +3,11 @@
 
 {% block content %}
 <div class="container-fluid" id="app">
+    <!-- 加载指示器 -->
+    <div v-if="isLoading" class="alert alert-info">
+        <i class="fas fa-spinner fa-spin me-2"></i> 正在加载字段信息...
+    </div>
+    
     <div class="card shadow">
         <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
             <h6 class="m-0 font-weight-bold text-primary">设备字段设置</h6>
@@ -13,6 +18,14 @@
                 <button class="btn btn-sm btn-primary" @click="showAddModal()">
                     <i class="fas fa-plus"></i> 新增字段
                 </button>
+                <button class="btn btn-sm btn-success ms-2" @click="saveFieldOrder()" :disabled="isLoading || isSaving">
+                    <i class="fas" :class="isSaving ? 'fa-spinner fa-spin' : 'fa-save'"></i> 
+                    <span v-text="isSaving ? '保存中...' : '保存排序'"></span>
+                </button>
+                <button class="btn btn-sm btn-secondary ms-2" @click="resetFieldOrder()" :disabled="isLoading || isResetting">
+                    <i class="fas" :class="isResetting ? 'fa-spinner fa-spin' : 'fa-undo'"></i> 
+                    <span v-text="isResetting ? '重置中...' : '重置排序'"></span>
+                </button>
             </div>
         </div>
         <div class="card-body">
@@ -20,6 +33,7 @@
                 <table class="table table-bordered table-hover">
                     <thead class="thead-light">
                         <tr>
+                            <th width="40"></th>
                             <th>ID</th>
                             <th>字段名称</th>
                             <th>字段键名</th>
@@ -32,7 +46,13 @@
                     </thead>
                     <tbody id="sortableFields">
                         <tr v-for="field in sortedFields" :key="field.id" :class="{'table-light': !field.is_visible}" :data-id="field.id">
-                            <td>[[ field.id ]]</td>
+                            <td class="sortable-handle text-center">
+                                <i class="fas fa-grip-vertical"></i>
+                            </td>
+                            <td>
+                                <span v-if="field.id">[[ field.id ]]</span>
+                                <span v-else class="text-danger">缺失</span>
+                            </td>
                             <td>
                                 <span class="fw-bold">
                                     <i class="fas fa-tag me-1"></i>
@@ -64,23 +84,23 @@
                                 <span v-else>-</span>
                             </td>
                             <td>
-                                <div class="d-flex">
-                                    <div class="sortable-handle me-2">
-                                        <i class="fas fa-grip-lines"></i>
-                                    </div>
-                                    <div class="btn-group">
-                                        <button class="btn btn-sm btn-primary" @click="showEditModal(field)">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-danger" @click="deleteField(field.id)">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </div>
+                                <div class="btn-group">
+                                    <button class="btn btn-sm btn-primary" @click="showEditModal(field)">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-danger" @click="deleteField(field.id)">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
                                 </div>
                             </td>
                         </tr>
-                        <tr v-if="!fields.length">
-                            <td colspan="8" class="text-center py-4">暂无数据</td>
+                        <tr v-if="!fields.length && !isLoading">
+                            <td colspan="9" class="text-center py-4">暂无数据</td>
+                        </tr>
+                        <tr v-if="isLoading">
+                            <td colspan="9" class="text-center py-4">
+                                <i class="fas fa-spinner fa-spin me-2"></i> 加载中...
+                            </td>
                         </tr>
                     </tbody>
                 </table>
@@ -162,6 +182,7 @@
         color: #adb5bd;
         display: flex;
         align-items: center;
+        justify-content: center;
     }
     .sortable-ghost {
         opacity: 0.5;
@@ -182,6 +203,7 @@
         delimiters: ['[[', ']]'],
         data: {
             fields: [],
+            originalFields: [], // 用于保存原始排序
             isEditing: false,
             form: {
                 id: null,
@@ -193,6 +215,9 @@
                 options: ''
             },
             sortable: null,
+            isLoading: true, // 添加加载状态
+            isSaving: false,
+            isResetting: false,
             // 特殊字段列表，这些字段不能修改类型和选项
             specialFields: [
                 'category_id', 'asset_number', 'status', 'location_id', 'qr_code'
@@ -200,28 +225,48 @@
         },
         computed: {
             sortedFields() {
-                return [...this.fields];
+                // 确保所有字段都有有效ID，并按照排序值排序
+                return this.fields
+                    .filter(field => field.id != null)
+                    .sort((a, b) => {
+                        const sortA = a.sort_order || 999;
+                        const sortB = b.sort_order || 999;
+                        return sortA - sortB;
+                    });
             }
         },
         methods: {
             fetchFields() {
+                this.isLoading = true;
                 fetch('/api/asset/fields')
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
-                            this.fields = data.data;
+                            console.log("加载字段:", data.data);
+                            this.fields = data.data.map(field => {
+                                // 确保ID是整数类型
+                                if (field.id) {
+                                    field.id = parseInt(field.id);
+                                }
+                                return field;
+                            });
+                            // 保存原始排序，用于重置功能
+                            this.originalFields = JSON.parse(JSON.stringify(this.fields));
                             // 初始化拖拽排序
                             this.$nextTick(() => {
                                 this.initSortable();
+                                this.isLoading = false;
                             });
                         } else {
                             console.error('获取字段列表失败');
                             alert('获取字段列表失败');
+                            this.isLoading = false;
                         }
                     })
                     .catch(error => {
                         console.error('获取字段列表失败:', error);
                         alert('获取字段列表失败');
+                        this.isLoading = false;
                     });
             },
             initSortable() {
@@ -235,14 +280,28 @@
                     handle: '.sortable-handle',
                     animation: 150,
                     ghostClass: 'sortable-ghost',
-                    chosenClass: 'sortable-chosen',
-                    onEnd: this.handleSort
+                    chosenClass: 'sortable-chosen'
                 });
             },
-            handleSort(evt) {
+            saveFieldOrder() {
+                this.isSaving = true;
                 // 获取排序后的所有字段ID
                 const rows = document.querySelectorAll('#sortableFields tr[data-id]');
-                const orderedIds = Array.from(rows).map(row => parseInt(row.dataset.id));
+                const orderedIds = Array.from(rows)
+                    .map(row => {
+                        const id = row.dataset.id;
+                        // 确保ID是有效的整数
+                        return id && !isNaN(parseInt(id)) ? parseInt(id) : null;
+                    })
+                    .filter(id => id !== null); // 过滤掉无效的ID
+                
+                console.log("排序后的字段ID:", orderedIds);
+                
+                if (orderedIds.length === 0) {
+                    alert('没有有效的字段ID，无法保存排序');
+                    this.isSaving = false;
+                    return;
+                }
                 
                 // 更新字段顺序
                 fetch('/api/asset/fields/update-order', {
@@ -252,21 +311,62 @@
                     },
                     body: JSON.stringify({ ordered_ids: orderedIds })
                 })
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(data => {
+                            throw new Error(data.message || '服务器错误');
+                        });
+                    }
+                    return response.json();
+                })
                 .then(data => {
                     if (data.success) {
-                        console.log('字段顺序更新成功');
+                        alert('字段顺序更新成功');
                         // 刷新字段列表
                         this.fetchFields();
                     } else {
                         console.error('字段顺序更新失败:', data.message);
                         alert('字段顺序更新失败: ' + data.message);
                     }
+                    this.isSaving = false;
                 })
                 .catch(error => {
                     console.error('更新字段顺序失败:', error);
-                    alert('更新字段顺序失败');
+                    alert('更新字段顺序失败: ' + error.message);
+                    this.isSaving = false;
                 });
+            },
+            resetFieldOrder() {
+                this.isResetting = true;
+                if (confirm('确定要重置为默认排序吗？')) {
+                    // 重新获取字段列表，恢复默认排序
+                    fetch('/api/asset/fields?reset=true')
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                // 直接使用服务器返回的重置后数据
+                                this.fields = data.data;
+                                // 重新初始化排序组件
+                                this.$nextTick(() => {
+                                    this.initSortable();
+                                    // 保存重置后的排序顺序到数据库
+                                    this.saveFieldOrder();
+                                    alert('已重置为系统默认排序');
+                                });
+                            } else {
+                                console.error('重置字段排序失败');
+                                alert('重置字段排序失败');
+                            }
+                            this.isResetting = false;
+                        })
+                        .catch(error => {
+                            console.error('重置字段排序失败:', error);
+                            alert('重置字段排序失败');
+                            this.isResetting = false;
+                        });
+                } else {
+                    this.isResetting = false;
+                }
             },
             parseOptions(options) {
                 if (!options) return [];

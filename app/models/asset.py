@@ -105,4 +105,25 @@ class DeviceField(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     def __repr__(self):
-        return f'<DeviceField {self.name}>' 
+        return f'<DeviceField {self.name}>'
+
+class DeviceFieldValue(db.Model):
+    """设备自定义字段值模型"""
+    __tablename__ = 'device_field_values'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    device_id = db.Column(db.Integer, db.ForeignKey('devices.id'), nullable=False)  # 设备ID
+    field_key = db.Column(db.String(64), nullable=False)  # 字段键名
+    value = db.Column(db.Text)  # 值
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # 关系
+    device = db.relationship('Device', backref=db.backref('field_values', lazy='dynamic'))
+    
+    __table_args__ = (
+        db.UniqueConstraint('device_id', 'field_key', name='uix_device_field'),
+    )
+    
+    def __repr__(self):
+        return f'<DeviceFieldValue {self.field_key}={self.value}>' 
