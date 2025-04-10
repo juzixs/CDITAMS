@@ -69,10 +69,15 @@
                             </td>
                             <td><code>[[ field.field_key ]]</code></td>
                             <td>
-                                <span class="badge bg-info text-white" v-if="field.field_type === 'text'">文本</span>
-                                <span class="badge bg-success text-white" v-else-if="field.field_type === 'select'">下拉选择</span>
-                                <span class="badge bg-warning text-dark" v-else-if="field.field_type === 'date'">日期</span>
-                                <span class="badge bg-secondary text-white" v-else>[[ field.field_type ]]</span>
+                                <span v-if="isSpecialField(field.field_key)" class="text-muted small">
+                                    <i class="fas fa-lock me-1"></i>系统字段
+                                </span>
+                                <span v-else>
+                                    <span class="badge bg-info text-white" v-if="field.field_type === 'text'">文本</span>
+                                    <span class="badge bg-success text-white" v-else-if="field.field_type === 'select'">下拉选择</span>
+                                    <span class="badge bg-warning text-dark" v-else-if="field.field_type === 'date'">日期</span>
+                                    <span class="badge bg-secondary text-white" v-else>[[ field.field_type ]]</span>
+                                </span>
                             </td>
                             <td>
                                 <i class="fas fa-check-circle text-success" v-if="field.is_required"></i>
@@ -83,7 +88,10 @@
                                 <i class="fas fa-eye-slash text-muted" v-else></i>
                             </td>
                             <td>
-                                <span v-if="field.options">
+                                <span v-if="isSpecialField(field.field_key)" class="text-muted small">
+                                    <i class="fas fa-lock me-1"></i>系统配置
+                                </span>
+                                <span v-else-if="field.options">
                                     <span class="badge bg-light text-dark me-1" v-for="option in parseOptions(field.options)">
                                         [[ option ]]
                                     </span>
@@ -238,7 +246,7 @@
             hasOrderChanged: false, // 跟踪排序是否已更改
             // 特殊字段列表，这些字段不能修改类型和选项
             specialFields: [
-                'category_id', 'asset_number', 'status', 'location_id', 'qr_code'
+                'category_id', 'asset_number', 'status', 'location_id', 'qr_code', 'user_id', 'department_id'
             ]
         },
         computed: {
