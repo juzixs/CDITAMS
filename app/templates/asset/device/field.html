@@ -8,19 +8,26 @@
         <i class="fas fa-spinner fa-spin me-2"></i> 正在加载字段信息...
     </div>
     
+    <!-- 排序变更提醒 -->
+    <div v-if="hasOrderChanged" class="alert alert-warning alert-dismissible fade show" role="alert">
+        <i class="fas fa-exclamation-triangle me-2"></i> 您已调整字段排序，请点击"保存排序"按钮保存更改
+        <button type="button" class="btn-close" @click="hasOrderChanged = false" aria-label="Close"></button>
+    </div>
+    
     <div class="card shadow">
         <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
             <h6 class="m-0 font-weight-bold text-primary">设备字段设置</h6>
             <div>
-                <a href="/devices/settings" class="btn btn-sm btn-light">
+                <a href="javascript:void(0)" class="btn btn-sm btn-light" @click="handleBackClick">
                     <i class="fas fa-arrow-left"></i> 返回
                 </a>
                 <button class="btn btn-sm btn-primary" @click="showAddModal()">
                     <i class="fas fa-plus"></i> 新增字段
                 </button>
-                <button class="btn btn-sm btn-success ms-2" @click="saveFieldOrder()" :disabled="isLoading || isSaving">
+                <button class="btn btn-sm" :class="hasOrderChanged ? 'btn-warning' : 'btn-success'" @click="saveFieldOrder()" :disabled="isLoading || isSaving">
                     <i class="fas" :class="isSaving ? 'fa-spinner fa-spin' : 'fa-save'"></i> 
                     <span v-text="isSaving ? '保存中...' : '保存排序'"></span>
+                    <span v-if="hasOrderChanged" class="badge bg-danger ms-1"><i class="fas fa-asterisk"></i></span>
                 </button>
                 <button class="btn btn-sm btn-secondary ms-2" @click="resetFieldOrder()" :disabled="isLoading || isResetting">
                     <i class="fas" :class="isResetting ? 'fa-spinner fa-spin' : 'fa-undo'"></i> 
@@ -191,6 +198,16 @@
     .sortable-chosen {
         background-color: #f8f9fa;
     }
+    .sort-change-tip {
+        animation: fadeInOut 3s ease-in-out;
+        box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.2) !important;
+    }
+    @keyframes fadeInOut {
+        0% { opacity: 0; transform: translateY(20px); }
+        10% { opacity: 1; transform: translateY(0); }
+        90% { opacity: 1; transform: translateY(0); }
+        100% { opacity: 0; transform: translateY(-20px); }
+    }
 </style>
 {% endblock %}
 
@@ -218,6 +235,7 @@
             isLoading: true, // 添加加载状态
             isSaving: false,
             isResetting: false,
+            hasOrderChanged: false, // 跟踪排序是否已更改
             // 特殊字段列表，这些字段不能修改类型和选项
             specialFields: [
                 'category_id', 'asset_number', 'status', 'location_id', 'qr_code'
@@ -256,6 +274,8 @@
                             this.$nextTick(() => {
                                 this.initSortable();
                                 this.isLoading = false;
+                                // 重置排序变更状态
+                                this.hasOrderChanged = false;
                             });
                         } else {
                             console.error('获取字段列表失败');
@@ -275,13 +295,69 @@
                     this.sortable.destroy();
                 }
                 
+                const vm = this;
+                
                 // 初始化Sortable
                 this.sortable = new Sortable(document.getElementById('sortableFields'), {
                     handle: '.sortable-handle',
                     animation: 150,
                     ghostClass: 'sortable-ghost',
-                    chosenClass: 'sortable-chosen'
+                    chosenClass: 'sortable-chosen',
+                    onEnd: function() {
+                        // 检查排序是否有变化
+                        vm.checkOrderChanged();
+                        
+                        // 如果排序有变化，显示提示信息
+                        if (vm.hasOrderChanged && !vm.$el.querySelector('.sort-change-tip')) {
+                            const tip = document.createElement('div');
+                            tip.className = 'sort-change-tip position-fixed p-2 bg-warning text-dark rounded shadow-sm';
+                            tip.style.bottom = '20px';
+                            tip.style.right = '20px';
+                            tip.style.zIndex = '9999';
+                            tip.innerHTML = '<i class="fas fa-info-circle me-1"></i> 排序已更改，请点击"保存排序"按钮保存更改';
+                            
+                            // 添加到DOM
+                            document.body.appendChild(tip);
+                            
+                            // 3秒后自动消失
+                            setTimeout(() => {
+                                if (tip && tip.parentNode) {
+                                    tip.parentNode.removeChild(tip);
+                                }
+                            }, 3000);
+                        }
+                    }
                 });
+            },
+            // 检查排序是否有变化
+            checkOrderChanged() {
+                const rows = document.querySelectorAll('#sortableFields tr[data-id]');
+                const currentOrder = Array.from(rows).map(row => parseInt(row.dataset.id));
+                
+                // 获取原始排序
+                const originalOrder = this.originalFields
+                    .filter(field => field.id != null)
+                    .sort((a, b) => {
+                        const sortA = a.sort_order || 999;
+                        const sortB = b.sort_order || 999;
+                        return sortA - sortB;
+                    })
+                    .map(field => field.id);
+                
+                // 比较当前排序和原始排序
+                let hasChanged = false;
+                if (currentOrder.length === originalOrder.length) {
+                    for (let i = 0; i < currentOrder.length; i++) {
+                        if (currentOrder[i] !== originalOrder[i]) {
+                            hasChanged = true;
+                            break;
+                        }
+                    }
+                } else {
+                    hasChanged = true;
+                }
+                
+                this.hasOrderChanged = hasChanged;
             },
             saveFieldOrder() {
                 this.isSaving = true;
@@ -324,6 +400,8 @@
                         alert('字段顺序更新成功');
                         // 刷新字段列表
                         this.fetchFields();
+                        // 重置排序变更状态
+                        this.hasOrderChanged = false;
                     } else {
                         console.error('字段顺序更新失败:', data.message);
                         alert('字段顺序更新失败: ' + data.message);
@@ -346,6 +424,10 @@
                             if (data.success) {
                                 // 直接使用服务器返回的重置后数据
                                 this.fields = data.data;
+                                // 保存新的原始排序
+                                this.originalFields = JSON.parse(JSON.stringify(this.fields));
+                                // 重设排序变更标志
+                                this.hasOrderChanged = false;
                                 // 重新初始化排序组件
                                 this.$nextTick(() => {
                                     this.initSortable();
@@ -493,10 +575,33 @@
                             alert('删除字段失败');
                         });
                 }
+            },
+            handleBackClick() {
+                if (this.hasOrderChanged) {
+                    if (confirm('您有未保存的排序更改，确定要离开吗？')) {
+                        window.location.href = '/devices/settings';
+                    }
+                } else {
+                    window.location.href = '/devices/settings';
+                }
             }
         },
         mounted() {
             this.fetchFields();
+            
+            // 添加页面离开提示
+            window.addEventListener('beforeunload', (event) => {
+                if (this.hasOrderChanged) {
+                    // 显示确认对话框
+                    const message = '您有未保存的排序更改，确定要离开吗？';
+                    event.returnValue = message;
+                    return message;
+                }
+            });
+        },
+        beforeDestroy() {
+            // 移除事件监听
+            window.removeEventListener('beforeunload', () => {});
         }
     });
 </script>
