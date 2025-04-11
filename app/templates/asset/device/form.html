@@ -118,7 +118,7 @@
                     <div class="col-md-6">
                         <div class="form-group">
                             <label>资产编号 <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" v-model="form.asset_number" required>
+                            <input type="text" class="form-control" v-model="form.asset_number" required @input="parseAssetNumber">
                         </div>
                     </div>
                 </div>
@@ -432,6 +432,11 @@
                     // 监听select2的change事件
                     $('#category-select').on('change', (e) => {
                         this.form.category_id = $('#category-select').val();
+                        
+                        // 当分类改变时，自动生成资产编号
+                        if (this.form.category_id) {
+                            this.generateAssetNumber();
+                        }
                     });
                     
                     // 如果是编辑模式，设置选中值
@@ -596,6 +601,73 @@
                     }
                 }
                 return [];
+            },
+            // 根据输入的资产编号自动选择相应的分类
+            parseAssetNumber() {
+                // 如果资产编号为空，不处理
+                if (!this.form.asset_number) {
+                    return;
+                }
+                
+                // 分析资产编号格式
+                const parts = this.form.asset_number.split('-');
+                
+                // 资产编号格式必须至少包含5部分（一级到四级分类编码+序列号）
+                if (parts.length < 5) {
+                    return;
+                }
+                
+                // 提取前四部分作为分类编码
+                const code1 = parts[0]; // 一级分类编码
+                const code2 = parts[1]; // 二级分类编码
+                const code3 = parts[2]; // 三级分类编码
+                const code4 = parts[3]; // 四级分类编码
+                
+                // 查找匹配的四级分类
+                this.fetchCategoryByCode(code1, code2, code3, code4);
+            },
+            fetchCategoryByCode(code1, code2, code3, code4) {
+                fetch('/api/asset/categories')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // 所有分类列表
+                            const allCategories = data.data;
+                            
+                            // 根据编码查找对应的四级分类
+                            let level1Category = null;
+                            let level2Category = null;
+                            let level3Category = null;
+                            let level4Category = null;
+                            
+                            // 查找一级分类
+                            level1Category = allCategories.find(c => c.level === 1 && c.code === code1);
+                            if (!level1Category) return;
+                            
+                            // 查找二级分类
+                            level2Category = allCategories.find(c => c.level === 2 && c.parent_id === level1Category.id && c.code === code2);
+                            if (!level2Category) return;
+                            
+                            // 查找三级分类
+                            level3Category = allCategories.find(c => c.level === 3 && c.parent_id === level2Category.id && c.code === code3);
+                            if (!level3Category) return;
+                            
+                            // 查找四级分类
+                            level4Category = allCategories.find(c => c.level === 4 && c.parent_id === level3Category.id && c.code === code4);
+                            if (!level4Category) return;
+                            
+                            // 设置分类ID
+                            this.form.category_id = level4Category.id.toString();
+                            
+                            // 更新Select2选择器
+                            this.$nextTick(() => {
+                                $('#category-select').val(this.form.category_id).trigger('change');
+                            });
+                        }
+                    })
+                    .catch(error => {
+                        console.error('根据编码查找分类失败:', error);
+                    });
             }
         },
         mounted() {
