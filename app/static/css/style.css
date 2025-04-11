@@ -390,11 +390,18 @@ body.sidebar-collapsed .sidebar-submenu + .nav-link.active::after {
 }
 
 /* 登录页面样式 */
+body:not(.sidebar-collapsed):not(.sidebar-open) {
+    display: block;
+    overflow-y: auto;
+}
+
 .login-container {
-    height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    margin: 50px auto;
+    padding: 20px;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+    background-color: #fff;
+    width: 100%;
 }
 
 .login-card {
