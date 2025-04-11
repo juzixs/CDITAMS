@@ -219,7 +219,7 @@ def init_system_fields():
         {
             'name': '硬盘序列号',
             'field_key': 'disk_serial',
-            'field_type': 'text',
+            'field_type': 'textarea',
             'is_required': False,
             'is_visible': True,
             'options': None,
@@ -230,7 +230,7 @@ def init_system_fields():
         {
             'name': '用途',
             'field_key': 'purpose',
-            'field_type': 'textarea',
+            'field_type': 'text',
             'is_required': False,
             'is_visible': True,
             'options': None,
@@ -241,7 +241,7 @@ def init_system_fields():
         {
             'name': '备注',
             'field_key': 'remarks',
-            'field_type': 'textarea',
+            'field_type': 'text',
             'is_required': False,
             'is_visible': True,
             'options': None,
@@ -252,7 +252,7 @@ def init_system_fields():
         {
             'name': '固资在账',
             'field_key': 'is_fixed_asset',
-            'field_type': 'select',
+            'field_type': 'checkbox',
             'is_required': False,
             'is_visible': True,
             'options': json.dumps(['是', '否']),
@@ -274,7 +274,7 @@ def init_system_fields():
         {
             'name': '保密台账',
             'field_key': 'secret_inventory',
-            'field_type': 'select',
+            'field_type': 'checkbox',
             'is_required': False,
             'is_visible': True,
             'options': json.dumps(['是', '否']),
@@ -871,7 +871,30 @@ def save_field():
     field_key = data.get('field_key')
     
     # 特殊字段列表，这些字段不能修改类型和选项
-    special_fields = ['category_id', 'asset_number', 'status', 'location_id', 'qr_code']
+    special_fields = ['category_id', 'asset_number', 'status', 'user_id', 'department_id', 'location_id', 'qr_code']
+    
+    # 预定义字段类型字典，用于确保字段类型正确
+    predefined_field_types = {
+        'device_number': 'text',
+        'name': 'text',
+        'model': 'text',
+        'serial_number': 'text',
+        'security_level': 'select',
+        'purchase_date': 'date',
+        'activation_date': 'date',
+        'mac_address': 'text',
+        'ip_address': 'text',
+        'operating_system': 'text',
+        'installation_date': 'date',
+        'disk_serial': 'textarea',
+        'purpose': 'text',
+        'remarks': 'text',
+        'is_fixed_asset': 'checkbox',
+        'card_number': 'text',
+        'secret_inventory': 'checkbox',
+        'inventory_category': 'text'
+    }
+    
     is_special_field = field_key in special_fields
     
     # 如果是系统字段或特殊字段，只更新可见性和必填状态
@@ -909,7 +932,11 @@ def save_field():
         # 设置属性
         for key, value in data.items():
             if key not in ['id', 'is_system'] and hasattr(field, key):
-                setattr(field, key, value)
+                # 如果该字段存在于预定义类型中，则优先使用预定义类型
+                if key == 'field_type' and field_key in predefined_field_types:
+                    setattr(field, key, predefined_field_types[field_key])
+                else:
+                    setattr(field, key, value)
     
     # 保存
     try:

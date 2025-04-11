@@ -148,6 +148,7 @@
                                 <option value="date">日期</option>
                                 <option value="number">数字</option>
                                 <option value="textarea">多行文本</option>
+                                <option value="checkbox">复选框</option>
                             </select>
                         </div>
                         <div class="form-group mb-3" v-if="form.field_type === 'select' && !isSpecialField(form.field_key)">
@@ -245,7 +246,32 @@
             // 特殊字段列表，这些字段不能修改类型和选项
             specialFields: [
                 'category_id', 'asset_number', 'status', 'location_id', 'qr_code', 'user_id', 'department_id'
-            ]
+            ],
+            // 预定义字段类型字典
+            predefinedFieldTypes: {
+                'device_number': 'text',
+                'name': 'text',
+                'model': 'text',
+                'serial_number': 'text',
+                'security_level': 'select',
+                'purchase_date': 'date',
+                'activation_date': 'date',
+                'mac_address': 'text',
+                'ip_address': 'text',
+                'operating_system': 'text',
+                'installation_date': 'date',
+                'disk_serial': 'textarea',
+                'purpose': 'text',
+                'remarks': 'text',
+                'is_fixed_asset': 'checkbox',
+                'card_number': 'text',
+                'secret_inventory': 'checkbox',
+                'inventory_category': 'text'
+            },
+            // 预定义选项字典
+            predefinedFieldOptions: {
+                'security_level': JSON.stringify(['非密', '内部', '秘密', '机密'])
+            }
         },
         computed: {
             sortedFields() {
@@ -272,6 +298,16 @@
                                 if (field.id) {
                                     field.id = parseInt(field.id);
                                 }
+                                
+                                // 更新预定义字段的类型和选项
+                                if (this.predefinedFieldTypes[field.field_key]) {
+                                    field.field_type = this.predefinedFieldTypes[field.field_key];
+                                }
+                                
+                                if (field.field_type === 'select' && this.predefinedFieldOptions[field.field_key]) {
+                                    field.options = this.predefinedFieldOptions[field.field_key];
+                                }
+                                
                                 return field;
                             });
                             // 保存原始排序，用于重置功能
@@ -483,6 +519,15 @@
             showEditModal(field) {
                 this.isEditing = true;
                 this.form = { ...field };
+                
+                // 检查是否为预定义字段，如果是则使用预定义的类型和选项
+                if (this.predefinedFieldTypes[field.field_key]) {
+                    this.form.field_type = this.predefinedFieldTypes[field.field_key];
+                }
+                
+                if (field.field_type === 'select' && this.predefinedFieldOptions[field.field_key]) {
+                    this.form.options = this.predefinedFieldOptions[field.field_key];
+                }
                 
                 // 如果选项是JSON字符串，则解析为多行文本
                 if (field.options && field.field_type === 'select') {
