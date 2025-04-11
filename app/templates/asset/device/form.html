@@ -169,17 +169,6 @@
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>设备状态</label>
-                                <select class="form-control" v-model="form.status">
-                                    <option value="正常">正常</option>
-                                    <option value="维修中">维修中</option>
-                                    <option value="闲置">闲置</option>
-                                    <option value="报废">报废</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="form-group">
                                 <label>密级</label>
                                 <select class="form-control" v-model="form.security_level">
                                     <option value="">请选择</option>
@@ -190,8 +179,6 @@
                                 </select>
                             </div>
                         </div>
-                    </div>
-                    <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label>位置</label>
@@ -201,14 +188,14 @@
                                 </select>
                             </div>
                         </div>
+                    </div>
+                    <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label>购入日期</label>
                                 <input type="date" class="form-control" v-model="form.purchase_date">
                             </div>
                         </div>
-                    </div>
-                    <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label>启用时间</label>
@@ -367,7 +354,7 @@
                 name: "{% if device is defined and device.name %}{{ device.name }}{% else %}{% endif %}",
                 model: "{% if device is defined and device.model %}{{ device.model }}{% else %}{% endif %}",
                 serial_number: "{% if device is defined and device.serial_number %}{{ device.serial_number }}{% else %}{% endif %}",
-                status: "{% if device is defined and device.status %}{{ device.status }}{% else %}正常{% endif %}",
+                status: "{% if device is defined and device.status %}{{ device.status }}{% else %}空闲{% endif %}",
                 security_level: "{% if device is defined and device.security_level %}{{ device.security_level }}{% else %}{% endif %}",
                 user_id: "",
                 department_id: "",
