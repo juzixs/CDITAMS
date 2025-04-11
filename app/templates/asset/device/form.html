@@ -69,6 +69,19 @@
         margin-right: 5px;
         color: #6c757d;
     }
+    
+    /* 分类标题样式 */
+    .section-title {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #495057;
+        padding-bottom: 0.5rem;
+    }
+    
+    .section-title i {
+        margin-right: 0.6rem;
+        color: #6c757d;
+    }
 </style>
 {% endblock %}
 
@@ -85,208 +98,220 @@
         </div>
         <div class="card-body">
             <form @submit.prevent="saveDevice">
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label>分类 <span class="text-danger">*</span></label>
-                            <select class="form-control category-select" id="category-select" v-model="form.category_id" required>
-                                <option value="">请选择分类</option>
-                                {% for category in categories %}
-                                {% if category.level == 1 %}
-                                <option value="{{ category.id }}" disabled data-level="1">{{ category.name }} [{{ category.code }}]</option>
-                                    {% for child in categories %}
-                                    {% if child.parent_id == category.id %}
-                                    <option value="{{ child.id }}" disabled data-level="2">{{ child.name }} [{{ child.code }}]</option>
-                                        {% for grandchild in categories %}
-                                        {% if grandchild.parent_id == child.id %}
-                                        <option value="{{ grandchild.id }}" disabled data-level="3">{{ grandchild.name }} [{{ grandchild.code }}]</option>
-                                            {% for greatgrandchild in categories %}
-                                            {% if greatgrandchild.parent_id == grandchild.id %}
-                                            <option value="{{ greatgrandchild.id }}" data-level="4">{{ greatgrandchild.name }} [{{ greatgrandchild.code }}]</option>
+                <!-- 基础信息 -->
+                <div class="mb-4">
+                    <h5 class="mb-3 border-bottom pb-2 section-title"><i class="fas fa-info-circle"></i>基础信息</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>分类 <span class="text-danger">*</span></label>
+                                <select class="form-control category-select" id="category-select" v-model="form.category_id" required>
+                                    <option value="">请选择分类</option>
+                                    {% for category in categories %}
+                                    {% if category.level == 1 %}
+                                    <option value="{{ category.id }}" disabled data-level="1">{{ category.name }} [{{ category.code }}]</option>
+                                        {% for child in categories %}
+                                        {% if child.parent_id == category.id %}
+                                        <option value="{{ child.id }}" disabled data-level="2">{{ child.name }} [{{ child.code }}]</option>
+                                            {% for grandchild in categories %}
+                                            {% if grandchild.parent_id == child.id %}
+                                            <option value="{{ grandchild.id }}" disabled data-level="3">{{ grandchild.name }} [{{ grandchild.code }}]</option>
+                                                {% for greatgrandchild in categories %}
+                                                {% if greatgrandchild.parent_id == grandchild.id %}
+                                                <option value="{{ greatgrandchild.id }}" data-level="4">{{ greatgrandchild.name }} [{{ greatgrandchild.code }}]</option>
+                                                {% endif %}
+                                                {% endfor %}
                                             {% endif %}
                                             {% endfor %}
                                         {% endif %}
                                         {% endfor %}
                                     {% endif %}
                                     {% endfor %}
-                                {% endif %}
-                                {% endfor %}
-                            </select>
-                            <small class="form-text text-muted">请选择末级分类</small>
+                                </select>
+                                <small class="form-text text-muted">请选择末级分类</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>资产编号 <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" v-model="form.asset_number" required @input="parseAssetNumber">
+                            </div>
                         </div>
                     </div>
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label>资产编号 <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" v-model="form.asset_number" required @input="parseAssetNumber">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>设备编号</label>
+                                <input type="text" class="form-control" v-model="form.device_number">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>名称</label>
+                                <input type="text" class="form-control" v-model="form.name">
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label>设备编号</label>
-                            <input type="text" class="form-control" v-model="form.device_number">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>型号</label>
+                                <input type="text" class="form-control" v-model="form.model">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>序列号</label>
+                                <input type="text" class="form-control" v-model="form.serial_number">
+                            </div>
                         </div>
                     </div>
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label>名称</label>
-                            <input type="text" class="form-control" v-model="form.name">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>设备状态</label>
+                                <select class="form-control" v-model="form.status">
+                                    <option value="正常">正常</option>
+                                    <option value="维修中">维修中</option>
+                                    <option value="闲置">闲置</option>
+                                    <option value="报废">报废</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>密级</label>
+                                <select class="form-control" v-model="form.security_level">
+                                    <option value="">请选择</option>
+                                    <option value="非密">非密</option>
+                                    <option value="内部">内部</option>
+                                    <option value="秘密">秘密</option>
+                                    <option value="机密">机密</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label>型号</label>
-                            <input type="text" class="form-control" v-model="form.model">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>位置</label>
+                                <select class="form-control" v-model="form.location_id">
+                                    <option value="">请选择</option>
+                                    <!-- 位置列表将通过API获取 -->
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>购入日期</label>
+                                <input type="date" class="form-control" v-model="form.purchase_date">
+                            </div>
                         </div>
                     </div>
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label>序列号</label>
-                            <input type="text" class="form-control" v-model="form.serial_number">
-                        </div>
-                    </div>
-                </div>
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label>设备状态</label>
-                            <select class="form-control" v-model="form.status">
-                                <option value="正常">正常</option>
-                                <option value="维修中">维修中</option>
-                                <option value="闲置">闲置</option>
-                                <option value="报废">报废</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label>密级</label>
-                            <select class="form-control" v-model="form.security_level">
-                                <option value="">请选择</option>
-                                <option value="公开">公开</option>
-                                <option value="内部">内部</option>
-                                <option value="秘密">秘密</option>
-                                <option value="机密">机密</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label>位置</label>
-                            <select class="form-control" v-model="form.location_id">
-                                <option value="">请选择</option>
-                                <!-- 位置列表将通过API获取 -->
-                            </select>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label>购入日期</label>
-                            <input type="date" class="form-control" v-model="form.purchase_date">
-                        </div>
-                    </div>
-                </div>
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label>启用时间</label>
-                            <input type="date" class="form-control" v-model="form.activation_date">
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label>MAC地址</label>
-                            <input type="text" class="form-control" v-model="form.mac_address">
-                        </div>
-                    </div>
-                </div>
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label>IP地址</label>
-                            <input type="text" class="form-control" v-model="form.ip_address">
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label>操作系统</label>
-                            <input type="text" class="form-control" v-model="form.operating_system">
-                        </div>
-                    </div>
-                </div>
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label>安装时间</label>
-                            <input type="date" class="form-control" v-model="form.installation_date">
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label>硬盘序列号</label>
-                            <textarea class="form-control" v-model="form.disk_serial" rows="3"></textarea>
-                        </div>
-                    </div>
-                </div>
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label>用途</label>
-                            <input type="text" class="form-control" v-model="form.purpose">
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label>备注</label>
-                            <textarea class="form-control" v-model="form.remarks" rows="3"></textarea>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>启用时间</label>
+                                <input type="date" class="form-control" v-model="form.activation_date">
+                            </div>
                         </div>
                     </div>
                 </div>
                 
-                <!-- 固资在账和保密台账分组 -->
-                <div class="mt-4">
+                <!-- 网络信息 -->
+                <div class="mb-4">
+                    <h5 class="mb-3 border-bottom pb-2 section-title"><i class="fas fa-network-wired"></i>网络信息</h5>
                     <div class="row">
                         <div class="col-md-6">
-                            <div class="card mb-3">
-                                <div class="card-header bg-light">
-                                    <div class="custom-control custom-checkbox">
-                                        <input type="checkbox" class="custom-control-input" id="isFixedAsset" v-model="form.is_fixed_asset">
-                                        <label class="custom-control-label font-weight-bold" for="isFixedAsset">固资在账</label>
-                                    </div>
+                            <div class="form-group">
+                                <label>MAC地址</label>
+                                <input type="text" class="form-control" v-model="form.mac_address">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>IP地址</label>
+                                <input type="text" class="form-control" v-model="form.ip_address">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 计算机类信息 -->
+                <div class="mb-4">
+                    <h5 class="mb-3 border-bottom pb-2 section-title"><i class="fas fa-desktop"></i>计算机信息</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>操作系统</label>
+                                <input type="text" class="form-control" v-model="form.operating_system">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>安装时间</label>
+                                <input type="date" class="form-control" v-model="form.installation_date">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="form-group">
+                                <label>硬盘序列号</label>
+                                <textarea class="form-control" v-model="form.disk_serial" rows="3"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 其他信息 -->
+                <div class="mb-4">
+                    <h5 class="mb-3 border-bottom pb-2 section-title"><i class="fas fa-clipboard-list"></i>其他信息</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>用途</label>
+                                <input type="text" class="form-control" v-model="form.purpose">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>备注</label>
+                                <input type="text" class="form-control" v-model="form.remarks">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 额外信息 -->
+                <div class="mb-4">
+                    <h5 class="mb-3 border-bottom pb-2 section-title"><i class="fas fa-clipboard-check"></i>额外信息</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <div class="form-check mb-2">
+                                    <input type="checkbox" class="form-check-input" id="isFixedAsset" v-model="form.is_fixed_asset">
+                                    <label class="form-check-label font-weight-bold" for="isFixedAsset">固资在账</label>
                                 </div>
-                                <div class="card-body" v-if="form.is_fixed_asset">
-                                    <div class="form-group mb-0">
+                                <div v-if="form.is_fixed_asset" class="mt-2 pl-4 border-left">
+                                    <div class="form-group">
                                         <label>卡片编号</label>
                                         <input type="text" class="form-control" v-model="form.card_number">
                                     </div>
                                 </div>
-                                <div class="card-body" v-else>
-                                    <!-- 空白区域 -->
-                                </div>
                             </div>
                         </div>
                         <div class="col-md-6">
-                            <div class="card mb-3">
-                                <div class="card-header bg-light">
-                                    <div class="custom-control custom-checkbox">
-                                        <input type="checkbox" class="custom-control-input" id="secretInventory" v-model="form.secret_inventory">
-                                        <label class="custom-control-label font-weight-bold" for="secretInventory">保密台账</label>
-                                    </div>
+                            <div class="form-group">
+                                <div class="form-check mb-2">
+                                    <input type="checkbox" class="form-check-input" id="secretInventory" v-model="form.secret_inventory">
+                                    <label class="form-check-label font-weight-bold" for="secretInventory">保密台账</label>
                                 </div>
-                                <div class="card-body" v-if="form.secret_inventory">
-                                    <div class="form-group mb-0">
+                                <div v-if="form.secret_inventory" class="mt-2 pl-4 border-left">
+                                    <div class="form-group">
                                         <label>台账分类</label>
                                         <input type="text" class="form-control" v-model="form.inventory_category">
                                     </div>
-                                </div>
-                                <div class="card-body" v-else>
-                                    <!-- 空白区域 -->
                                 </div>
                             </div>
                         </div>
@@ -294,9 +319,8 @@
                 </div>
                 
                 <!-- 设备自定义字段会在这里动态渲染 -->
-                <div v-if="customFields.length > 0" class="mt-4">
-                    <h5>自定义字段</h5>
-                    <hr>
+                <div v-if="customFields.length > 0" class="mb-4">
+                    <h5 class="mb-3 border-bottom pb-2 section-title"><i class="fas fa-sliders-h"></i>自定义字段</h5>
                     <div class="row" v-for="(field, index) in customFields" :key="field.id">
                         <div class="col-md-6" v-if="index % 2 === 0">
                             <div class="form-group">
