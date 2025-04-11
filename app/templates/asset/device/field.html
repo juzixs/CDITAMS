@@ -76,6 +76,8 @@
                                     <span class="badge bg-info text-white" v-if="field.field_type === 'text'">文本</span>
                                     <span class="badge bg-success text-white" v-else-if="field.field_type === 'select'">下拉选择</span>
                                     <span class="badge bg-warning text-dark" v-else-if="field.field_type === 'date'">日期</span>
+                                    <span class="badge bg-primary text-white" v-else-if="field.field_type === 'checkbox'">复选框</span>
+                                    <span class="badge bg-info text-white" v-else-if="field.field_type === 'textarea'">多行文本</span>
                                     <span class="badge bg-secondary text-white" v-else>[[ field.field_type ]]</span>
                                 </span>
                             </td>
