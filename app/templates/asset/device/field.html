@@ -21,9 +21,6 @@
                 <a href="javascript:void(0)" class="btn btn-sm btn-light" @click="handleBackClick">
                     <i class="fas fa-arrow-left"></i> 返回
                 </a>
-                <button class="btn btn-sm btn-primary" @click="showAddModal()">
-                    <i class="fas fa-plus"></i> 新增字段
-                </button>
                 <button class="btn btn-sm" :class="hasOrderChanged ? 'btn-warning' : 'btn-success'" @click="saveFieldOrder()" :disabled="isLoading || isSaving">
                     <i class="fas" :class="isSaving ? 'fa-spinner fa-spin' : 'fa-save'"></i> 
                     <span v-text="isSaving ? '保存中...' : '保存排序'"></span>
@@ -48,7 +45,6 @@
                             <th>是否必填</th>
                             <th>是否可见</th>
                             <th>选项</th>
-                            <th width="120">操作</th>
                         </tr>
                     </thead>
                     <tbody id="sortableFields">
@@ -98,90 +94,17 @@
                                 </span>
                                 <span v-else>-</span>
                             </td>
-                            <td>
-                                <div class="btn-group">
-                                    <button class="btn btn-sm" :class="isSpecialField(field.field_key) ? 'btn-secondary disabled' : 'btn-primary'" @click="!isSpecialField(field.field_key) && showEditModal(field)">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button class="btn btn-sm" :class="isSpecialField(field.field_key) ? 'btn-secondary disabled' : 'btn-danger'" @click="!isSpecialField(field.field_key) && deleteField(field.id)">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </div>
-                            </td>
                         </tr>
                         <tr v-if="!fields.length && !isLoading">
-                            <td colspan="9" class="text-center py-4">暂无数据</td>
+                            <td colspan="8" class="text-center py-4">暂无数据</td>
                         </tr>
                         <tr v-if="isLoading">
-                            <td colspan="9" class="text-center py-4">
+                            <td colspan="8" class="text-center py-4">
                                 <i class="fas fa-spinner fa-spin me-2"></i> 加载中...
                             </td>
                         </tr>
                     </tbody>
                 </table>
-            </div>
-        </div>
-    </div>
-    
-    <!-- 添加/编辑字段模态框 -->
-    <div class="modal fade" id="fieldModal" tabindex="-1" role="dialog" aria-hidden="true">
-        <div class="modal-dialog" role="document">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="modalTitle">[[ isEditing ? '编辑' : '新增' ]]字段</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <form @submit.prevent="saveField">
-                        <div class="form-group mb-3">
-                            <label>字段名称 <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" v-model="form.name" required>
-                        </div>
-                        <div class="form-group mb-3">
-                            <label>字段键名 <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" v-model="form.field_key" required :readonly="isEditing">
-                            <small class="form-text text-muted" v-if="!isEditing">键名只能包含字母、数字和下划线，且不能以数字开头</small>
-                        </div>
-                        <div class="form-group mb-3" v-if="!isSpecialField(form.field_key)">
-                            <label>字段类型 <span class="text-danger">*</span></label>
-                            <select class="form-control" v-model="form.field_type">
-                                <option value="text">文本</option>
-                                <option value="select">下拉选择</option>
-                                <option value="date">日期</option>
-                                <option value="number">数字</option>
-                                <option value="textarea">多行文本</option>
-                                <option value="checkbox">复选框</option>
-                            </select>
-                        </div>
-                        <div class="form-group mb-3" v-if="form.field_type === 'select' && !isSpecialField(form.field_key)">
-                            <label>选项 <span class="text-danger">*</span></label>
-                            <textarea class="form-control" v-model="form.options" rows="3" placeholder="每行一个选项"></textarea>
-                            <small class="form-text text-muted">每行输入一个选项</small>
-                        </div>
-                        <div class="form-group mb-3">
-                            <label>是否必填</label>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" v-model="form.is_required" id="isRequired">
-                                <label class="form-check-label" for="isRequired">
-                                    必填
-                                </label>
-                            </div>
-                        </div>
-                        <div class="form-group mb-3">
-                            <label>是否可见</label>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" v-model="form.is_visible" id="isVisible">
-                                <label class="form-check-label" for="isVisible">
-                                    可见
-                                </label>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                    <button type="button" class="btn btn-primary" @click="saveField">保存</button>
-                </div>
             </div>
         </div>
     </div>
@@ -230,16 +153,6 @@
         data: {
             fields: [],
             originalFields: [], // 用于保存原始排序
-            isEditing: false,
-            form: {
-                id: null,
-                name: '',
-                field_key: '',
-                field_type: 'text',
-                is_required: false,
-                is_visible: true,
-                options: ''
-            },
             sortable: null,
             isLoading: true, // 添加加载状态
             isSaving: false,
@@ -503,131 +416,8 @@
                     return options.split('\n').filter(Boolean);
                 }
             },
-            showAddModal() {
-                this.isEditing = false;
-                this.form = {
-                    id: null,
-                    name: '',
-                    field_key: '',
-                    field_type: 'text',
-                    is_required: false,
-                    is_visible: true,
-                    options: ''
-                };
-                
-                var fieldModal = new bootstrap.Modal(document.getElementById('fieldModal'));
-                fieldModal.show();
-            },
-            showEditModal(field) {
-                this.isEditing = true;
-                this.form = { ...field };
-                
-                // 检查是否为预定义字段，如果是则使用预定义的类型和选项
-                if (this.predefinedFieldTypes[field.field_key]) {
-                    this.form.field_type = this.predefinedFieldTypes[field.field_key];
-                }
-                
-                if (field.field_type === 'select' && this.predefinedFieldOptions[field.field_key]) {
-                    this.form.options = this.predefinedFieldOptions[field.field_key];
-                }
-                
-                // 如果选项是JSON字符串，则解析为多行文本
-                if (field.options && field.field_type === 'select') {
-                    try {
-                        const options = JSON.parse(field.options);
-                        if (Array.isArray(options)) {
-                            this.form.options = options.join('\n');
-                        }
-                    } catch (e) {
-                        this.form.options = field.options;
-                    }
-                }
-                
-                var fieldModal = new bootstrap.Modal(document.getElementById('fieldModal'));
-                fieldModal.show();
-            },
             isSpecialField(fieldKey) {
                 return this.specialFields.includes(fieldKey);
-            },
-            validateFieldKey(key) {
-                // 验证字段键名格式：只能包含字母、数字和下划线，且不能以数字开头
-                return /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(key);
-            },
-            saveField() {
-                // 表单验证
-                if (!this.form.name) {
-                    alert('请输入字段名称');
-                    return;
-                }
-                
-                if (!this.form.field_key) {
-                    alert('请输入字段键名');
-                    return;
-                }
-                
-                if (!this.validateFieldKey(this.form.field_key)) {
-                    alert('字段键名格式不正确，只能包含字母、数字和下划线，且不能以数字开头');
-                    return;
-                }
-                
-                // 如果是选择类型，验证选项
-                if (this.form.field_type === 'select' && !this.form.options && !this.isSpecialField(this.form.field_key)) {
-                    alert('请输入选项');
-                    return;
-                }
-                
-                // 处理选项格式
-                if (this.form.field_type === 'select' && this.form.options) {
-                    // 将多行文本转换为JSON数组
-                    const options = this.form.options.split('\n').filter(Boolean).map(item => item.trim());
-                    this.form.options = JSON.stringify(options);
-                } else if (this.form.field_type !== 'select' && !this.isSpecialField(this.form.field_key)) {
-                    // 非选择类型，清空选项
-                    this.form.options = '';
-                }
-                
-                fetch('/api/asset/fields', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(this.form)
-                })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            alert(data.message);
-                            var fieldModal = bootstrap.Modal.getInstance(document.getElementById('fieldModal'));
-                            fieldModal.hide();
-                            this.fetchFields();
-                        } else {
-                            alert(data.message);
-                        }
-                    })
-                    .catch(error => {
-                        console.error('保存字段失败:', error);
-                        alert('保存字段失败');
-                    });
-            },
-            deleteField(id) {
-                if (confirm('确定要删除该字段吗？')) {
-                    fetch(`/api/asset/fields/${id}`, {
-                        method: 'DELETE'
-                    })
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.success) {
-                                alert(data.message);
-                                this.fetchFields();
-                            } else {
-                                alert(data.message);
-                            }
-                        })
-                        .catch(error => {
-                            console.error('删除字段失败:', error);
-                            alert('删除字段失败');
-                        });
-                }
             },
             handleBackClick() {
                 if (this.hasOrderChanged) {

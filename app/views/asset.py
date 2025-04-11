@@ -916,105 +916,15 @@ def get_fields():
 @asset.route('/api/asset/fields', methods=['POST'])
 @login_required
 def save_field():
-    data = request.json
-    
-    field_id = data.get('id')
-    is_system = data.get('is_system', False)
-    field_key = data.get('field_key')
-    
-    # 特殊字段列表，这些字段不能修改类型和选项
-    special_fields = ['category_id', 'asset_number', 'status', 'user_id', 'department_id', 'location_id', 'qr_code']
-    
-    # 预定义字段类型字典，用于确保字段类型正确
-    predefined_field_types = {
-        'device_number': 'text',
-        'name': 'text',
-        'model': 'text',
-        'serial_number': 'text',
-        'security_level': 'select',
-        'purchase_date': 'date',
-        'activation_date': 'date',
-        'mac_address': 'text',
-        'ip_address': 'text',
-        'operating_system': 'text',
-        'installation_date': 'date',
-        'disk_serial': 'textarea',
-        'purpose': 'text',
-        'remarks': 'text',
-        'is_fixed_asset': 'checkbox',
-        'card_number': 'text',
-        'secret_inventory': 'checkbox',
-        'inventory_category': 'text'
-    }
-    
-    is_special_field = field_key in special_fields
-    
-    # 如果是系统字段或特殊字段，只更新可见性和必填状态
-    if is_system or is_special_field:
-        # 查询是否已存在配置记录
-        field = DeviceField.query.filter_by(field_key=field_key).first()
-        
-        # 如果不存在，则创建记录
-        if not field:
-            field = DeviceField(
-                name=data.get('name'),
-                field_key=field_key,
-                field_type=data.get('field_type', 'text'),
-                options=data.get('options')
-            )
-            db.session.add(field)
-        
-        # 更新可配置的属性
-        field.is_visible = data.get('is_visible', True)
-        field.is_required = data.get('is_required', False)
-    else:
-        # 自定义字段的保存逻辑
-        if field_id:
-            field = DeviceField.query.get_or_404(field_id)
-        else:
-            field = DeviceField()
-        
-        # 必填项检查
-        if not data.get('name'):
-            return jsonify({'success': False, 'message': '字段名称不能为空'}), 400
-        
-        if not data.get('field_key'):
-            return jsonify({'success': False, 'message': '字段键名不能为空'}), 400
-        
-        # 设置属性
-        for key, value in data.items():
-            if key not in ['id', 'is_system'] and hasattr(field, key):
-                # 如果该字段存在于预定义类型中，则优先使用预定义类型
-                if key == 'field_type' and field_key in predefined_field_types:
-                    setattr(field, key, predefined_field_types[field_key])
-                else:
-                    setattr(field, key, value)
-    
-    # 保存
-    try:
-        db.session.commit()
-        return jsonify({'success': True, 'message': '保存成功', 'id': field.id})
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'success': False, 'message': f'保存失败: {str(e)}'}), 500
+    # 禁用字段保存功能
+    return jsonify({'success': False, 'message': '该功能已禁用，仅支持字段排序'}), 403
 
 # 删除字段
 @asset.route('/api/asset/fields/<int:id>', methods=['DELETE'])
 @login_required
 def delete_field(id):
-    field = DeviceField.query.get_or_404(id)
-    
-    # 检查是否为系统字段
-    if field.field_key in SYSTEM_FIELD_KEYS:
-        return jsonify({'success': False, 'message': '系统默认字段不能删除，但可以设为不可见'}), 400
-    
-    try:
-        db.session.delete(field)
-        db.session.commit()
-        return jsonify({'success': True, 'message': '删除成功'})
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'success': False, 'message': f'删除失败: {str(e)}'}), 500
+    # 禁用字段删除功能
+    return jsonify({'success': False, 'message': '该功能已禁用，仅支持字段排序'}), 403
 
 # 更新字段排序
 @asset.route('/api/asset/fields/update-order', methods=['POST'])
