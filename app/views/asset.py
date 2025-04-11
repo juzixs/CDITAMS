@@ -616,6 +616,58 @@ def batch_delete_devices():
         db.session.rollback()
         return jsonify({'success': False, 'message': f'删除失败: {str(e)}'}), 500
 
+# 获取单个设备详情
+@asset.route('/api/devices/<int:id>', methods=['GET'])
+@login_required
+def get_device(id):
+    device = Device.query.get_or_404(id)
+    
+    try:
+        # 获取设备基本信息
+        device_data = {
+            'id': device.id,
+            'category_id': device.category_id,
+            'asset_number': device.asset_number,
+            'device_number': device.device_number,
+            'name': device.name,
+            'model': device.model,
+            'serial_number': device.serial_number,
+            'status': device.status,
+            'security_level': device.security_level,
+            'user_id': device.user_id,
+            'department_id': device.department_id,
+            'location_id': device.location_id,
+            'purchase_date': device.purchase_date.strftime('%Y-%m-%d') if device.purchase_date else '',
+            'activation_date': device.activation_date.strftime('%Y-%m-%d') if device.activation_date else '',
+            'mac_address': device.mac_address,
+            'ip_address': device.ip_address,
+            'operating_system': device.operating_system,
+            'installation_date': device.installation_date.strftime('%Y-%m-%d') if device.installation_date else '',
+            'disk_serial': device.disk_serial,
+            'purpose': device.purpose,
+            'remarks': device.remarks,
+            'is_fixed_asset': device.is_fixed_asset,
+            'card_number': device.card_number,
+            'secret_inventory': device.secret_inventory,
+            'inventory_category': device.inventory_category,
+            'qr_code': device.qr_code
+        }
+        
+        # 获取自定义字段值
+        custom_fields = {}
+        device_field_values = DeviceFieldValue.query.filter_by(device_id=device.id).all()
+        for field_value in device_field_values:
+            custom_fields[field_value.field_key] = field_value.value
+        
+        return jsonify({
+            'success': True,
+            'data': device_data,
+            'custom_fields': custom_fields
+        })
+    except Exception as e:
+        print(f"获取设备详情失败: {str(e)}")
+        return jsonify({'success': False, 'message': f'获取设备详情失败: {str(e)}'}), 500
+
 # 生成资产编号
 @asset.route('/api/devices/generate-asset-number', methods=['POST'])
 @login_required
