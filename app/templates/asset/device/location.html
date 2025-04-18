@@ -528,6 +528,12 @@
                         this.canvas.dispose();
                     }
                     
+                    // 初始化或重置shapes数组
+                    this.shapes = [];
+                    this.isDrawing = false;
+                    this.drawingShape = null;
+                    this.drawingPoints = [];
+                    
                     // 创建画布对象
                     this.canvas = new fabric.Canvas('editParkMapEditor', {
                         width: containerWidth,
@@ -546,9 +552,6 @@
                     
                     // 重置默认工具
                     this.currentTool = 'move';
-                    this.isDrawing = false;
-                    this.drawingShape = null;
-                    this.drawingPoints = [];
                     this.canvas.defaultCursor = 'grab';
                     this.canvas.renderAll();
                 } catch (error) {
@@ -624,6 +627,15 @@
                     return;
                 }
                 
+                // 移除可能存在的事件监听器，避免重复绑定
+                this.canvas.off('mouse:wheel');
+                this.canvas.off('mouse:down');
+                this.canvas.off('mouse:move');
+                this.canvas.off('mouse:up');
+                this.canvas.off('mouse:dblclick');
+                
+                console.log('设置画布事件监听器');
+                
                 // 鼠标滚轮事件 - 缩放
                 this.canvas.on('mouse:wheel', (opt) => {
                     if (this.currentTool === 'zoom') {
@@ -692,22 +704,41 @@
                         this.finishPolygonDrawing();
                     }
                 });
+                
+                console.log('画布事件监听器设置完成');
             },
             // 加载园区列表
             loadParks() {
-                // 这里应该调用API获取园区列表
+                console.log('正在加载园区列表...');
                 // 加载园区列表数据
-                axios.get('/api/asset/locations', { params: { type: 'park', parent_id: 'root' } })
-                    .then(response => {
-                        if (response.data.success) {
-                            this.parks = response.data.data;
-                        } else {
-                            console.error('加载园区列表失败:', response.data.message);
+                axios.get('/api/asset/locations', { 
+                    params: { type: 'park', parent_id: 'root' },
+                    // 添加时间戳防止缓存
+                    _t: new Date().getTime()
+                })
+                .then(response => {
+                    if (response.data.success) {
+                        console.log('加载园区列表成功，获取到', response.data.data.length, '个园区');
+                        // 保存园区数据
+                        this.parks = response.data.data;
+                        
+                        // 如果当前选中了园区，更新选中的园区数据
+                        if (this.selectedPark) {
+                            const updatedPark = this.parks.find(p => p.id === this.selectedPark.id);
+                            if (updatedPark) {
+                                console.log('更新选中的园区数据', updatedPark.name, 
+                                          '有mapJson:', !!updatedPark.mapJson, 
+                                          '有map_data:', !!updatedPark.map_data);
+                                this.selectedPark = { ...updatedPark };
+                            }
                         }
-                    })
-                    .catch(error => {
-                        console.error('加载园区列表失败:', error);
-                    });       
+                    } else {
+                        console.error('加载园区列表失败:', response.data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('加载园区列表失败:', error);
+                });       
             },
             
             // 选择园区
@@ -1038,39 +1069,144 @@
             
             // 编辑园区
             editPark(park) {
-                // 复制园区数据到编辑表单
-                this.editParkForm = {
-                    id: park.id,
-                    name: park.name,
-                    code: park.code,
-                    description: park.description || '',
-                    type: park.type || 'park',
-                    map_data: park.map_data
-                };
+                // 重命名函数以避免缓存问题
+                this.editParkWithMapData(park);
+            },
+            
+            // 新的编辑园区功能（包含地图加载）
+            editParkWithMapData(park) {
+                console.log('编辑园区(新方法):', park.name);
                 
-                // 显示编辑模态框
-                $('#editParkModal').modal('show');
-                
-                // 如果有地图数据，初始化地图编辑器
-                this.$nextTick(() => {
-                    // 在模态框完全显示后初始化canvas
-                    $('#editParkModal').on('shown.bs.modal', () => {
-                        this.initMapEditor();
+                // 先重新加载最新的园区数据
+                axios.get(`/api/asset/locations/${park.id}`, {
+                    _t: new Date().getTime() // 防止缓存
+                })
+                .then(response => {
+                    if (response.data.success) {
+                        console.log('获取最新园区数据成功');
+                        const freshParkData = response.data.data;
                         
-                        // 加载现有地图数据
-                        if (park.map_data) {
-                            try {
-                                const mapData = JSON.parse(park.map_data);
-                                if (this.canvas) {
-                                    this.canvas.loadFromJSON(mapData, () => {
+                        // 将编辑表单数据设置为最新数据
+                        this.editParkForm = {
+                            id: freshParkData.id,
+                            name: freshParkData.name,
+                            code: freshParkData.code,
+                            description: freshParkData.description || '',
+                            map_data: freshParkData.map_data,
+                            mapJson: freshParkData.mapJson
+                        };
+                        
+                        console.log('准备加载园区平面图数据:',
+                            '有mapJson:', !!freshParkData.mapJson,
+                            '有map_data:', !!freshParkData.map_data);
+                        
+                        // 每次重新添加modal事件前先移除之前的事件监听器
+                        $('#editParkModal').off('shown.bs.modal');
+                        
+                        // 显示编辑模态框
+                        $('#editParkModal').modal('show');
+                        
+                        // 初始化绘图画布 - 在模态框完全显示后
+                        $('#editParkModal').on('shown.bs.modal', () => {
+                            console.log('模态框显示完成，初始化画布');
+                            this.initMapEditor();
+                            
+                            // 如果有地图数据，加载到画布
+                            if (freshParkData.mapJson && this.canvas) {
+                                console.log('在编辑模式下尝试加载现有平面图数据');
+                                try {
+                                    // 尝试解析mapJson
+                                    let mapData;
+                                    if (typeof freshParkData.mapJson === 'string') {
+                                        console.log('解析mapJson字符串');
+                                        mapData = JSON.parse(freshParkData.mapJson);
+                                    } else {
+                                        console.log('mapJson已经是对象');
+                                        mapData = freshParkData.mapJson;
+                                    }
+                                    
+                                    // 手动创建对象
+                                    if (mapData && typeof mapData === 'object' && Array.isArray(mapData.objects)) {
+                                        console.log('创建对象: 发现', mapData.objects.length, '个形状');
+                                        
+                                        mapData.objects.forEach(obj => {
+                                            if (obj._fftype === 'rect') {
+                                                // 创建矩形
+                                                const rect = new fabric.Rect({
+                                                    left: obj.left || 0,
+                                                    top: obj.top || 0,
+                                                    width: obj.width || 100,
+                                                    height: obj.height || 100,
+                                                    fill: obj.fill || 'rgba(0, 123, 255, 0.2)',
+                                                    stroke: obj.stroke || '#007bff',
+                                                    strokeWidth: obj.strokeWidth || 2,
+                                                    selectable: true,
+                                                    _fftype: 'rect'
+                                                });
+                                                this.canvas.add(rect);
+                                                
+                                                // 添加到shapes数组，方便以后引用
+                                                this.shapes.push(rect);
+                                            } else if (obj._fftype === 'polygon' && obj.points) {
+                                                // 创建多边形
+                                                const points = obj.points.map(p => ({ x: p.x, y: p.y }));
+                                                const polygon = new fabric.Polygon(points, {
+                                                    fill: obj.fill || 'rgba(0, 123, 255, 0.2)',
+                                                    stroke: obj.stroke || '#007bff',
+                                                    strokeWidth: obj.strokeWidth || 2,
+                                                    selectable: true,
+                                                    _fftype: 'polygon'
+                                                });
+                                                this.canvas.add(polygon);
+                                                
+                                                // 添加到shapes数组
+                                                this.shapes.push(polygon);
+                                            }
+                                        });
+                                        
                                         this.canvas.renderAll();
-                                    });
+                                        console.log('编辑模式: 成功加载', this.shapes.length, '个形状到画布');
+                                    } else {
+                                        console.warn('无法解析JSON数据或数据格式不正确');
+                                        this.drawGrid();
+                                    }
+                                } catch (error) {
+                                    console.error('编辑模式下加载园区地图数据失败:', error);
+                                    console.log('尝试使用图像作为背景');
+                                    
+                                    // 尝试加载图像作为背景
+                                    if (freshParkData.map_data && freshParkData.map_data.startsWith('data:image')) {
+                                        fabric.Image.fromURL(freshParkData.map_data, (img) => {
+                                            img.set({
+                                                scaleX: this.canvas.width / img.width,
+                                                scaleY: this.canvas.height / img.height,
+                                                selectable: false
+                                            });
+                                            this.canvas.setBackgroundImage(img, this.canvas.renderAll.bind(this.canvas));
+                                            console.log('加载图像作为编辑背景');
+                                        });
+                                    } else {
+                                        // 如果JSON加载失败，重新绘制网格
+                                        this.drawGrid();
+                                    }
                                 }
-                            } catch (e) {
-                                console.error('解析地图数据失败:', e);
+                            } else {
+                                console.log('没有现有平面图数据，绘制空白网格');
+                                // 没有地图数据，只绘制网格
+                                this.shapes = [];
+                                this.drawGrid();
                             }
-                        }
-                    });
+                        });
+                        
+                        console.log('编辑园区事件设置完成');
+                    } else {
+                        console.error('获取园区数据失败:', response.data.message);
+                        alert('获取园区数据失败，无法编辑园区');
+                    }
+                })
+                .catch(error => {
+                    console.error('获取园区数据失败:', error);
+                    alert('获取园区数据失败，无法编辑园区');
                 });
             },
             
@@ -1107,10 +1243,13 @@
                             canvasJSON.objects = [];
                         }
                         
+                        // 输出完整的JSON数据用于调试
+                        console.log('保存的canvasJSON数据:', JSON.stringify(canvasJSON));
+                        
                         // 保存为JSON字符串
                         this.editParkForm.mapJson = JSON.stringify(canvasJSON);
                         
-                        // 保存为图像数据（可选）
+                        // 保存为图像数据（可选但必要，确保在没有JSON数据时有备用）
                         this.editParkForm.map_data = this.canvas.toDataURL({
                             format: 'png',
                             quality: 0.8
@@ -1158,6 +1297,9 @@
                             // 关闭模态框
                             $('#editParkModal').modal('hide');
                             console.log('更新园区成功');
+                            
+                            // 保存成功后重新加载园区列表，确保获取最新数据
+                            this.loadParks();
                         } else {
                             alert('更新园区失败: ' + response.data.message);
                         }
@@ -1519,63 +1661,146 @@
                 console.log('关闭添加园区模态框');
             },
             
-            // 编辑园区
-            editPark(park) {
-                this.editParkForm = {
-                    id: park.id,
-                    name: park.name,
-                    code: park.code,
-                    description: park.description || ''
-                };
-                $('#editParkModal').modal('show');
-            },
-            
-            // 关闭编辑园区模态框
-            closeEditParkModal() {
-                $('#editParkModal').modal('hide');
-                console.log('关闭编辑园区模态框');
-            },
-            
             // 编辑园区平面图
             editParkMap() {
                 if (!this.selectedPark) return;
                 
-                // 将编辑表单数据设置为当前园区数据
-                this.editParkForm = {
-                    id: this.selectedPark.id,
-                    name: this.selectedPark.name,
-                    code: this.selectedPark.code,
-                    description: this.selectedPark.description,
-                    map_data: this.selectedPark.map_data,
-                    mapJson: this.selectedPark.mapJson
-                };
+                console.log('开始编辑园区平面图:', this.selectedPark.name);
                 
-                // 显示编辑模态框
-                $('#editParkModal').modal('show');
-                
-                // 初始化绘图画布 - 在模态框完全显示后
-                $('#editParkModal').on('shown.bs.modal', () => {
-                    this.initMapEditor();
-                    
-                    // 如果有地图数据，加载到画布
-                    if (this.selectedPark.mapJson && this.canvas) {
-                        try {
-                            this.canvas.loadFromJSON(JSON.parse(this.selectedPark.mapJson), () => {
-                                this.canvas.renderAll();
-                                console.log('加载园区地图数据成功');
-                            });
-                        } catch (error) {
-                            console.error('加载园区地图数据失败:', error);
-                            // 如果JSON加载失败，重新绘制网格
-                            this.drawGrid();
-                        }
+                // 先重新加载最新的园区数据
+                axios.get(`/api/asset/locations/${this.selectedPark.id}`, {
+                    _t: new Date().getTime() // 防止缓存
+                })
+                .then(response => {
+                    if (response.data.success) {
+                        console.log('获取最新园区数据成功');
+                        const freshParkData = response.data.data;
+                        
+                        // 更新本地selectedPark数据
+                        this.selectedPark = { ...freshParkData };
+                        
+                        // 将编辑表单数据设置为最新数据
+                        this.editParkForm = {
+                            id: freshParkData.id,
+                            name: freshParkData.name,
+                            code: freshParkData.code,
+                            description: freshParkData.description || '',
+                            map_data: freshParkData.map_data,
+                            mapJson: freshParkData.mapJson
+                        };
+                        
+                        console.log('准备加载园区平面图数据:',
+                            '有mapJson:', !!freshParkData.mapJson,
+                            '有map_data:', !!freshParkData.map_data);
+                        
+                        // 每次重新添加modal事件前先移除之前的事件监听器
+                        $('#editParkModal').off('shown.bs.modal');
+                        
+                        // 显示编辑模态框
+                        $('#editParkModal').modal('show');
+                        
+                        // 初始化绘图画布 - 在模态框完全显示后
+                        $('#editParkModal').on('shown.bs.modal', () => {
+                            console.log('模态框显示完成，初始化画布');
+                            this.initMapEditor();
+                            
+                            // 如果有地图数据，加载到画布
+                            if (freshParkData.mapJson && this.canvas) {
+                                console.log('在编辑模式下尝试加载现有平面图数据');
+                                try {
+                                    // 尝试解析mapJson
+                                    let mapData;
+                                    if (typeof freshParkData.mapJson === 'string') {
+                                        console.log('解析mapJson字符串');
+                                        mapData = JSON.parse(freshParkData.mapJson);
+                                    } else {
+                                        console.log('mapJson已经是对象');
+                                        mapData = freshParkData.mapJson;
+                                    }
+                                    
+                                    // 手动创建对象
+                                    if (mapData && typeof mapData === 'object' && Array.isArray(mapData.objects)) {
+                                        console.log('创建对象: 发现', mapData.objects.length, '个形状');
+                                        
+                                        mapData.objects.forEach(obj => {
+                                            if (obj._fftype === 'rect') {
+                                                // 创建矩形
+                                                const rect = new fabric.Rect({
+                                                    left: obj.left || 0,
+                                                    top: obj.top || 0,
+                                                    width: obj.width || 100,
+                                                    height: obj.height || 100,
+                                                    fill: obj.fill || 'rgba(0, 123, 255, 0.2)',
+                                                    stroke: obj.stroke || '#007bff',
+                                                    strokeWidth: obj.strokeWidth || 2,
+                                                    selectable: true,
+                                                    _fftype: 'rect'
+                                                });
+                                                this.canvas.add(rect);
+                                                
+                                                // 添加到shapes数组，方便以后引用
+                                                this.shapes.push(rect);
+                                            } else if (obj._fftype === 'polygon' && obj.points) {
+                                                // 创建多边形
+                                                const points = obj.points.map(p => ({ x: p.x, y: p.y }));
+                                                const polygon = new fabric.Polygon(points, {
+                                                    fill: obj.fill || 'rgba(0, 123, 255, 0.2)',
+                                                    stroke: obj.stroke || '#007bff',
+                                                    strokeWidth: obj.strokeWidth || 2,
+                                                    selectable: true,
+                                                    _fftype: 'polygon'
+                                                });
+                                                this.canvas.add(polygon);
+                                                
+                                                // 添加到shapes数组
+                                                this.shapes.push(polygon);
+                                            }
+                                        });
+                                        
+                                        this.canvas.renderAll();
+                                        console.log('编辑模式: 成功加载', this.shapes.length, '个形状到画布');
+                                    } else {
+                                        console.warn('无法解析JSON数据或数据格式不正确');
+                                        this.drawGrid();
+                                    }
+                                } catch (error) {
+                                    console.error('编辑模式下加载园区地图数据失败:', error);
+                                    console.log('尝试使用图像作为背景');
+                                    
+                                    // 尝试加载图像作为背景
+                                    if (freshParkData.map_data && freshParkData.map_data.startsWith('data:image')) {
+                                        fabric.Image.fromURL(freshParkData.map_data, (img) => {
+                                            img.set({
+                                                scaleX: this.canvas.width / img.width,
+                                                scaleY: this.canvas.height / img.height,
+                                                selectable: false
+                                            });
+                                            this.canvas.setBackgroundImage(img, this.canvas.renderAll.bind(this.canvas));
+                                            console.log('加载图像作为编辑背景');
+                                        });
+                                    } else {
+                                        // 如果JSON加载失败，重新绘制网格
+                                        this.drawGrid();
+                                    }
+                                }
+                            } else {
+                                console.log('没有现有平面图数据，绘制空白网格');
+                                // 没有地图数据，只绘制网格
+                                this.shapes = [];
+                                this.drawGrid();
+                            }
+                        });
+                        
+                        console.log('编辑园区平面图事件设置完成');
                     } else {
-                        // 没有地图数据，只绘制网格
-                        this.drawGrid();
+                        console.error('获取园区数据失败:', response.data.message);
+                        alert('获取园区数据失败，无法编辑平面图');
                     }
+                })
+                .catch(error => {
+                    console.error('获取园区数据失败:', error);
+                    alert('获取园区数据失败，无法编辑平面图');
                 });
-                
-                console.log('编辑园区平面图');
             },
             
             // 显示添加建筑模态框
@@ -1968,6 +2193,12 @@
                 this.canvas.requestRenderAll();
                 this.lastX = e.clientX;
                 this.lastY = e.clientY;
+            },
+            
+            // 关闭编辑园区模态框
+            closeEditParkModal() {
+                $('#editParkModal').modal('hide');
+                console.log('关闭编辑园区模态框');
             }
         },
         watch: {

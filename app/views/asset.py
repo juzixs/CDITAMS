@@ -1157,4 +1157,48 @@ def update_locations_order():
 @asset.route('/devices/map')
 @login_required
 def device_map():
-    return render_template('asset/device/map.html') 
+    return render_template('asset/device/map.html')
+
+# 获取单个位置详情
+@asset.route('/api/asset/locations/<int:id>', methods=['GET'])
+@login_required
+def get_location(id):
+    """获取单个位置的详情"""
+    try:
+        location = AssetLocation.query.get_or_404(id)
+        
+        # 格式化响应数据
+        location_data = {
+            'id': location.id,
+            'name': location.name,
+            'level': location.level,
+            'type': location.type,
+            'parent_id': location.parent_id,
+            'code': location.code,
+            'description': location.description,
+            'map_data': location.map_data,
+            'mapJson': location.map_data,  # 返回map_data作为mapJson
+            'coordinate_x': location.coordinate_x,
+            'coordinate_y': location.coordinate_y,
+            'width': location.width,
+            'height': location.height,
+            'sort_order': location.sort_order,
+            'created_at': location.created_at.strftime('%Y-%m-%d %H:%M:%S') if location.created_at else None,
+            'updated_at': location.updated_at.strftime('%Y-%m-%d %H:%M:%S') if location.updated_at else None
+        }
+        
+        # 添加建筑物特有的属性
+        if location.type in ['building', 'sub_building']:
+            location_data.update({
+                'is_multi_floor': location.is_multi_floor,
+                'floor_count': location.floor_count,
+                'floor_names': json.loads(location.floor_names) if location.floor_names else []
+            })
+        
+        # 获取子位置数量
+        location_data['children_count'] = AssetLocation.query.filter_by(parent_id=location.id).count()
+        
+        return jsonify({'success': True, 'data': location_data})
+    except Exception as e:
+        print(f"获取位置详情失败: {str(e)}")
+        return jsonify({'success': False, 'message': f'获取位置详情失败: {str(e)}'}), 500 
