@@ -946,34 +946,60 @@
                                 
                                 // 手动创建基本形状
                                 mapData.objects.forEach(obj => {
+                                    // 为所有对象应用通用属性
+                                    const commonProps = {
+                                        left: obj.left || 0,
+                                        top: obj.top || 0,
+                                        fill: (obj._fillEnabled === false) ? 'transparent' : (obj._fillColor || obj.fill || 'rgba(0, 123, 255, 0.2)'),
+                                        stroke: obj._strokeColor || obj.stroke || '#007bff',
+                                        strokeWidth: obj._strokeWidth || obj.strokeWidth || 2,
+                                        scaleX: obj.scaleX || 1,
+                                        scaleY: obj.scaleY || 1,
+                                        angle: obj.angle || 0,
+                                        selectable: false,
+                                        _fillEnabled: obj._fillEnabled,
+                                        _fillColor: obj._fillColor,
+                                        _strokeColor: obj._strokeColor,
+                                        _strokeWidth: obj._strokeWidth
+                                    };
+                                    
+                                    let shape = null;
+                                    
                                     if (obj._fftype === 'rect') {
                                         // 创建矩形
-                                        const rect = new fabric.Rect({
-                                            left: obj.left || 0,
-                                            top: obj.top || 0,
+                                        shape = new fabric.Rect({
+                                            ...commonProps,
                                             width: obj.width || 100,
                                             height: obj.height || 100,
-                                            fill: obj.fill || 'rgba(0, 123, 255, 0.2)',
-                                            stroke: obj.stroke || '#007bff',
-                                            strokeWidth: obj.strokeWidth || 2,
-                                            selectable: false
+                                            _fftype: 'rect'
                                         });
-                                        this.parkCanvas.add(rect);
+                                        this.parkCanvas.add(shape);
                                     } else if (obj._fftype === 'polygon' && obj.points) {
                                         // 创建多边形
                                         const points = obj.points.map(p => ({ x: p.x, y: p.y }));
-                                        const polygon = new fabric.Polygon(points, {
-                                            fill: obj.fill || 'rgba(0, 123, 255, 0.2)',
-                                            stroke: obj.stroke || '#007bff',
-                                            strokeWidth: obj.strokeWidth || 2,
-                                            selectable: false
+                                        shape = new fabric.Polygon(points, {
+                                            ...commonProps,
+                                            _fftype: 'polygon'
                                         });
-                                        this.parkCanvas.add(polygon);
+                                        this.parkCanvas.add(shape);
+                                    } else if (obj._fftype === 'line') {
+                                        // 创建线段
+                                        shape = new fabric.Line(
+                                            [obj.x1 || 0, obj.y1 || 0, obj.x2 || 100, obj.y2 || 100], 
+                                            {
+                                                ...commonProps,
+                                                _fftype: 'line'
+                                            }
+                                        );
+                                        this.parkCanvas.add(shape);
                                     }
                                 });
                                 
                                 this.parkCanvas.renderAll();
                                 console.log('从JSON数据手动重建园区地图成功');
+                                
+                                // 同步样式设置 - 从第一个对象中恢复全局样式设置
+                                this.updateGlobalStylesFromObjects(mapData.objects);
                                 
                                 // 加载建筑物
                                 this.loadBuildings();
@@ -1251,58 +1277,70 @@
                                     if (mapData && typeof mapData === 'object' && Array.isArray(mapData.objects)) {
                                         console.log('创建对象: 发现', mapData.objects.length, '个形状');
                                         
+                                        // 为所有对象应用通用属性
                                         mapData.objects.forEach(obj => {
+                                            const commonProps = {
+                                                left: obj.left || 0,
+                                                top: obj.top || 0,
+                                                fill: (obj._fillEnabled === false) ? 'transparent' : (obj._fillColor || obj.fill || 'rgba(0, 123, 255, 0.2)'),
+                                                stroke: obj._strokeColor || obj.stroke || '#007bff',
+                                                strokeWidth: obj._strokeWidth || obj.strokeWidth || 2,
+                                                scaleX: obj.scaleX || 1,
+                                                scaleY: obj.scaleY || 1,
+                                                angle: obj.angle || 0,
+                                                selectable: true,
+                                                _fillEnabled: obj._fillEnabled,
+                                                _fillColor: obj._fillColor,
+                                                _strokeColor: obj._strokeColor,
+                                                _strokeWidth: obj._strokeWidth
+                                            };
+                                            
+                                            let shape = null;
+                                        
                                             if (obj._fftype === 'rect') {
                                                 // 创建矩形
-                                                const rect = new fabric.Rect({
-                                                    left: obj.left || 0,
-                                                    top: obj.top || 0,
+                                                shape = new fabric.Rect({
+                                                    ...commonProps,
                                                     width: obj.width || 100,
                                                     height: obj.height || 100,
-                                                    fill: obj.fill || 'rgba(0, 123, 255, 0.2)',
-                                                    stroke: obj.stroke || '#007bff',
-                                                    strokeWidth: obj.strokeWidth || 2,
-                                                    selectable: true,
                                                     _fftype: 'rect'
                                                 });
-                                                this.canvas.add(rect);
+                                                this.canvas.add(shape);
                                                 
                                                 // 添加到shapes数组，方便以后引用
-                                                this.shapes.push(rect);
+                                                this.shapes.push(shape);
                                             } else if (obj._fftype === 'polygon' && obj.points) {
                                                 // 创建多边形
                                                 const points = obj.points.map(p => ({ x: p.x, y: p.y }));
-                                                const polygon = new fabric.Polygon(points, {
-                                                    fill: obj.fill || 'rgba(0, 123, 255, 0.2)',
-                                                    stroke: obj.stroke || '#007bff',
-                                                    strokeWidth: obj.strokeWidth || 2,
-                                                    selectable: true,
+                                                shape = new fabric.Polygon(points, {
+                                                    ...commonProps,
                                                     _fftype: 'polygon'
                                                 });
-                                                this.canvas.add(polygon);
+                                                this.canvas.add(shape);
                                                 
                                                 // 添加到shapes数组
-                                                this.shapes.push(polygon);
+                                                this.shapes.push(shape);
                                             } else if (obj._fftype === 'line') {
                                                 // 创建线段
-                                                const line = new fabric.Line(
+                                                shape = new fabric.Line(
                                                     [obj.x1 || 0, obj.y1 || 0, obj.x2 || 100, obj.y2 || 100], 
                                                     {
-                                                        stroke: obj.stroke || '#007bff',
-                                                        strokeWidth: obj.strokeWidth || 2,
-                                                        selectable: true,
+                                                        ...commonProps,
                                                         _fftype: 'line'
                                                     }
                                                 );
-                                                this.canvas.add(line);
+                                                this.canvas.add(shape);
                                                 
                                                 // 添加到shapes数组
-                                                this.shapes.push(line);
+                                                this.shapes.push(shape);
                                             }
                                         });
                                         
                                         this.canvas.renderAll();
                                         console.log('编辑模式: 成功加载', this.shapes.length, '个形状到画布');
+                                        
+                                        // 同步样式设置 - 从第一个对象中恢复全局样式设置
+                                        this.updateGlobalStylesFromObjects(mapData.objects);
                                     } else {
                                         console.warn('无法解析JSON数据或数据格式不正确');
                                         this.drawGrid();
@@ -1358,7 +1396,7 @@
                 // 保存绘图数据
                 if (this.canvas) {
                     try {
-                        // 确保所有对象都有正确的类型属性
+                        // 确保所有对象都有正确的类型属性和样式属性
                         this.canvas.getObjects().forEach(obj => {
                             if (obj.type === 'rect' && !obj.hasOwnProperty('_fftype')) {
                                 obj.set('_fftype', 'rect');
@@ -1369,10 +1407,22 @@
                             } else if (obj.type === 'line' && !obj.isGridLine) {
                                 obj.set('_fftype', 'line');
                             }
+                            
+                            // 确保保存填充和线条样式属性
+                            if (!obj.isGridLine) {
+                                // 为每个对象添加自定义样式属性，确保能重新加载时恢复
+                                obj.set('_fillEnabled', this.fillEnabled);
+                                obj.set('_fillColor', this.fillColor);
+                                obj.set('_strokeColor', this.strokeColor);
+                                obj.set('_strokeWidth', this.strokeWidth);
+                            }
                         });
                         
-                        // 创建包含必要数据的JSON对象
-                        const canvasJSON = this.canvas.toJSON(['type', 'selectable', '_fftype']);
+                        // 创建包含必要数据的JSON对象，包括我们添加的自定义属性
+                        const canvasJSON = this.canvas.toJSON([
+                            'type', 'selectable', '_fftype', 
+                            '_fillEnabled', '_fillColor', '_strokeColor', '_strokeWidth'
+                        ]);
                         
                         // 验证JSON对象格式是否正确
                         if (!canvasJSON || !canvasJSON.objects) {
@@ -1906,58 +1956,70 @@
                                     if (mapData && typeof mapData === 'object' && Array.isArray(mapData.objects)) {
                                         console.log('创建对象: 发现', mapData.objects.length, '个形状');
                                         
+                                        // 为所有对象应用通用属性
                                         mapData.objects.forEach(obj => {
+                                            const commonProps = {
+                                                left: obj.left || 0,
+                                                top: obj.top || 0,
+                                                fill: (obj._fillEnabled === false) ? 'transparent' : (obj._fillColor || obj.fill || 'rgba(0, 123, 255, 0.2)'),
+                                                stroke: obj._strokeColor || obj.stroke || '#007bff',
+                                                strokeWidth: obj._strokeWidth || obj.strokeWidth || 2,
+                                                scaleX: obj.scaleX || 1,
+                                                scaleY: obj.scaleY || 1,
+                                                angle: obj.angle || 0,
+                                                selectable: true,
+                                                _fillEnabled: obj._fillEnabled,
+                                                _fillColor: obj._fillColor,
+                                                _strokeColor: obj._strokeColor,
+                                                _strokeWidth: obj._strokeWidth
+                                            };
+                                            
+                                            let shape = null;
+                                        
                                             if (obj._fftype === 'rect') {
                                                 // 创建矩形
-                                                const rect = new fabric.Rect({
-                                                    left: obj.left || 0,
-                                                    top: obj.top || 0,
+                                                shape = new fabric.Rect({
+                                                    ...commonProps,
                                                     width: obj.width || 100,
                                                     height: obj.height || 100,
-                                                    fill: obj.fill || 'rgba(0, 123, 255, 0.2)',
-                                                    stroke: obj.stroke || '#007bff',
-                                                    strokeWidth: obj.strokeWidth || 2,
-                                                    selectable: true,
                                                     _fftype: 'rect'
                                                 });
-                                                this.canvas.add(rect);
+                                                this.canvas.add(shape);
                                                 
                                                 // 添加到shapes数组，方便以后引用
-                                                this.shapes.push(rect);
+                                                this.shapes.push(shape);
                                             } else if (obj._fftype === 'polygon' && obj.points) {
                                                 // 创建多边形
                                                 const points = obj.points.map(p => ({ x: p.x, y: p.y }));
-                                                const polygon = new fabric.Polygon(points, {
-                                                    fill: obj.fill || 'rgba(0, 123, 255, 0.2)',
-                                                    stroke: obj.stroke || '#007bff',
-                                                    strokeWidth: obj.strokeWidth || 2,
-                                                    selectable: true,
+                                                shape = new fabric.Polygon(points, {
+                                                    ...commonProps,
                                                     _fftype: 'polygon'
                                                 });
-                                                this.canvas.add(polygon);
+                                                this.canvas.add(shape);
                                                 
                                                 // 添加到shapes数组
-                                                this.shapes.push(polygon);
+                                                this.shapes.push(shape);
                                             } else if (obj._fftype === 'line') {
                                                 // 创建线段
-                                                const line = new fabric.Line(
+                                                shape = new fabric.Line(
                                                     [obj.x1 || 0, obj.y1 || 0, obj.x2 || 100, obj.y2 || 100], 
                                                     {
-                                                        stroke: obj.stroke || '#007bff',
-                                                        strokeWidth: obj.strokeWidth || 2,
-                                                        selectable: true,
+                                                        ...commonProps,
                                                         _fftype: 'line'
                                                     }
                                                 );
-                                                this.canvas.add(line);
+                                                this.canvas.add(shape);
                                                 
                                                 // 添加到shapes数组
-                                                this.shapes.push(line);
+                                                this.shapes.push(shape);
                                             }
                                         });
                                         
                                         this.canvas.renderAll();
                                         console.log('编辑模式: 成功加载', this.shapes.length, '个形状到画布');
+                                        
+                                        // 同步样式设置 - 从第一个对象中恢复全局样式设置
+                                        this.updateGlobalStylesFromObjects(mapData.objects);
                                     } else {
                                         console.warn('无法解析JSON数据或数据格式不正确');
                                         this.drawGrid();
@@ -2539,6 +2601,39 @@
                     obj.set({
                         fill: this.fillEnabled ? this.fillColor : 'transparent'
                     });
+                }
+            },
+            
+            // 从加载的对象中更新全局样式设置
+            updateGlobalStylesFromObjects(objects) {
+                if (!objects || objects.length === 0) return;
+                
+                // 找到第一个非网格线的对象
+                const firstObj = objects.find(obj => !obj.isGridLine);
+                if (firstObj) {
+                    console.log('从对象恢复全局样式设置:', firstObj);
+                    
+                    // 更新填充样式
+                    if (firstObj._fillEnabled !== undefined) {
+                        this.fillEnabled = firstObj._fillEnabled;
+                    }
+                    if (firstObj._fillColor) {
+                        this.fillColor = firstObj._fillColor;
+                    }
+                    
+                    // 更新线条样式
+                    if (firstObj._strokeColor) {
+                        this.strokeColor = firstObj._strokeColor;
+                    }
+                    if (firstObj._strokeWidth) {
+                        this.strokeWidth = firstObj._strokeWidth;
+                    }
+                    
+                    console.log('样式设置已更新:', 
+                        '填充:', this.fillEnabled ? '开启' : '关闭',
+                        '填充颜色:', this.fillColor,
+                        '线条颜色:', this.strokeColor,
+                        '线条宽度:', this.strokeWidth);
                 }
             }
         },
