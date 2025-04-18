@@ -184,9 +184,12 @@
                         </div>
                         <div class="col-md-9">
                             <h6 class="mb-3">园区平面图</h6>
-                            <div class="map-editor-container border p-2 mb-3 resizable" style="position: relative; height: 60vh; min-height: 400px; max-height: 1200px; background-color: #f8f9fa;">
-                                <div class="resize-handle" style="position: absolute; bottom: 0; left: 0; right: 0; height: 10px; background-color: #aaa; cursor: ns-resize; border-top: 1px solid #999; z-index: 1000; opacity: 0.8;" @mousedown="onResizeMouseDown">
+                            <div class="map-editor-container border p-2 mb-3 resizable" style="position: relative; width: 100%; height: 60vh; min-height: 400px; max-height: 1200px; background-color: #f8f9fa;">
+                                <div class="resize-handle-vertical" style="position: absolute; bottom: 0; left: 0; right: 0; height: 10px; background-color: #aaa; cursor: ns-resize; border-top: 1px solid #999; z-index: 1000; opacity: 0.8;" @mousedown="onResizeMouseDown($event, 'vertical')">
                                     <div style="width: 40px; height: 4px; background-color: #333; margin: 3px auto; border-radius: 2px;"></div>
+                                </div>
+                                <div class="resize-handle-horizontal" style="position: absolute; top: 0; bottom: 0; right: 0; width: 10px; background-color: #aaa; cursor: ew-resize; border-left: 1px solid #999; z-index: 1000; opacity: 0.8;" @mousedown="onResizeMouseDown($event, 'horizontal')">
+                                    <div style="width: 4px; height: 40px; background-color: #333; margin: auto; position: relative; top: 50%; transform: translateY(-50%); border-radius: 2px;"></div>
                                 </div>
                                 <canvas id="editParkMapEditor" style="width: 100%; height: calc(100% - 10px);">
                                     <!-- 平面图编辑器将在JS中初始化 -->
@@ -2233,7 +2236,7 @@
                     
                     // 添加调试信息，帮助排查问题
                     document.addEventListener('mousedown', (e) => {
-                        if (e.target.closest('.resize-handle')) {
+                        if (e.target.closest('.resize-handle-vertical') || e.target.closest('.resize-handle-horizontal')) {
                             console.log('直接在document上捕获到resize-handle mousedown事件');
                         }
                     }, true);
@@ -2253,10 +2256,10 @@
             },
             
             // 鼠标按下拖动手柄的事件处理
-            onResizeMouseDown(e) {
+            onResizeMouseDown(e, direction) {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('Resize handle mousedown', e.clientY);
+                console.log('Resize handle mousedown', direction, e.clientX, e.clientY);
                 
                 // 获取要调整大小的容器
                 const container = e.target.closest('.resizable');
@@ -2267,13 +2270,16 @@
                 
                 // 显示正在尝试调整大小的容器
                 console.log('调整容器:', container);
-                console.log('起始高度:', container.offsetHeight);
+                console.log('起始尺寸:', container.offsetWidth, 'x', container.offsetHeight);
                 
                 // 记录初始位置和尺寸
                 this.resizing = {
                     container: container,
+                    startX: e.clientX,
                     startY: e.clientY,
-                    startHeight: container.offsetHeight
+                    startWidth: container.offsetWidth,
+                    startHeight: container.offsetHeight,
+                    direction: direction // 记录调整方向
                 };
                 
                 // 保存对方法的引用，以便移除时使用相同的引用
@@ -2291,57 +2297,92 @@
                 
                 // 防止其他元素接收事件
                 document.body.style.userSelect = 'none';
-                document.body.style.cursor = 'ns-resize';
+                document.body.style.cursor = direction === 'vertical' ? 'ns-resize' : 'ew-resize';
             },
             
             // 鼠标移动事件处理
             onResizeMouseMove(e) {
-                console.log('Resize mousemove', e.clientY);
-                
                 if (!this.resizing) {
                     console.log('No resizing object found');
                     return;
                 }
                 
-                // 计算新高度
-                const deltaY = e.clientY - this.resizing.startY;
-                let newHeight = this.resizing.startHeight + deltaY;
-                
-                // 确保高度不低于最小值
-                const minHeight = parseInt(this.resizing.container.style.minHeight) || 400;
-                if (newHeight < minHeight) newHeight = minHeight;
-                
-                // 确保高度不超过最大值
-                const maxHeight = parseInt(this.resizing.container.style.maxHeight) || 1200;
-                if (newHeight > maxHeight) newHeight = maxHeight;
-                
-                console.log('设置新高度:', newHeight);
-                
-                // 设置新高度
-                this.resizing.container.style.height = `${newHeight}px`;
-                
-                // 如果canvas存在，也调整它的尺寸
-                if (this.canvas) {
-                    const container = document.getElementById('editParkMapEditor');
-                    if (container) {
-                        const width = container.parentElement.clientWidth;
-                        // 直接使用新设置的容器高度减去拖动手柄高度
-                        const height = newHeight - 10; // 减去拖动手柄的高度
-                        
-                        container.width = width;
-                        container.height = height;
-                        
-                        this.canvas.setWidth(width);
-                        this.canvas.setHeight(height);
-                        this.canvas.renderAll();
-                        console.log('Canvas调整为:', width, 'x', height);
+                if (this.resizing.direction === 'vertical') {
+                    // 垂直方向调整 - 高度
+                    const deltaY = e.clientY - this.resizing.startY;
+                    let newHeight = this.resizing.startHeight + deltaY;
+                    
+                    // 确保高度不低于最小值
+                    const minHeight = parseInt(this.resizing.container.style.minHeight) || 400;
+                    if (newHeight < minHeight) newHeight = minHeight;
+                    
+                    // 确保高度不超过最大值
+                    const maxHeight = parseInt(this.resizing.container.style.maxHeight) || 1200;
+                    if (newHeight > maxHeight) newHeight = maxHeight;
+                    
+                    console.log('设置新高度:', newHeight);
+                    
+                    // 设置新高度
+                    this.resizing.container.style.height = `${newHeight}px`;
+                    
+                    // 如果canvas存在，也调整它的尺寸
+                    if (this.canvas) {
+                        const container = document.getElementById('editParkMapEditor');
+                        if (container) {
+                            const width = container.parentElement.clientWidth;
+                            // 直接使用新设置的容器高度减去拖动手柄高度
+                            const height = newHeight - 10; // 减去拖动手柄的高度
+                            
+                            container.width = width;
+                            container.height = height;
+                            
+                            this.canvas.setWidth(width);
+                            this.canvas.setHeight(height);
+                            this.canvas.renderAll();
+                            console.log('Canvas调整为:', width, 'x', height);
+                        }
+                    }
+                } else if (this.resizing.direction === 'horizontal') {
+                    // 水平方向调整 - 宽度
+                    const deltaX = e.clientX - this.resizing.startX;
+                    let newWidth = this.resizing.startWidth + deltaX;
+                    
+                    // 确保宽度不低于最小值
+                    const minWidth = 400;
+                    if (newWidth < minWidth) newWidth = minWidth;
+                    
+                    // 确保宽度不超过窗口宽度的95%
+                    const maxWidth = window.innerWidth * 0.95;
+                    if (newWidth > maxWidth) newWidth = maxWidth;
+                    
+                    console.log('设置新宽度:', newWidth);
+                    
+                    // 设置新宽度
+                    this.resizing.container.style.width = `${newWidth}px`;
+                    
+                    // 如果canvas存在，也调整它的尺寸
+                    if (this.canvas) {
+                        const container = document.getElementById('editParkMapEditor');
+                        if (container) {
+                            // 直接使用新设置的容器宽度
+                            const width = newWidth - 20; // 减去padding
+                            const height = this.resizing.container.offsetHeight - 10; // 减去拖动手柄的高度
+                            
+                            container.width = width;
+                            container.height = height; // 保持高度不变
+                            
+                            this.canvas.setWidth(width);
+                            this.canvas.setHeight(height); // 同时设置高度以保持比例
+                            this.canvas.renderAll();
+                            console.log('Canvas调整为:', width, 'x', height);
+                        }
                     }
                 }
             },
             
             // 鼠标释放事件处理
             onResizeMouseUp(e) {
-                console.log('Resize mouseup', e.clientY);
+                console.log('Resize mouseup', e.clientX, e.clientY);
                 
                 if (this.resizing) {
                     // 移除调试类
@@ -2358,25 +2399,6 @@
                     document.body.style.cursor = '';
                     
                     console.log('拖动结束，移除事件监听器');
-                }
-            },
-            
-            // 监听楼层数量变化
-            watchFloorCount() {
-                // 当楼层数量变化时，动态调整楼层列表
-                const newCount = parseInt(this.floorCount) || 1;
-                const currentCount = this.floors.length;
-                
-                if (newCount > currentCount) {
-                    // 增加楼层
-                    for (let i = currentCount; i < newCount; i++) {
-                        this.floors.push({
-                            name: `F${i+1}`
-                        });
-                    }
-                } else if (newCount < currentCount) {
-                    // 减少楼层
-                    this.floors = this.floors.slice(0, newCount);
                 }
             },
             
