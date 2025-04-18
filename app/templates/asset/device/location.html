@@ -193,23 +193,23 @@
                                 </canvas>
                                 <div class="map-tools position-absolute" style="top: 10px; right: 10px; z-index: 100;">
                                     <div class="btn-group-vertical">
+                                        <button type="button" class="btn btn-sm btn-light" title="移动工具" @click="activateMoveTool()">
+                                            <i class="fas fa-arrows-alt"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-light" title="删除选中对象" @click="deleteSelectedObjects()">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-light" title="线段工具" @click="activateLineTool()">
+                                            <i class="fas fa-slash"></i>
+                                        </button>
                                         <button type="button" class="btn btn-sm btn-light" title="矩形工具" @click="activateRectangleTool()">
                                             <i class="fas fa-square"></i>
                                         </button>
                                         <button type="button" class="btn btn-sm btn-light" title="多边形工具" @click="activatePolygonTool()">
                                             <i class="fas fa-draw-polygon"></i>
                                         </button>
-                                        <button type="button" class="btn btn-sm btn-light" title="线段工具" @click="activateLineTool()">
-                                            <i class="fas fa-slash"></i>
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-light" title="移动工具" @click="activateMoveTool()">
-                                            <i class="fas fa-arrows-alt"></i>
-                                        </button>
                                         <button type="button" class="btn btn-sm btn-light" title="缩放工具" @click="activateZoomTool()">
                                             <i class="fas fa-search-plus"></i>
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-light" title="删除选中对象" @click="deleteSelectedObjects()">
-                                            <i class="fas fa-trash"></i>
                                         </button>
                                         <button type="button" class="btn btn-sm btn-light" title="清除画布" @click="clearCanvas()">
                                             <i class="fas fa-trash-alt"></i>
