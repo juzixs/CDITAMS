@@ -203,7 +203,7 @@
         <div class="modal-dialog modal-xl" role="document" style="max-width: 95%; max-height: 95vh; margin: 10px auto;">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">编辑园区平面图</h5>
+                    <h5 class="modal-title">编辑园区</h5>
                     <button type="button" class="close" @click="closeEditParkModal()">
                         <span aria-hidden="true">&times;</span>
                     </button>
@@ -228,9 +228,11 @@
                         </div>
                         <div class="col-md-9">
                             <h6 class="mb-3">园区平面图</h6>
-                            <div class="map-editor-container border p-2 mb-3 resizable" style="position: relative; height: 60vh; min-height: 400px; max-height: 800px; background-color: #f8f9fa;">
-                                <div class="resize-handle" style="position: absolute; bottom: 0; left: 0; right: 0; height: 8px; background-color: #aaa; cursor: ns-resize; border-top: 1px solid #999; z-index: 10;"></div>
-                                <div id="editParkMapEditor" style="width: 100%; height: calc(100% - 8px);">
+                            <div class="map-editor-container border p-2 mb-3 resizable" style="position: relative; height: 60vh; min-height: 400px; max-height: 1200px; background-color: #f8f9fa;">
+                                <div class="resize-handle" style="position: absolute; bottom: 0; left: 0; right: 0; height: 10px; background-color: #aaa; cursor: ns-resize; border-top: 1px solid #999; z-index: 1000; opacity: 0.8;" @mousedown="onResizeMouseDown">
+                                    <div style="width: 40px; height: 4px; background-color: #333; margin: 3px auto; border-radius: 2px;"></div>
+                                </div>
+                                <div id="editParkMapEditor" style="width: 100%; height: calc(100% - 10px);">
                                     <!-- 平面图编辑器将在JS中初始化 -->
                                 </div>
                                 <div class="map-tools position-absolute" style="top: 10px; right: 10px; z-index: 100;">
@@ -243,6 +245,9 @@
                                         </button>
                                         <button type="button" class="btn btn-sm btn-light" title="移动工具" @click="activateMoveTool()">
                                             <i class="fas fa-arrows-alt"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-light" title="缩放工具" @click="activateZoomTool()">
+                                            <i class="fas fa-search-plus"></i>
                                         </button>
                                         <button type="button" class="btn btn-sm btn-light" title="清除画布" @click="clearCanvas()">
                                             <i class="fas fa-trash-alt"></i>
@@ -1674,8 +1679,9 @@
                     const container = document.getElementById('editParkMapEditor');
                     if (container) {
                         this.canvas.setWidth(container.offsetWidth);
-                        this.canvas.setHeight(container.offsetHeight);
+                        this.canvas.setHeight(container.offsetHeight - 10); // 减去拖动手柄的高度
                         this.canvas.renderAll();
+                        console.log('Canvas调整为:', container.offsetWidth, 'x', container.offsetHeight - 10);
                     }
                 }
             },
@@ -1684,29 +1690,27 @@
             initResizableEditor() {
                 this.$nextTick(() => {
                     console.log('Initializing resizable editor');
-                    const handles = document.querySelectorAll('.resize-handle');
-                    console.log('Found resize handles:', handles.length);
                     
-                    handles.forEach(handle => {
-                        // 移除现有事件监听器，防止重复添加
-                        handle.removeEventListener('mousedown', this.onResizeMouseDown);
-                        // 添加新的事件监听器
-                        handle.addEventListener('mousedown', this.onResizeMouseDown.bind(this));
-                        // 增加可见性
-                        handle.style.backgroundColor = '#aaa';
-                        handle.style.height = '8px';
-                    });
+                    // 直接在Vue监听器中添加事件处理
+                    // 不需要在这里添加事件监听器，因为我们使用了@mousedown指令
                     
-                    // 监听模态框显示事件，以在每次显示时重新初始化
+                    // 添加调试信息，帮助排查问题
+                    document.addEventListener('mousedown', (e) => {
+                        if (e.target.closest('.resize-handle')) {
+                            console.log('直接在document上捕获到resize-handle mousedown事件');
+                        }
+                    }, true);
+                    
+                    // 调整模态框显示后的行为
                     $('#editParkModal').off('shown.bs.modal').on('shown.bs.modal', () => {
-                        this.$nextTick(() => {
-                            console.log('Modal shown, reinitializing resize handles');
-                            const handles = document.querySelectorAll('.resize-handle');
-                            handles.forEach(handle => {
-                                handle.removeEventListener('mousedown', this.onResizeMouseDown);
-                                handle.addEventListener('mousedown', this.onResizeMouseDown.bind(this));
+                        console.log('模态框显示，重新初始化canvas');
+                        
+                        // 确保此时canvas已经初始化，否则再次初始化
+                        if (!this.canvas) {
+                            this.$nextTick(() => {
+                                this.initMapEditor();
                             });
-                        });
+                        }
                     });
                 });
             },
@@ -1714,7 +1718,8 @@
             // 鼠标按下拖动手柄的事件处理
             onResizeMouseDown(e) {
                 e.preventDefault();
-                console.log('Resize handle mousedown');
+                e.stopPropagation();
+                console.log('Resize handle mousedown', e.clientY);
                 
                 // 获取要调整大小的容器
                 const container = e.target.closest('.resizable');
@@ -1723,7 +1728,9 @@
                     return;
                 }
                 
-                console.log('Starting resize, current height:', container.offsetHeight);
+                // 显示正在尝试调整大小的容器
+                console.log('调整容器:', container);
+                console.log('起始高度:', container.offsetHeight);
                 
                 // 记录初始位置和尺寸
                 this.resizing = {
@@ -1732,14 +1739,32 @@
                     startHeight: container.offsetHeight
                 };
                 
+                // 保存对方法的引用，以便移除时使用相同的引用
+                this.boundResizeMouseMove = (moveEvent) => {
+                    this.onResizeMouseMove(moveEvent);
+                };
+                
+                this.boundResizeMouseUp = (upEvent) => {
+                    this.onResizeMouseUp(upEvent);
+                };
+                
                 // 添加鼠标移动和释放事件
-                document.addEventListener('mousemove', this.onResizeMouseMove.bind(this));
-                document.addEventListener('mouseup', this.onResizeMouseUp.bind(this));
+                document.addEventListener('mousemove', this.boundResizeMouseMove);
+                document.addEventListener('mouseup', this.boundResizeMouseUp);
+                
+                // 防止其他元素接收事件
+                document.body.style.userSelect = 'none';
+                document.body.style.cursor = 'ns-resize';
             },
             
             // 鼠标移动事件处理
             onResizeMouseMove(e) {
-                if (!this.resizing) return;
+                console.log('Resize mousemove', e.clientY);
+                
+                if (!this.resizing) {
+                    console.log('No resizing object found');
+                    return;
+                }
                 
                 // 计算新高度
                 const deltaY = e.clientY - this.resizing.startY;
@@ -1750,10 +1775,10 @@
                 if (newHeight < minHeight) newHeight = minHeight;
                 
                 // 确保高度不超过最大值
-                const maxHeight = parseInt(this.resizing.container.style.maxHeight) || 800;
+                const maxHeight = parseInt(this.resizing.container.style.maxHeight) || 1200;
                 if (newHeight > maxHeight) newHeight = maxHeight;
                 
-                console.log('Resizing to height:', newHeight);
+                console.log('设置新高度:', newHeight);
                 
                 // 设置新高度
                 this.resizing.container.style.height = `${newHeight}px`;
@@ -1765,20 +1790,31 @@
                         this.canvas.setWidth(container.offsetWidth);
                         this.canvas.setHeight(container.offsetHeight - 10); // 减去拖动手柄的高度
                         this.canvas.renderAll();
+                        console.log('Canvas调整为:', container.offsetWidth, 'x', container.offsetHeight - 10);
                     }
                 }
             },
             
             // 鼠标释放事件处理
-            onResizeMouseUp() {
-                console.log('Resize finished');
-                this.resizing = null;
-                document.removeEventListener('mousemove', this.onResizeMouseMove.bind(this));
-                document.removeEventListener('mouseup', this.onResizeMouseUp.bind(this));
+            onResizeMouseUp(e) {
+                console.log('Resize mouseup', e.clientY);
                 
-                // 重置事件监听器，防止内存泄漏
-                document.removeEventListener('mousemove', this.onResizeMouseMove);
-                document.removeEventListener('mouseup', this.onResizeMouseUp);
+                if (this.resizing) {
+                    // 移除调试类
+                    this.resizing.container.classList.remove('is-resizing');
+                    
+                    this.resizing = null;
+                    
+                    // 使用保存的引用移除事件监听器
+                    document.removeEventListener('mousemove', this.boundResizeMouseMove);
+                    document.removeEventListener('mouseup', this.boundResizeMouseUp);
+                    
+                    // 恢复正常状态
+                    document.body.style.userSelect = '';
+                    document.body.style.cursor = '';
+                    
+                    console.log('拖动结束，移除事件监听器');
+                }
             },
             
             // 监听楼层数量变化
@@ -1836,10 +1872,14 @@
         // 在组件销毁前清理事件监听器
         beforeDestroy() {
             window.removeEventListener('resize', this.handleResize);
-            document.removeEventListener('mousemove', this.onResizeMouseMove);
-            document.removeEventListener('mousemove', this.onResizeMouseMove.bind(this));
-            document.removeEventListener('mouseup', this.onResizeMouseUp);
-            document.removeEventListener('mouseup', this.onResizeMouseUp.bind(this));
+            
+            // 确保移除任何可能存在的引用事件监听器
+            if (this.boundResizeMouseMove) {
+                document.removeEventListener('mousemove', this.boundResizeMouseMove);
+            }
+            if (this.boundResizeMouseUp) {
+                document.removeEventListener('mouseup', this.boundResizeMouseUp);
+            }
             
             // 清除模态框事件监听器
             $('#editParkModal').off('shown.bs.modal');
