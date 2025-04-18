@@ -1021,6 +1021,7 @@ def get_locations():
             'code': location.code,
             'description': location.description,
             'map_data': location.map_data,
+            'mapJson': location.map_data,  # 返回map_data作为mapJson
             'coordinate_x': location.coordinate_x,
             'coordinate_y': location.coordinate_y,
             'width': location.width,
@@ -1064,9 +1065,20 @@ def save_location():
     if not data.get('code'):
         return jsonify({'success': False, 'message': '位置编码不能为空'}), 400
     
-    # 设置属性
+    # 处理mapJson数据，将其保存到map_data字段
+    if 'mapJson' in data and data['mapJson']:
+        # 确保map_data存在，优先使用现有的map_data
+        if not data.get('map_data'):
+            data['map_data'] = data['mapJson']
+        
+        # 无论如何都保存mapJson到location的map_data字段
+        location.map_data = data['mapJson']
+    elif 'map_data' in data and data['map_data']:
+        location.map_data = data['map_data']
+    
+    # 设置其他属性
     for key, value in data.items():
-        if key != 'id' and hasattr(location, key):
+        if key not in ['id', 'mapJson', 'map_data'] and hasattr(location, key):
             setattr(location, key, value)
     
     # 保存
