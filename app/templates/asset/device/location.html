@@ -514,7 +514,8 @@
                     
                     // 计算容器尺寸
                     const containerWidth = container.parentElement.clientWidth;
-                    const containerHeight = container.parentElement.clientHeight - 10; // 减去拖动手柄的高度
+                    // 直接获取容器高度，而不是父元素高度
+                    const containerHeight = container.parentElement.offsetHeight - 10; // 减去拖动手柄的高度
 
                     // 设置canvas元素的宽高
                     container.width = containerWidth;
@@ -2019,7 +2020,8 @@
                     const container = document.getElementById('editParkMapEditor');
                     if (container) {
                         const width = container.parentElement.clientWidth;
-                        const height = container.parentElement.clientHeight - 10; // 减去拖动手柄的高度
+                        // 使用offsetHeight更可靠地获取实际高度
+                        const height = container.parentElement.offsetHeight - 10; // 减去拖动手柄的高度
                         
                         container.width = width;
                         container.height = height;
@@ -2134,7 +2136,8 @@
                     const container = document.getElementById('editParkMapEditor');
                     if (container) {
                         const width = container.parentElement.clientWidth;
-                        const height = container.parentElement.clientHeight - 10; // 减去拖动手柄的高度
+                        // 直接使用新设置的容器高度减去拖动手柄高度
+                        const height = newHeight - 10; // 减去拖动手柄的高度
                         
                         container.width = width;
                         container.height = height;
