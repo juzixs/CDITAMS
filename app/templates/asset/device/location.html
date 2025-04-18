@@ -449,7 +449,6 @@
 <script src="https://cdn.jsdelivr.net/npm/interactjs@1.10.19/dist/interact.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/fabric@5.2.1/dist/fabric.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
 
 <script>
@@ -544,6 +543,27 @@
             tempPoints: []        // 临时点存储（用于多边形绘制）
         },
         methods: {            
+            // 初始化拖拽功能
+            initDraggable() {
+                this.$nextTick(() => {
+                    const parkCardContainer = document.getElementById('parkCardContainer');
+                    if (parkCardContainer) {
+                        new Sortable(parkCardContainer, {
+                            animation: 150,
+                            draggable: ".park-card",
+                            handle: ".card",
+                            ghostClass: "sortable-ghost",
+                            chosenClass: "sortable-chosen",
+                            dragClass: "sortable-drag",
+                            onEnd: (evt) => {
+                                // 拖拽结束后更新顺序
+                                this.saveParksOrder();
+                            }
+                        });
+                    }
+                });
+            },
+            
             // 初始化绘图画布
             initMapEditor() {
                 // 确保DOM已经渲染完成
@@ -932,47 +952,45 @@
             
             // 更新园区
             updatePark() {
-                // 校验
-                if (!this.editParkForm.name) {
-                    alert('请输入园区名称');
-                    return;
-                }
-                
-                if (!this.editParkForm.code) {
-                    alert('请输入园区编码');
-                    return;
-                }
-                
-                // 保存绘图数据
+                // 获取地图数据
                 if (this.parkCanvas) {
-                    this.editParkForm.map_data = JSON.stringify(this.parkCanvas.toJSON());
+                    const jsonData = this.parkCanvas.toJSON(['type', 'selectable', 'evented']);
+                    this.editParkForm.map_data = JSON.stringify(jsonData);
                 }
                 
-                // 发送请求
-                axios.post('/api/asset/locations', this.editParkForm)
+                axios.put(`/api/asset/locations/${this.editParkForm.id}`, this.editParkForm)
                     .then(response => {
                         if (response.data.success) {
-                            // 关闭模态框
-                            $('#editParkModal').modal('hide');
-                            
-                            // 重新加载园区列表
-                            this.loadParks();
-                            
-                            // 如果当前选中的是编辑的园区，则更新选中对象
-                            if (this.selectedPark && this.selectedPark.id === this.editParkForm.id) {
-                                axios.get(`/api/asset/locations/${this.editParkForm.id}`)
-                                    .then(response => {
-                                        if (response.data.success) {
-                                            this.selectedPark = response.data.data;
-                                            this.loadParkMap();
-                                        }
-                                    })
-                                    .catch(error => {
-                                        console.error('获取更新后的园区失败:', error);
-                                    });
+                            // 更新本地数据
+                            const index = this.parks.findIndex(park => park.id === this.editParkForm.id);
+                            if (index !== -1) {
+                                this.parks[index] = {
+                                    ...this.parks[index],
+                                    name: this.editParkForm.name,
+                                    code: this.editParkForm.code,
+                                    description: this.editParkForm.description,
+                                    map_data: this.editParkForm.map_data
+                                };
+                                
+                                // 如果是当前选中的园区，也更新它
+                                if (this.selectedPark && this.selectedPark.id === this.editParkForm.id) {
+                                    this.selectedPark = {
+                                        ...this.selectedPark,
+                                        name: this.editParkForm.name,
+                                        code: this.editParkForm.code,
+                                        description: this.editParkForm.description,
+                                        map_data: this.editParkForm.map_data
+                                    };
+                                    
+                                    // 重新加载园区地图
+                                    this.loadParkMap();
+                                }
                             }
+                            
+                            $('#editParkModal').modal('hide');
+                            alert('园区已更新');
                         } else {
-                            alert('保存失败: ' + response.data.message);
+                            alert('更新失败: ' + response.data.message);
                         }
                     })
                     .catch(error => {
@@ -981,8 +999,36 @@
                     });
             },
             
-            // 初始化绘图画布
+            // 初始化地图编辑器 (创建新园区时使用)
             initMapEditor() {
+                // 确保DOM已经渲染完成
+                this.$nextTick(() => {
+                    // 清理之前的画布(如果存在)
+                    if (this.canvas) {
+                        this.canvas.dispose();
+                    }
+                    
+                    // 初始化绘图画布
+                    this.canvas = new fabric.Canvas('parkMapEditor', {
+                        width: document.getElementById('parkMapEditor').offsetWidth,
+                        height: document.getElementById('parkMapEditor').offsetHeight,
+                        selection: true,
+                        preserveObjectStacking: true
+                    });
+                    
+                    // 绘制网格背景
+                    this.drawGrid();
+                    
+                    // 设置事件监听
+                    this.setupCanvasEvents();
+                    
+                    // 默认激活选择工具
+                    this.activateMoveTool();
+                });
+            },
+            
+            // 初始化园区编辑器 (编辑现有园区时使用)
+            initParkMapEditor() {
                 // 初始化园区编辑器
                 const container = document.getElementById('parkMapEditor');
                 if (!container) return;
