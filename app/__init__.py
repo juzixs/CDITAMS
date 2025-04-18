@@ -14,7 +14,12 @@ def create_app():
     
     # 配置应用
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or 'dev-key-for-cditams'
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///cditams.db'
+    
+    # 获取项目根目录
+    basedir = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+    # 设置数据库路径
+    db_path = os.path.join(basedir, 'instance', 'cditams.db')
+    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
     # 初始化扩展
