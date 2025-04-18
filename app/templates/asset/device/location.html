@@ -165,8 +165,24 @@
                                         <button type="button" class="btn btn-sm btn-light" title="移动工具" @click="activateMoveTool()">
                                             <i class="fas fa-arrows-alt"></i>
                                         </button>
+                                        <button type="button" class="btn btn-sm btn-light" title="缩放工具" @click="activateZoomTool()">
+                                            <i class="fas fa-search-plus"></i>
+                                        </button>
                                         <button type="button" class="btn btn-sm btn-light" title="清除画布" @click="clearCanvas()">
                                             <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="zoom-controls position-absolute" style="bottom: 10px; right: 10px; z-index: 100;">
+                                    <div class="btn-group">
+                                        <button type="button" class="btn btn-sm btn-light" title="放大" @click="zoomIn()">
+                                            <i class="fas fa-plus"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-light" title="重置" @click="resetZoom()">
+                                            <i class="fas fa-undo"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-light" title="缩小" @click="zoomOut()">
+                                            <i class="fas fa-minus"></i>
                                         </button>
                                     </div>
                                 </div>
@@ -184,17 +200,17 @@
     
     <!-- 编辑园区模态框 -->
     <div class="modal fade" id="editParkModal" tabindex="-1" role="dialog" aria-hidden="true">
-        <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-dialog modal-xl" role="document" style="max-width: 95%; max-height: 95vh; margin: 10px auto;">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">编辑园区</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <h5 class="modal-title">编辑园区平面图</h5>
+                    <button type="button" class="close" @click="closeEditParkModal()">
                         <span aria-hidden="true">&times;</span>
                     </button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body" style="height: 90vh; max-height: 1000px; overflow-y: auto;">
                     <div class="row">
-                        <div class="col-md-6">
+                        <div class="col-md-3">
                             <form>
                                 <div class="form-group">
                                     <label>园区名称 <span class="text-danger">*</span></label>
@@ -210,9 +226,9 @@
                                 </div>
                             </form>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-9">
                             <h6 class="mb-3">园区平面图</h6>
-                            <div class="map-editor-container border p-2 mb-3" style="position: relative; height: 300px; background-color: #f8f9fa;">
+                            <div class="map-editor-container border p-2 mb-3" style="position: relative; height: 800px; background-color: #f8f9fa;">
                                 <div id="editParkMapEditor" style="width: 100%; height: 100%;">
                                     <!-- 平面图编辑器将在JS中初始化 -->
                                 </div>
@@ -237,8 +253,8 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">取消</button>
-                    <button type="button" class="btn btn-primary" @click="updatePark()">保存修改</button>
+                    <button type="button" class="btn btn-secondary" id="editParkCancel" @click="closeEditParkModal()">取消</button>
+                    <button type="button" class="btn btn-primary" @click="updatePark()">保存</button>
                 </div>
             </div>
         </div>
@@ -422,6 +438,9 @@
 
 {% block scripts %}
 <!-- 引入绘图相关的库 -->
+<script src="https://cdn.jsdelivr.net/npm/fabric@5.3.0/dist/fabric.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/konva@9.3.0/konva.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/interactjs@1.10.19/dist/interact.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fabric@5.2.1/dist/fabric.min.js"></script>
@@ -436,6 +455,23 @@
             parks: [],
             selectedPark: null,
             selectedBuilding: null,
+            
+            // 绘图相关数据
+            canvas: null,
+            mapStage: null,
+            mapLayer: null,
+            currentTool: 'select', // select, rectangle, polygon, move, zoom
+            drawingPoints: [],
+            drawingShape: null,
+            isDrawing: false,
+            gridSize: 20,
+            zoomScale: 1,
+            currentZoom: 1,
+            isPanning: false,
+            lastX: 0,
+            lastY: 0,
+            startPosition: null,
+            shapes: [],
             parkForm: {
                 name: '',
                 code: '',
@@ -443,7 +479,8 @@
                 type: 'park',
                 level: 1,
                 parent_id: null,
-                map_data: null
+                map_data: null,
+                mapJson: null
             },
             editParkForm: {
                 id: null,
@@ -500,7 +537,149 @@
             drawingMode: false,   // 是否处于绘图模式
             tempPoints: []        // 临时点存储（用于多边形绘制）
         },
-        methods: {
+        methods: {            
+            // 初始化绘图画布
+            initMapEditor() {
+                // 确保DOM已经渲染完成
+                this.$nextTick(() => {
+                    // 清理之前的画布(如果存在)
+                    if (this.canvas) {
+                        this.canvas.dispose();
+                    }
+                    
+                    // 初始化绘图画布
+                    this.canvas = new fabric.Canvas('parkMapEditor', {
+                        width: document.getElementById('parkMapEditor').offsetWidth,
+                        height: document.getElementById('parkMapEditor').offsetHeight,
+                        selection: true,
+                        preserveObjectStacking: true
+                    });
+                    
+                    // 绘制网格背景
+                    this.drawGrid();
+                    
+                    // 设置事件监听
+                    this.setupCanvasEvents();
+                    
+                    // 默认激活选择工具
+                    this.activateMoveTool();
+                });
+            },
+            
+            // 绘制网格背景
+            drawGrid() {
+                const gridSize = this.gridSize;
+                const width = this.canvas.width;
+                const height = this.canvas.height;
+                
+                // 清除现有网格
+                this.canvas.getObjects().filter(obj => obj.type === 'grid').forEach(obj => {
+                    this.canvas.remove(obj);
+                });
+                
+                // 创建网格线
+                const gridLines = [];
+                
+                // 创建垂直线
+                for (let i = 0; i <= width; i += gridSize) {
+                    gridLines.push(new fabric.Line([i, 0, i, height], {
+                        stroke: '#e0e0e0',
+                        selectable: false,
+                        type: 'grid'
+                    }));
+                }
+                
+                // 创建水平线
+                for (let i = 0; i <= height; i += gridSize) {
+                    gridLines.push(new fabric.Line([0, i, width, i], {
+                        stroke: '#e0e0e0',
+                        selectable: false,
+                        type: 'grid'
+                    }));
+                }
+                
+                // 添加网格线到画布
+                this.canvas.add(...gridLines);
+                
+                // 将网格线放到底层
+                gridLines.forEach(line => {
+                    line.sendToBack();
+                });
+                
+                this.canvas.renderAll();
+            },
+            
+            // 设置画布事件
+            setupCanvasEvents() {
+                // 鼠标滚轮事件 - 缩放
+                this.canvas.on('mouse:wheel', (opt) => {
+                    if (this.currentTool === 'zoom') {
+                        const delta = opt.e.deltaY;
+                        let zoom = this.canvas.getZoom();
+                        zoom *= 0.999 ** delta;
+                        if (zoom > 20) zoom = 20;
+                        if (zoom < 0.1) zoom = 0.1;
+                        
+                        const point = {
+                            x: opt.e.offsetX,
+                            y: opt.e.offsetY,
+                        };
+                        
+                        this.canvas.zoomToPoint(point, zoom);
+                        this.currentZoom = zoom;
+                        opt.e.preventDefault();
+                        opt.e.stopPropagation();
+                    }
+                });
+                
+                // 鼠标按下事件
+                this.canvas.on('mouse:down', (opt) => {
+                    const pointer = this.canvas.getPointer(opt.e);
+                    
+                    if (this.currentTool === 'move') {
+                        this.isPanning = true;
+                        this.lastX = opt.e.clientX;
+                        this.lastY = opt.e.clientY;
+                        this.canvas.selection = false;
+                        this.canvas.setCursor('grabbing');
+                    } else if (this.currentTool === 'rectangle' && !this.isDrawing) {
+                        this.startRectangleDrawing(pointer);
+                    } else if (this.currentTool === 'polygon') {
+                        this.handlePolygonDrawing(pointer);
+                    }
+                });
+                
+                // 鼠标移动事件
+                this.canvas.on('mouse:move', (opt) => {
+                    const pointer = this.canvas.getPointer(opt.e);
+                    
+                    if (this.isPanning && this.currentTool === 'move') {
+                        this.handlePanning(opt);
+                    } else if (this.isDrawing && this.currentTool === 'rectangle') {
+                        this.continueRectangleDrawing(pointer);
+                    } else if (this.isDrawing && this.currentTool === 'polygon') {
+                        this.updateDrawingPolygon(pointer);
+                    }
+                });
+                
+                // 鼠标释放事件
+                this.canvas.on('mouse:up', () => {
+                    if (this.currentTool === 'move') {
+                        this.isPanning = false;
+                        this.canvas.selection = true;
+                        this.canvas.setCursor('default');
+                    } else if (this.isDrawing && this.currentTool === 'rectangle') {
+                        this.finishRectangleDrawing();
+                    }
+                });
+                
+                // 双击事件 - 用于完成多边形绘制
+                this.canvas.on('mouse:dblclick', (opt) => {
+                    if (this.currentTool === 'polygon' && this.isDrawing && this.drawingPoints.length >= 6) { // 至少3个点(每个点两个坐标)
+                        this.finishPolygonDrawing();
+                    }
+                });
+            },
             // 加载园区列表
             loadParks() {
                 // 这里应该调用API获取园区列表
@@ -818,6 +997,13 @@
                 const width = canvas.getWidth();
                 const height = canvas.getHeight();
                 
+                // 清除现有网格
+                canvas.getObjects().forEach(obj => {
+                    if (obj.type === 'grid') {
+                        canvas.remove(obj);
+                    }
+                });
+                
                 // 创建网格线
                 for (let i = 0; i < width/gridSize; i++) {
                     canvas.add(new fabric.Line([i * gridSize, 0, i * gridSize, height], {
@@ -843,137 +1029,34 @@
             // 激活矩形工具
             activateRectangleTool() {
                 this.currentTool = 'rectangle';
-                this.drawingMode = true;
-                
-                if (!this.parkCanvas) return;
-                
-                let rect, isDown, origX, origY;
-                
-                this.parkCanvas.off('mouse:down');
-                this.parkCanvas.off('mouse:move');
-                this.parkCanvas.off('mouse:up');
-                
-                this.parkCanvas.on('mouse:down', (o) => {
-                    if (!this.drawingMode) return;
-                    isDown = true;
-                    const pointer = this.parkCanvas.getPointer(o.e);
-                    origX = pointer.x;
-                    origY = pointer.y;
-                    rect = new fabric.Rect({
-                        left: origX,
-                        top: origY,
-                        width: 0,
-                        height: 0,
-                        fill: '#e3f2fd',
-                        stroke: '#1976d2',
-                        strokeWidth: 2,
-                        selectable: true
-                    });
-                    this.parkCanvas.add(rect);
-                });
-                
-                this.parkCanvas.on('mouse:move', (o) => {
-                    if (!isDown) return;
-                    const pointer = this.parkCanvas.getPointer(o.e);
-                    
-                    if (origX > pointer.x) {
-                        rect.set({ left: pointer.x });
-                    }
-                    if (origY > pointer.y) {
-                        rect.set({ top: pointer.y });
-                    }
-                    
-                    rect.set({ width: Math.abs(origX - pointer.x) });
-                    rect.set({ height: Math.abs(origY - pointer.y) });
-                    
-                    this.parkCanvas.renderAll();
-                });
-                
-                this.parkCanvas.on('mouse:up', () => {
-                    isDown = false;
-                });
+                this.canvas.defaultCursor = 'crosshair';
+                this.canvas.selection = false;
+                this.isDrawing = false;
+                this.canvas.discardActiveObject();
+                this.canvas.renderAll();
+                console.log('激活矩形工具');
             },
             
             // 激活多边形工具
             activatePolygonTool() {
                 this.currentTool = 'polygon';
-                this.drawingMode = true;
-                this.tempPoints = [];
-                
-                if (!this.parkCanvas) return;
-                
-                this.parkCanvas.off('mouse:down');
-                this.parkCanvas.off('mouse:move');
-                this.parkCanvas.off('mouse:up');
-                
-                this.parkCanvas.on('mouse:down', (o) => {
-                    if (!this.drawingMode) return;
-                    const pointer = this.parkCanvas.getPointer(o.e);
-                    
-                    // 检查是否是双击(结束多边形绘制)
-                    if (o.e.detail === 2 && this.tempPoints.length >= 3) {
-                        // 创建多边形
-                        const polygon = new fabric.Polygon(this.tempPoints, {
-                            fill: '#e3f2fd',
-                            stroke: '#1976d2',
-                            strokeWidth: 2,
-                            selectable: true
-                        });
-                        this.parkCanvas.add(polygon);
-                        
-                        // 清除临时点和线
-                        this.tempPoints = [];
-                        this.parkCanvas.getObjects().forEach(obj => {
-                            if (obj.type === 'circle' || obj.id === 'tempLine') {
-                                this.parkCanvas.remove(obj);
-                            }
-                        });
-                        
-                        this.parkCanvas.renderAll();
-                        return;
-                    }
-                    
-                    // 添加点
-                    this.tempPoints.push({ x: pointer.x, y: pointer.y });
-                    
-                    // 显示点
-                    const circle = new fabric.Circle({
-                        radius: 5,
-                        fill: '#2196f3',
-                        left: pointer.x - 5,
-                        top: pointer.y - 5,
-                        selectable: false
-                    });
-                    this.parkCanvas.add(circle);
-                    
-                    // 如果有多个点，画线
-                    if (this.tempPoints.length > 1) {
-                        const p1 = this.tempPoints[this.tempPoints.length - 2];
-                        const p2 = this.tempPoints[this.tempPoints.length - 1];
-                        
-                        const line = new fabric.Line([p1.x, p1.y, p2.x, p2.y], {
-                            stroke: '#2196f3',
-                            strokeWidth: 2,
-                            selectable: false
-                        });
-                        this.parkCanvas.add(line);
-                    }
-                    
-                    this.parkCanvas.renderAll();
-                });
+                this.canvas.defaultCursor = 'crosshair';
+                this.canvas.selection = false;
+                this.drawingPoints = [];
+                this.isDrawing = false;
+                this.canvas.discardActiveObject();
+                this.canvas.renderAll();
+                console.log('激活多边形工具');
             },
             
-            // 激活移动工具
-            activateMoveTool() {
-                this.currentTool = 'move';
-                this.drawingMode = false;
-                
-                if (!this.parkCanvas) return;
-                
-                this.parkCanvas.off('mouse:down');
-                this.parkCanvas.off('mouse:move');
-                this.parkCanvas.off('mouse:up');
-                
+            // 激活缩放工具
+            activateZoomTool() {
+                this.currentTool = 'zoom';
+                this.canvas.defaultCursor = 'zoom-in';
+                this.canvas.selection = false;
+                this.canvas.discardActiveObject();
+                this.canvas.renderAll();
+                console.log('激活缩放工具');
                 // 启用对象选择和移动
                 this.parkCanvas.selection = true;
                 this.parkCanvas.getObjects().forEach(obj => {
@@ -984,13 +1067,229 @@
                 });
             },
             
+            // 激活移动工具
+            activateMoveTool() {
+                this.currentTool = 'move';
+                this.canvas.defaultCursor = 'grab';
+                this.canvas.selection = true;
+                this.canvas.discardActiveObject();
+                this.canvas.renderAll();
+                console.log('激活移动工具');
+            },
+            
+            // 开始矩形绘制
+            startRectangleDrawing(pointer) {
+                this.isDrawing = true;
+                this.startPosition = pointer;
+                
+                // 创建新矩形
+                this.drawingShape = new fabric.Rect({
+                    left: pointer.x,
+                    top: pointer.y,
+                    width: 0,
+                    height: 0,
+                    fill: 'rgba(0, 123, 255, 0.2)',
+                    stroke: '#007bff',
+                    strokeWidth: 2,
+                    selectable: true,
+                    type: 'park_shape'
+                });
+                
+                this.canvas.add(this.drawingShape);
+            },
+            
+            // 继续矩形绘制
+            continueRectangleDrawing(pointer) {
+                if (!this.startPosition) return;
+                
+                let width = pointer.x - this.startPosition.x;
+                let height = pointer.y - this.startPosition.y;
+                
+                // 处理负数情况
+                if (width < 0) {
+                    this.drawingShape.set('left', pointer.x);
+                    width = Math.abs(width);
+                } else {
+                    this.drawingShape.set('left', this.startPosition.x);
+                }
+                
+                if (height < 0) {
+                    this.drawingShape.set('top', pointer.y);
+                    height = Math.abs(height);
+                } else {
+                    this.drawingShape.set('top', this.startPosition.y);
+                }
+                
+                this.drawingShape.set({
+                    width: width,
+                    height: height
+                });
+                
+                this.canvas.renderAll();
+            },
+            
+            // 完成矩形绘制
+            finishRectangleDrawing() {
+                this.isDrawing = false;
+                this.startPosition = null;
+                
+                // 将绘制的形状添加到shapes数组
+                if (this.drawingShape && this.drawingShape.width > 5 && this.drawingShape.height > 5) {
+                    this.drawingShape.setCoords();
+                    this.shapes.push(this.drawingShape);
+                } else if (this.drawingShape) {
+                    // 如果太小，移除它
+                    this.canvas.remove(this.drawingShape);
+                }
+                
+                this.drawingShape = null;
+                this.canvas.renderAll();
+            },
+            
+            // 处理多边形绘制
+            handlePolygonDrawing(pointer) {
+                if (!this.isDrawing) {
+                    // 开始新的多边形
+                    this.isDrawing = true;
+                    this.drawingPoints = [pointer.x, pointer.y];
+                    
+                    // 创建初始点
+                    const circle = new fabric.Circle({
+                        left: pointer.x,
+                        top: pointer.y,
+                        radius: 5,
+                        fill: '#007bff',
+                        originX: 'center',
+                        originY: 'center',
+                        selectable: false,
+                        type: 'polygon_point'
+                    });
+                    
+                    this.canvas.add(circle);
+                    
+                    // 创建初始多边形线
+                    this.drawingShape = new fabric.Polyline([{
+                        x: pointer.x,
+                        y: pointer.y
+                    }], {
+                        fill: 'rgba(0, 123, 255, 0.2)',
+                        stroke: '#007bff',
+                        strokeWidth: 2,
+                        selectable: false,
+                        type: 'drawing_polygon'
+                    });
+                    
+                    this.canvas.add(this.drawingShape);
+                } else {
+                    // 检查是否点击了起始点以完成多边形
+                    const startPoint = {
+                        x: this.drawingPoints[0],
+                        y: this.drawingPoints[1]
+                    };
+                    
+                    const distance = Math.sqrt(Math.pow(pointer.x - startPoint.x, 2) + Math.pow(pointer.y - startPoint.y, 2));
+                    
+                    if (distance < 20 && this.drawingPoints.length > 4) {
+                        // 关闭多边形
+                        this.finishPolygonDrawing();
+                    } else {
+                        // 添加新点
+                        this.drawingPoints.push(pointer.x, pointer.y);
+                        
+                        // 添加点标记
+                        const circle = new fabric.Circle({
+                            left: pointer.x,
+                            top: pointer.y,
+                            radius: 5,
+                            fill: '#007bff',
+                            originX: 'center',
+                            originY: 'center',
+                            selectable: false,
+                            type: 'polygon_point'
+                        });
+                        
+                        this.canvas.add(circle);
+                        
+                        // 更新多边形线
+                        this.updateDrawingPolygon(pointer);
+                    }
+                }
+            },
+            
+            // 更新绘制中的多边形
+            updateDrawingPolygon(pointer) {
+                if (!this.isDrawing || !this.drawingShape) return;
+                
+                // 创建多边形点数组
+                const points = [];
+                for (let i = 0; i < this.drawingPoints.length; i += 2) {
+                    points.push({
+                        x: this.drawingPoints[i],
+                        y: this.drawingPoints[i + 1]
+                    });
+                }
+                
+                // 添加当前鼠标位置作为临时点
+                points.push({
+                    x: pointer.x,
+                    y: pointer.y
+                });
+                
+                // 更新多边形线
+                this.drawingShape.set('points', points);
+                this.canvas.renderAll();
+            },
+            
+            // 完成多边形绘制
+            finishPolygonDrawing() {
+                if (!this.isDrawing || !this.drawingShape) return;
+                
+                // 移除临时多边形线和点
+                this.canvas.remove(this.drawingShape);
+                this.canvas.getObjects().filter(obj => obj.type === 'polygon_point').forEach(obj => {
+                    this.canvas.remove(obj);
+                });
+                
+                // 创建多边形点数组
+                const points = [];
+                for (let i = 0; i < this.drawingPoints.length; i += 2) {
+                    points.push({
+                        x: this.drawingPoints[i],
+                        y: this.drawingPoints[i + 1]
+                    });
+                }
+                
+                // 创建最终多边形
+                const polygon = new fabric.Polygon(points, {
+                    fill: 'rgba(0, 123, 255, 0.2)',
+                    stroke: '#007bff',
+                    strokeWidth: 2,
+                    selectable: true,
+                    type: 'park_shape'
+                });
+                
+                this.canvas.add(polygon);
+                this.shapes.push(polygon);
+                
+                // 重置绘制状态
+                this.isDrawing = false;
+                this.drawingShape = null;
+                this.drawingPoints = [];
+                
+                this.canvas.renderAll();
+            },
+            
             // 清除画布
             clearCanvas() {
                 if (confirm('确定要清除当前绘图吗？')) {
-                    if (this.parkCanvas) {
-                        this.parkCanvas.clear();
-                        this.drawGrid(this.parkCanvas, 20, '#e0e0e0');
-                    }
+                    this.canvas.clear();
+                    this.drawGrid();
+                    
+                    // 重置状态
+                    this.shapes = [];
+                    this.isDrawing = false;
+                    this.drawingShape = null;
+                    this.drawingPoints = [];
                 }
             },
             
@@ -1004,7 +1303,8 @@
                     type: 'park',
                     level: 1,
                     parent_id: null,
-                    map_data: null
+                    map_data: null,
+                    mapJson: null
                 };
                 
                 $('#addParkModal').modal('show');
@@ -1013,6 +1313,8 @@
                 this.$nextTick(() => {
                     this.initMapEditor();
                 });
+                
+                console.log('显示添加园区模态框');
             },
             
             // 保存园区
@@ -1030,7 +1332,14 @@
                 
                 // 保存绘图数据
                 if (this.parkCanvas) {
-                    this.parkForm.map_data = JSON.stringify(this.parkCanvas.toJSON());
+                    // 保存为JSON数据
+                    this.parkForm.mapJson = JSON.stringify(this.parkCanvas.toJSON(['type', 'selectable']));
+                    
+                    // 保存为图像数据
+                    this.parkForm.map_data = this.parkCanvas.toDataURL({
+                        format: 'png',
+                        quality: 0.8
+                    });
                 }
                 
                 // 发送请求
@@ -1063,75 +1372,103 @@
                 $('#editParkModal').modal('show');
             },
             
+            // 关闭编辑园区模态框
+            closeEditParkModal() {
+                $('#editParkModal').modal('hide');
+                console.log('关闭编辑园区模态框');
+            },
+            
             // 更新园区
             updatePark() {
                 // 表单验证
                 if (!this.editParkForm.name || !this.editParkForm.code) {
-                    alert('请填写园区名称和编码');
+                    alert('请填写必填项！');
                     return;
+                }
+                
+                // 保存绘图数据
+                if (this.canvas) {
+                    // 保存为JSON数据
+                    this.editParkForm.mapJson = JSON.stringify(this.canvas.toJSON(['type', 'selectable']));
+                    
+                    // 保存为图像数据
+                    this.editParkForm.map_data = this.canvas.toDataURL({
+                        format: 'png',
+                        quality: 0.8
+                    });
                 }
                 
                 // TODO: 调用API更新园区
-                
-                // 在前端更新园区数据
-                const parkIndex = this.parks.findIndex(p => p.id === this.editParkForm.id);
-                if (parkIndex !== -1) {
-                    // 保持原有属性不变
-                    const updatedPark = {
-                        ...this.parks[parkIndex],
-                        name: this.editParkForm.name,
-                        code: this.editParkForm.code,
-                        description: this.editParkForm.description
-                    };
+                // 这里先模拟更新本地数据
+                const index = this.parks.findIndex(p => p.id === this.editParkForm.id);
+                if (index !== -1) {
+                    // 更新园区数据
+                    this.parks[index].name = this.editParkForm.name;
+                    this.parks[index].code = this.editParkForm.code;
+                    this.parks[index].description = this.editParkForm.description;
                     
-                    this.$set(this.parks, parkIndex, updatedPark);
+                    // 更新平面图数据
+                    this.parks[index].map_data = this.editParkForm.map_data;
+                    this.parks[index].mapJson = this.editParkForm.mapJson;
                     
-                    // 如果当前选中的园区就是被编辑的园区，也需要更新 selectedPark
-                    if (this.selectedPark && this.selectedPark.id === updatedPark.id) {
-                        this.selectedPark = updatedPark;
+                    // 更新selectedPark
+                    if (this.selectedPark && this.selectedPark.id === this.editParkForm.id) {
+                        this.selectedPark = this.parks[index];
                     }
                 }
                 
+                // 关闭模态框
                 $('#editParkModal').modal('hide');
-            },
-            
-            // 确认删除园区
-            confirmDeletePark(park) {
-                this.parkToDelete = park;
-                $('#deleteParkModal').modal('show');
-            },
-            
-            // 删除园区
-            deletePark() {
-                if (!this.parkToDelete || !this.parkToDelete.id) {
-                    return;
-                }
                 
-                // TODO: 调用API删除园区
-                
-                // 前端删除园区
-                const parkIndex = this.parks.findIndex(p => p.id === this.parkToDelete.id);
-                if (parkIndex !== -1) {
-                    this.parks.splice(parkIndex, 1);
-                    
-                    // 重新排序
-                    this.parks.forEach((park, idx) => {
-                        park.sort_order = idx + 1;
-                    });
-                    
-                    // 如果当前选中的园区是被删除的园区，清除选中状态
-                    if (this.selectedPark && this.selectedPark.id === this.parkToDelete.id) {
-                        this.selectedPark = null;
-                    }
-                }
-                
-                $('#deleteParkModal').modal('hide');
+                console.log('更新园区', this.editParkForm);
             },
             
             // 编辑园区平面图
             editParkMap() {
-                // TODO: 实现平面图编辑器
-                alert('平面图编辑功能即将开发');
+                if (!this.selectedPark) return;
+                
+                // 将编辑表单数据设置为当前园区数据
+                this.editParkForm = {
+                    id: this.selectedPark.id,
+                    name: this.selectedPark.name,
+                    code: this.selectedPark.code,
+                    description: this.selectedPark.description,
+                    map_data: this.selectedPark.map_data,
+                    mapJson: this.selectedPark.mapJson
+                };
+                
+                // 显示编辑模态框
+                $('#editParkModal').modal('show');
+                
+                // 初始化绘图画布
+                this.$nextTick(() => {
+                    // 调整编辑器容器高度 - 使绘图区域更大
+                    const mapContainers = document.querySelectorAll('.map-editor-container');
+                    mapContainers.forEach(container => {
+                        container.style.height = '600px';
+                    });
+                    
+                    this.initMapEditor();
+                    
+                    // 如果有地图数据，加载到画布
+                    if (this.selectedPark.mapJson) {
+                        try {
+                            this.canvas.loadFromJSON(JSON.parse(this.selectedPark.mapJson), () => {
+                                this.canvas.renderAll();
+                                console.log('加载园区地图数据成功');
+                            });
+                        } catch (error) {
+                            console.error('加载园区地图数据失败:', error);
+                            // 如果JSON加载失败，重新绘制网格
+                            this.drawGrid();
+                        }
+                    } else {
+                        // 没有地图数据，只绘制网格
+                        this.drawGrid();
+                    }
+                });
+                
+                console.log('编辑园区平面图');
             },
             
             // 显示添加建筑模态框
