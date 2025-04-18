@@ -122,7 +122,7 @@
     
     <!-- 添加园区模态框 -->
     <div class="modal fade" id="addParkModal" tabindex="-1" role="dialog" aria-hidden="true">
-        <div class="modal-dialog" role="document">
+        <div class="modal-dialog modal-lg" role="document">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">添加园区</h5>
@@ -131,20 +131,48 @@
                     </button>
                 </div>
                 <div class="modal-body">
-                    <form>
-                        <div class="form-group">
-                            <label>园区名称 <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" v-model="parkForm.name" required>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <form>
+                                <div class="form-group">
+                                    <label>园区名称 <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" v-model="parkForm.name" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>园区编码 <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" v-model="parkForm.code" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>描述</label>
+                                    <textarea class="form-control" v-model="parkForm.description" rows="3"></textarea>
+                                </div>
+                            </form>
                         </div>
-                        <div class="form-group">
-                            <label>园区编码 <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" v-model="parkForm.code" required>
+                        <div class="col-md-6">
+                            <h6 class="mb-3">园区平面图</h6>
+                            <div class="map-editor-container border p-2 mb-3" style="position: relative; height: 300px; background-color: #f8f9fa;">
+                                <div id="parkMapEditor" style="width: 100%; height: 100%;">
+                                    <!-- 平面图编辑器将在JS中初始化 -->
+                                </div>
+                                <div class="map-tools position-absolute" style="top: 10px; right: 10px; z-index: 100;">
+                                    <div class="btn-group-vertical">
+                                        <button type="button" class="btn btn-sm btn-light" title="矩形工具" @click="activateRectangleTool()">
+                                            <i class="fas fa-square"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-light" title="多边形工具" @click="activatePolygonTool()">
+                                            <i class="fas fa-draw-polygon"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-light" title="移动工具" @click="activateMoveTool()">
+                                            <i class="fas fa-arrows-alt"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-light" title="清除画布" @click="clearCanvas()">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label>描述</label>
-                            <textarea class="form-control" v-model="parkForm.description" rows="3"></textarea>
-                        </div>
-                    </form>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-dismiss="modal">取消</button>
@@ -156,7 +184,7 @@
     
     <!-- 编辑园区模态框 -->
     <div class="modal fade" id="editParkModal" tabindex="-1" role="dialog" aria-hidden="true">
-        <div class="modal-dialog" role="document">
+        <div class="modal-dialog modal-lg" role="document">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">编辑园区</h5>
@@ -165,20 +193,48 @@
                     </button>
                 </div>
                 <div class="modal-body">
-                    <form>
-                        <div class="form-group">
-                            <label>园区名称 <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" v-model="editParkForm.name" required>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <form>
+                                <div class="form-group">
+                                    <label>园区名称 <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" v-model="editParkForm.name" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>园区编码 <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" v-model="editParkForm.code" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>描述</label>
+                                    <textarea class="form-control" v-model="editParkForm.description" rows="3"></textarea>
+                                </div>
+                            </form>
                         </div>
-                        <div class="form-group">
-                            <label>园区编码 <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" v-model="editParkForm.code" required>
+                        <div class="col-md-6">
+                            <h6 class="mb-3">园区平面图</h6>
+                            <div class="map-editor-container border p-2 mb-3" style="position: relative; height: 300px; background-color: #f8f9fa;">
+                                <div id="editParkMapEditor" style="width: 100%; height: 100%;">
+                                    <!-- 平面图编辑器将在JS中初始化 -->
+                                </div>
+                                <div class="map-tools position-absolute" style="top: 10px; right: 10px; z-index: 100;">
+                                    <div class="btn-group-vertical">
+                                        <button type="button" class="btn btn-sm btn-light" title="矩形工具" @click="activateRectangleTool()">
+                                            <i class="fas fa-square"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-light" title="多边形工具" @click="activatePolygonTool()">
+                                            <i class="fas fa-draw-polygon"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-light" title="移动工具" @click="activateMoveTool()">
+                                            <i class="fas fa-arrows-alt"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-light" title="清除画布" @click="clearCanvas()">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label>描述</label>
-                            <textarea class="form-control" v-model="editParkForm.description" rows="3"></textarea>
-                        </div>
-                    </form>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-dismiss="modal">取消</button>
@@ -199,10 +255,9 @@
                     </button>
                 </div>
                 <div class="modal-body">
-                    <p>您确定要删除园区 <strong>"[[parkToDelete.name]]"</strong> 吗？</p>
-                    <div class="alert alert-danger">
-                        <i class="fas fa-exclamation-triangle"></i> 警告：此操作将删除该园区下的所有建筑和位置信息，且无法恢复！
-                    </div>
+                    <p v-if="parkToDelete">您确定要删除园区 "[[ parkToDelete.name ]]" 吗？</p>
+                    <p v-else>您确定要删除所选园区吗？</p>
+                    <p class="text-danger">此操作不可逆，请谨慎操作。</p>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-dismiss="modal">取消</button>
@@ -367,161 +422,634 @@
 
 {% block scripts %}
 <!-- 引入绘图相关的库 -->
-<script src="https://cdn.jsdelivr.net/npm/konva@8.4.2/konva.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fabric@5.2.1/dist/fabric.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
+
 <script>
-    new Vue({
+    const locationApp = new Vue({
         el: '#locationApp',
         delimiters: ['[[', ']]'],
         data: {
-            parks: [], // 园区列表
-            selectedPark: null, // 当前选中的园区
-            selectedBuilding: null, // 当前选中的建筑
-            selectedFloor: null, // 当前选中的楼层
-            selectedLocation: null, // 当前选中的位置
-            
-            // 表单数据
+            // 数据模型
+            parks: [],
+            selectedPark: null,
+            selectedBuilding: null,
             parkForm: {
                 name: '',
                 code: '',
-                description: ''
+                description: '',
+                type: 'park',
+                level: 1,
+                parent_id: null,
+                map_data: null
             },
             editParkForm: {
                 id: null,
                 name: '',
                 code: '',
-                description: ''
+                description: '',
+                type: 'park',
+                map_data: null
             },
-            parkToDelete: {},
-            draggedParkIndex: null,
+            parkToDelete: null, // 添加缺失的parkToDelete属性
+            deleteParkId: null,
             buildingForm: {
                 name: '',
                 code: '',
                 description: '',
+                type: 'building',
+                level: 2,
+                parent_id: null,
                 is_multi_floor: false,
-                floor_count: 1
+                floor_count: 1,
+                floor_names: [],
+                map_data: null
+            },
+            floorForm: {
+                floor_count: 1,
+                floor_names: []
             },
             locationForm: {
                 code: '',
-                description: ''
+                description: '',
+                type: 'location',
+                level: 5,
+                parent_id: null,
+                coordinate_x: null,
+                coordinate_y: null,
+                width: null,
+                height: null
             },
+            searchQuery: '',
+            deviceSearchResults: [],
+            selectedDevice: null,
             
-            // 楼层管理
+            // 添加缺少的属性
             floorCount: 1,
-            floors: [{name: 'F1'}],
-            
-            // 设备绑定
+            floors: [],
             deviceSearchQuery: '',
-            devices: [],
-            filteredDevices: []
+            filteredDevices: [],
+            devices: [], // 添加devices属性用于存储设备列表
+            
+            // 绘图相关
+            parkCanvas: null,     // 园区画布
+            buildingCanvas: null, // 建筑画布
+            currentTool: null,    // 当前激活的工具
+            drawingMode: false,   // 是否处于绘图模式
+            tempPoints: []        // 临时点存储（用于多边形绘制）
         },
         methods: {
             // 加载园区列表
             loadParks() {
                 // 这里应该调用API获取园区列表
-                // 暂时使用模拟数据
-                this.parks = [
-                    {
-                        id: 1,
-                        name: '总部园区',
-                        code: 'HQ-PARK',
-                        description: '公司总部园区',
-                        map_data: null,
-                        sort_order: 1
-                    },
-                    {
-                        id: 2,
-                        name: '生产园区',
-                        code: 'PROD-PARK',
-                        description: '公司生产园区',
-                        map_data: null,
-                        sort_order: 2
-                    }
-                ];
+                // 加载园区列表数据
+                axios.get('/api/asset/locations', { params: { type: 'park', parent_id: 'root' } })
+                    .then(response => {
+                        if (response.data.success) {
+                            this.parks = response.data.data;
+                        } else {
+                            console.error('加载园区列表失败:', response.data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('加载园区列表失败:', error);
+                    });       
             },
             
             // 选择园区
             selectPark(park) {
                 this.selectedPark = park;
                 this.selectedBuilding = null;
-                this.selectedFloor = null;
-                this.selectedLocation = null;
-                this.loadParkMap();
+                
+                // 加载园区平面图
+                this.$nextTick(() => {
+                    this.loadParkMap();
+                });
             },
             
             // 加载园区平面图
             loadParkMap() {
-                // 这里应该渲染园区平面图
-                if (this.selectedPark && this.selectedPark.map_data) {
-                    // TODO: 使用Konva渲染平面图
+                if (!this.selectedPark || !this.selectedPark.map_data) return;
+                
+                const container = document.getElementById('parkMapCanvas');
+                if (!container) return;
+                
+                // 创建画布对象
+                this.parkCanvas = new fabric.Canvas('parkMapCanvas', {
+                    width: container.offsetWidth,
+                    height: container.offsetHeight,
+                    selection: false
+                });
+                
+                // 加载地图数据
+                try {
+                    const mapData = JSON.parse(this.selectedPark.map_data);
+                    this.parkCanvas.loadFromJSON(mapData, () => {
+                        this.parkCanvas.renderAll();
+                        
+                        // 加载建筑物
+                        this.loadBuildings();
+                    });
+                } catch (e) {
+                    console.error('解析地图数据失败:', e);
                 }
+            },
+            
+            // 加载建筑物
+            loadBuildings() {
+                if (!this.selectedPark) return;
+                
+                axios.get('/api/asset/locations', { params: { type: 'building', parent_id: this.selectedPark.id } })
+                    .then(response => {
+                        if (response.data.success) {
+                            const buildings = response.data.data;
+                            
+                            // 在园区平面图上显示建筑物
+                            buildings.forEach(building => {
+                                if (building.coordinate_x !== null && building.coordinate_y !== null) {
+                                    this.renderBuildingOnParkMap(building);
+                                }
+                            });
+                        }
+                    })
+                    .catch(error => {
+                        console.error('加载建筑物失败:', error);
+                    });
+            },
+            
+            // 渲染建筑物到园区平面图
+            renderBuildingOnParkMap(building) {
+                if (!this.parkCanvas) return;
+                
+                // 创建建筑物表示
+                const buildingRect = new fabric.Rect({
+                    left: building.coordinate_x,
+                    top: building.coordinate_y,
+                    width: building.width || 100,
+                    height: building.height || 100,
+                    fill: '#b3e5fc',
+                    stroke: '#29b6f6',
+                    strokeWidth: 2,
+                    rx: 5,
+                    ry: 5,
+                    objectCaching: false,
+                    buildingId: building.id
+                });
+                
+                // 添加建筑物名称标签
+                const buildingLabel = new fabric.Text(building.name, {
+                    left: building.coordinate_x + 5,
+                    top: building.coordinate_y + 5,
+                    fontSize: 14,
+                    fill: '#01579b'
+                });
+                
+                // 添加到画布
+                this.parkCanvas.add(buildingRect, buildingLabel);
+                
+                // 点击事件
+                buildingRect.on('mousedown', () => {
+                    // 打开该建筑物
+                    axios.get(`/api/asset/locations/${building.id}`)
+                        .then(response => {
+                            if (response.data.success) {
+                                this.selectedBuilding = response.data.data;
+                                this.selectedPark = null;
+                                this.loadBuildingMap();
+                            }
+                        })
+                        .catch(error => {
+                            console.error('加载建筑物详情失败:', error);
+                        });
+                });
             },
             
             // 拖拽相关方法 - 开始拖拽
             dragStart(event, index) {
-                this.draggedParkIndex = index;
                 event.dataTransfer.effectAllowed = 'move';
-                // 开始拖拽时设置一个半透明的效果
-                event.target.style.opacity = '0.6';
+                event.dataTransfer.setData('parkId', this.parks[index].id);
             },
             
             // 在另一个项上放下
             onDrop(event, index) {
-                event.preventDefault();
-                // 确保不是拖到同一个位置
-                if (this.draggedParkIndex !== index) {
-                    // 得到要移动的项
-                    const itemToMove = this.parks.splice(this.draggedParkIndex, 1)[0];
-                    // 将其插入到新位置
-                    this.parks.splice(index, 0, itemToMove);
-                    // 更新每个园区的排序订单
-                    this.parks.forEach((park, idx) => {
-                        park.sort_order = idx + 1;
-                    });
+                const draggedParkId = event.dataTransfer.getData('parkId');
+                const draggedIndex = this.parks.findIndex(p => p.id.toString() === draggedParkId);
+                
+                if (draggedIndex === -1 || draggedIndex === index) {
+                    return;
                 }
-                // 重置透明度
-                event.target.closest('.park-card').style.opacity = '1';
+                
+                // 移动元素
+                const movedItem = this.parks.splice(draggedIndex, 1)[0];
+                this.parks.splice(index, 0, movedItem);
             },
             
             // 保存园区排序
             saveParksOrder() {
-                // 这里调用API保存排序结果
-                console.log('保存园区排序：', this.parks.map(p => ({ id: p.id, sort_order: p.sort_order })));
-                // TODO: 实现API调用保存排序
+                const orderedIds = this.parks.map(park => park.id);
+                
+                axios.post('/api/asset/locations/update-order', { ordered_ids: orderedIds })
+                    .then(response => {
+                        if (!response.data.success) {
+                            console.error('保存排序失败:', response.data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('保存排序失败:', error);
+                    });
+            },
+            
+            // 确认删除园区
+            confirmDeletePark(park) {
+                this.parkToDelete = park;
+                $('#deleteParkModal').modal('show');
+            },
+            
+            // 删除园区
+            deletePark() {
+                if (!this.parkToDelete || !this.parkToDelete.id) {
+                    console.error('需要删除的园区不存在');
+                    return;
+                }
+                
+                axios.delete(`/api/asset/locations/${this.parkToDelete.id}`)
+                    .then(response => {
+                        if (response.data.success) {
+                            // 关闭模态框
+                            $('#deleteParkModal').modal('hide');
+                            
+                            // 重新加载园区列表
+                            this.loadParks();
+                            
+                            // 如果当前选中的是要删除的园区，则清除选中状态
+                            if (this.selectedPark && this.selectedPark.id === this.parkToDelete.id) {
+                                this.selectedPark = null;
+                            }
+                            
+                            // 清除待删除对象
+                            this.parkToDelete = null;
+                        } else {
+                            alert('删除失败: ' + response.data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('删除园区失败:', error);
+                        alert('删除失败: ' + error.response?.data?.message || error.message);
+                    });
+            },
+            
+            // 编辑园区
+            editPark(park) {
+                // 复制园区数据到编辑表单
+                this.editParkForm = {
+                    id: park.id,
+                    name: park.name,
+                    code: park.code,
+                    description: park.description || '',
+                    type: park.type || 'park',
+                    map_data: park.map_data
+                };
+                
+                // 显示编辑模态框
+                $('#editParkModal').modal('show');
+                
+                // 如果有地图数据，初始化地图编辑器
+                this.$nextTick(() => {
+                    const container = document.getElementById('editParkMapEditor');
+                    if (!container) return;
+                    
+                    // 创建地图编辑器
+                    this.parkCanvas = new fabric.Canvas('editParkMapEditor', {
+                        width: container.offsetWidth,
+                        height: container.offsetHeight,
+                        selection: false,
+                        backgroundColor: '#f8f9fa'
+                    });
+                    
+                    // 添加网格背景
+                    this.drawGrid(this.parkCanvas, 20, '#e0e0e0');
+                    
+                    // 加载现有地图数据
+                    if (park.map_data) {
+                        try {
+                            const mapData = JSON.parse(park.map_data);
+                            this.parkCanvas.loadFromJSON(mapData, () => {
+                                this.parkCanvas.renderAll();
+                            });
+                        } catch (e) {
+                            console.error('解析地图数据失败:', e);
+                        }
+                    }
+                });
+            },
+            
+            // 更新园区
+            updatePark() {
+                // 校验
+                if (!this.editParkForm.name) {
+                    alert('请输入园区名称');
+                    return;
+                }
+                
+                if (!this.editParkForm.code) {
+                    alert('请输入园区编码');
+                    return;
+                }
+                
+                // 保存绘图数据
+                if (this.parkCanvas) {
+                    this.editParkForm.map_data = JSON.stringify(this.parkCanvas.toJSON());
+                }
+                
+                // 发送请求
+                axios.post('/api/asset/locations', this.editParkForm)
+                    .then(response => {
+                        if (response.data.success) {
+                            // 关闭模态框
+                            $('#editParkModal').modal('hide');
+                            
+                            // 重新加载园区列表
+                            this.loadParks();
+                            
+                            // 如果当前选中的是编辑的园区，则更新选中对象
+                            if (this.selectedPark && this.selectedPark.id === this.editParkForm.id) {
+                                axios.get(`/api/asset/locations/${this.editParkForm.id}`)
+                                    .then(response => {
+                                        if (response.data.success) {
+                                            this.selectedPark = response.data.data;
+                                            this.loadParkMap();
+                                        }
+                                    })
+                                    .catch(error => {
+                                        console.error('获取更新后的园区失败:', error);
+                                    });
+                            }
+                        } else {
+                            alert('保存失败: ' + response.data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('更新园区失败:', error);
+                        alert('更新失败: ' + error.response?.data?.message || error.message);
+                    });
+            },
+            
+            // 初始化绘图画布
+            initMapEditor() {
+                // 初始化园区编辑器
+                const container = document.getElementById('parkMapEditor');
+                if (!container) return;
+                
+                this.parkCanvas = new fabric.Canvas('parkMapEditor', {
+                    width: container.offsetWidth,
+                    height: container.offsetHeight,
+                    selection: false,
+                    backgroundColor: '#f8f9fa'
+                });
+                
+                // 添加网格背景
+                this.drawGrid(this.parkCanvas, 20, '#e0e0e0');
+            },
+            
+            // 绘制网格背景
+            drawGrid(canvas, gridSize, lineColor) {
+                const width = canvas.getWidth();
+                const height = canvas.getHeight();
+                
+                // 创建网格线
+                for (let i = 0; i < width/gridSize; i++) {
+                    canvas.add(new fabric.Line([i * gridSize, 0, i * gridSize, height], {
+                        stroke: lineColor,
+                        selectable: false,
+                        evented: false,
+                        strokeWidth: 0.5
+                    }));
+                }
+                
+                for (let i = 0; i < height/gridSize; i++) {
+                    canvas.add(new fabric.Line([0, i * gridSize, width, i * gridSize], {
+                        stroke: lineColor,
+                        selectable: false,
+                        evented: false,
+                        strokeWidth: 0.5
+                    }));
+                }
+                
+                canvas.renderAll();
+            },
+            
+            // 激活矩形工具
+            activateRectangleTool() {
+                this.currentTool = 'rectangle';
+                this.drawingMode = true;
+                
+                if (!this.parkCanvas) return;
+                
+                let rect, isDown, origX, origY;
+                
+                this.parkCanvas.off('mouse:down');
+                this.parkCanvas.off('mouse:move');
+                this.parkCanvas.off('mouse:up');
+                
+                this.parkCanvas.on('mouse:down', (o) => {
+                    if (!this.drawingMode) return;
+                    isDown = true;
+                    const pointer = this.parkCanvas.getPointer(o.e);
+                    origX = pointer.x;
+                    origY = pointer.y;
+                    rect = new fabric.Rect({
+                        left: origX,
+                        top: origY,
+                        width: 0,
+                        height: 0,
+                        fill: '#e3f2fd',
+                        stroke: '#1976d2',
+                        strokeWidth: 2,
+                        selectable: true
+                    });
+                    this.parkCanvas.add(rect);
+                });
+                
+                this.parkCanvas.on('mouse:move', (o) => {
+                    if (!isDown) return;
+                    const pointer = this.parkCanvas.getPointer(o.e);
+                    
+                    if (origX > pointer.x) {
+                        rect.set({ left: pointer.x });
+                    }
+                    if (origY > pointer.y) {
+                        rect.set({ top: pointer.y });
+                    }
+                    
+                    rect.set({ width: Math.abs(origX - pointer.x) });
+                    rect.set({ height: Math.abs(origY - pointer.y) });
+                    
+                    this.parkCanvas.renderAll();
+                });
+                
+                this.parkCanvas.on('mouse:up', () => {
+                    isDown = false;
+                });
+            },
+            
+            // 激活多边形工具
+            activatePolygonTool() {
+                this.currentTool = 'polygon';
+                this.drawingMode = true;
+                this.tempPoints = [];
+                
+                if (!this.parkCanvas) return;
+                
+                this.parkCanvas.off('mouse:down');
+                this.parkCanvas.off('mouse:move');
+                this.parkCanvas.off('mouse:up');
+                
+                this.parkCanvas.on('mouse:down', (o) => {
+                    if (!this.drawingMode) return;
+                    const pointer = this.parkCanvas.getPointer(o.e);
+                    
+                    // 检查是否是双击(结束多边形绘制)
+                    if (o.e.detail === 2 && this.tempPoints.length >= 3) {
+                        // 创建多边形
+                        const polygon = new fabric.Polygon(this.tempPoints, {
+                            fill: '#e3f2fd',
+                            stroke: '#1976d2',
+                            strokeWidth: 2,
+                            selectable: true
+                        });
+                        this.parkCanvas.add(polygon);
+                        
+                        // 清除临时点和线
+                        this.tempPoints = [];
+                        this.parkCanvas.getObjects().forEach(obj => {
+                            if (obj.type === 'circle' || obj.id === 'tempLine') {
+                                this.parkCanvas.remove(obj);
+                            }
+                        });
+                        
+                        this.parkCanvas.renderAll();
+                        return;
+                    }
+                    
+                    // 添加点
+                    this.tempPoints.push({ x: pointer.x, y: pointer.y });
+                    
+                    // 显示点
+                    const circle = new fabric.Circle({
+                        radius: 5,
+                        fill: '#2196f3',
+                        left: pointer.x - 5,
+                        top: pointer.y - 5,
+                        selectable: false
+                    });
+                    this.parkCanvas.add(circle);
+                    
+                    // 如果有多个点，画线
+                    if (this.tempPoints.length > 1) {
+                        const p1 = this.tempPoints[this.tempPoints.length - 2];
+                        const p2 = this.tempPoints[this.tempPoints.length - 1];
+                        
+                        const line = new fabric.Line([p1.x, p1.y, p2.x, p2.y], {
+                            stroke: '#2196f3',
+                            strokeWidth: 2,
+                            selectable: false
+                        });
+                        this.parkCanvas.add(line);
+                    }
+                    
+                    this.parkCanvas.renderAll();
+                });
+            },
+            
+            // 激活移动工具
+            activateMoveTool() {
+                this.currentTool = 'move';
+                this.drawingMode = false;
+                
+                if (!this.parkCanvas) return;
+                
+                this.parkCanvas.off('mouse:down');
+                this.parkCanvas.off('mouse:move');
+                this.parkCanvas.off('mouse:up');
+                
+                // 启用对象选择和移动
+                this.parkCanvas.selection = true;
+                this.parkCanvas.getObjects().forEach(obj => {
+                    if (obj.type !== 'line' && !obj.isGridLine) {
+                        obj.selectable = true;
+                        obj.evented = true;
+                    }
+                });
+            },
+            
+            // 清除画布
+            clearCanvas() {
+                if (confirm('确定要清除当前绘图吗？')) {
+                    if (this.parkCanvas) {
+                        this.parkCanvas.clear();
+                        this.drawGrid(this.parkCanvas, 20, '#e0e0e0');
+                    }
+                }
             },
             
             // 显示添加园区模态框
             showAddParkModal() {
+                // 重置表单
                 this.parkForm = {
                     name: '',
                     code: '',
-                    description: ''
+                    description: '',
+                    type: 'park',
+                    level: 1,
+                    parent_id: null,
+                    map_data: null
                 };
+                
                 $('#addParkModal').modal('show');
+                
+                // 模态框显示后初始化园区编辑器
+                this.$nextTick(() => {
+                    this.initMapEditor();
+                });
             },
             
             // 保存园区
             savePark() {
-                // 表单验证
-                if (!this.parkForm.name || !this.parkForm.code) {
-                    alert('请填写园区名称和编码');
+                // 校验
+                if (!this.parkForm.name) {
+                    alert('请输入园区名称');
                     return;
                 }
                 
-                // TODO: 调用API保存园区
+                if (!this.parkForm.code) {
+                    alert('请输入园区编码');
+                    return;
+                }
                 
-                // 暂时使用模拟数据
-                const newPark = {
-                    id: Date.now(),
-                    name: this.parkForm.name,
-                    code: this.parkForm.code,
-                    description: this.parkForm.description,
-                    map_data: null,
-                    sort_order: this.parks.length + 1
-                };
+                // 保存绘图数据
+                if (this.parkCanvas) {
+                    this.parkForm.map_data = JSON.stringify(this.parkCanvas.toJSON());
+                }
                 
-                this.parks.push(newPark);
-                this.selectedPark = newPark;
-                $('#addParkModal').modal('hide');
+                // 发送请求
+                axios.post('/api/asset/locations', this.parkForm)
+                    .then(response => {
+                        if (response.data.success) {
+                            // 关闭模态框
+                            $('#addParkModal').modal('hide');
+                            
+                            // 重新加载园区列表
+                            this.loadParks();
+                        } else {
+                            alert('保存失败: ' + response.data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('保存园区失败:', error);
+                        alert('保存失败: ' + error.response?.data?.message || error.message);
+                    });
             },
             
             // 编辑园区
@@ -804,6 +1332,18 @@
             
             // 加载设备列表（用于绑定设备）
             // TODO: 调用API加载设备列表
+            axios.get('/api/devices')
+                .then(response => {
+                    if (response.data.success) {
+                        this.devices = response.data.data || [];
+                        this.filteredDevices = [...this.devices];
+                    } else {
+                        console.error('加载设备列表失败:', response.data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('加载设备列表失败:', error);
+                });
         }
     });
 </script>

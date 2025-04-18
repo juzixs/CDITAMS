@@ -987,21 +987,61 @@ def device_locations():
 @asset.route('/api/asset/locations', methods=['GET'])
 @login_required
 def get_locations():
-    locations = AssetLocation.query.order_by(AssetLocation.level, AssetLocation.id).all()
+    # 获取查询参数
+    location_type = request.args.get('type')
+    parent_id = request.args.get('parent_id')
     
+    # 构建查询
+    query = AssetLocation.query
+    
+    # 应用过滤器
+    if location_type:
+        query = query.filter(AssetLocation.type == location_type)
+    
+    if parent_id:  
+        if parent_id == 'root':
+            # 获取顶级位置（园区）
+            query = query.filter(AssetLocation.parent_id == None)
+        else:
+            # 获取特定父位置下的子位置
+            query = query.filter(AssetLocation.parent_id == int(parent_id))
+            
+    # 排序并获取结果
+    locations = query.order_by(AssetLocation.sort_order, AssetLocation.id).all()
+    
+    # 格式化结果
     result = []
     for location in locations:
-        result.append({
+        location_data = {
             'id': location.id,
             'name': location.name,
             'level': location.level,
+            'type': location.type,
             'parent_id': location.parent_id,
             'code': location.code,
             'description': location.description,
             'map_data': location.map_data,
             'coordinate_x': location.coordinate_x,
-            'coordinate_y': location.coordinate_y
-        })
+            'coordinate_y': location.coordinate_y,
+            'width': location.width,
+            'height': location.height,
+            'sort_order': location.sort_order,
+            'created_at': location.created_at.strftime('%Y-%m-%d %H:%M:%S') if location.created_at else None,
+            'updated_at': location.updated_at.strftime('%Y-%m-%d %H:%M:%S') if location.updated_at else None
+        }
+        
+        # 添加建筑物特有的属性
+        if location.type in ['building', 'sub_building']:
+            location_data.update({
+                'is_multi_floor': location.is_multi_floor,
+                'floor_count': location.floor_count,
+                'floor_names': json.loads(location.floor_names) if location.floor_names else []
+            })
+        
+        # 获取子位置数量
+        location_data['children_count'] = AssetLocation.query.filter_by(parent_id=location.id).count()
+        
+        result.append(location_data)
     
     return jsonify({'success': True, 'data': result})
 
@@ -1060,6 +1100,46 @@ def delete_location(id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'message': f'删除失败: {str(e)}'}), 500
+        
+# 更新位置排序
+@asset.route('/api/asset/locations/update-order', methods=['POST'])
+@login_required
+def update_locations_order():
+    try:
+        data = request.json
+        ordered_ids = data.get('ordered_ids', [])
+        
+        if not ordered_ids:
+            return jsonify({'success': False, 'message': '无效的排序数据'}), 400
+
+        print(f"更新位置排序: {ordered_ids}")
+        
+        # 验证所有ID是否有效
+        valid_ids = []
+        for location_id in ordered_ids:
+            location = AssetLocation.query.get(location_id)
+            if location:
+                valid_ids.append(location_id)
+                print(f"位置 {location.name} 排序从 {location.sort_order} 更新为 {len(valid_ids)}")
+            else:
+                print(f"警告: 未找到ID为 {location_id} 的位置")
+        
+        if not valid_ids:
+            return jsonify({'success': False, 'message': '没有找到有效的位置ID'}), 400
+        
+        # 更新有效位置的排序
+        for idx, location_id in enumerate(valid_ids):
+            location = AssetLocation.query.get(location_id)
+            location.sort_order = idx + 1  # 从1开始排序
+        
+        # 提交到数据库
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': '位置排序更新成功'})
+    except Exception as e:
+        db.session.rollback()
+        print(f"更新排序失败: {str(e)}")
+        return jsonify({'success': False, 'message': f'更新排序失败: {str(e)}'}), 500
 
 # 设备地图
 @asset.route('/devices/map')

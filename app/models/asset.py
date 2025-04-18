@@ -72,13 +72,27 @@ class AssetLocation(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(64), nullable=False)  # 位置名称
-    level = db.Column(db.Integer, default=1)  # 位置级别 1-3 (园区-楼层/区域-具体位置)
+    level = db.Column(db.Integer, default=1)  # 位置级别 1-5 (1:园区, 2:建筑, 3:楼层, 4:子建筑, 5:具体位置)
+    type = db.Column(db.String(20), default='location')  # 类型: park(园区), building(建筑), floor(楼层), sub_building(子建筑), location(具体位置)
     parent_id = db.Column(db.Integer, db.ForeignKey('asset_locations.id'), nullable=True)  # 父位置ID
     code = db.Column(db.String(20), nullable=False)  # 位置编码
     description = db.Column(db.Text)  # 描述
-    map_data = db.Column(db.Text)  # 地图数据(JSON格式)
+    map_data = db.Column(db.Text)  # 地图数据(SVG/Canvas绘制数据-JSON格式)
+    
+    # 坐标和尺寸属性
     coordinate_x = db.Column(db.Float)  # X坐标
     coordinate_y = db.Column(db.Float)  # Y坐标
+    width = db.Column(db.Float)  # 宽度
+    height = db.Column(db.Float)  # 高度
+    
+    # 建筑物特有属性
+    is_multi_floor = db.Column(db.Boolean, default=False)  # 是否多层建筑
+    floor_count = db.Column(db.Integer, default=1)  # 楼层数
+    floor_names = db.Column(db.Text)  # 楼层名称(JSON数组)
+    
+    # 位置排序
+    sort_order = db.Column(db.Integer, default=0)  # 排序顺序
+    
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -87,7 +101,20 @@ class AssetLocation(db.Model):
     devices = db.relationship('Device', back_populates='location', lazy='dynamic')
     
     def __repr__(self):
-        return f'<AssetLocation {self.name}>'
+        return f'<AssetLocation {self.name} ({self.type})>'
+    
+    @property
+    def path(self):
+        """返回完整的位置路径字符串"""
+        path_parts = []
+        current = self
+        
+        # 递归获取所有父级位置名称
+        while current:
+            path_parts.insert(0, current.name)
+            current = current.parent
+            
+        return '-'.join(path_parts)
 
 class DeviceField(db.Model):
     """设备字段自定义模型"""
