@@ -208,9 +208,39 @@
                                         <button type="button" class="btn btn-sm btn-light" title="缩放工具" @click="activateZoomTool()">
                                             <i class="fas fa-search-plus"></i>
                                         </button>
+                                        <button type="button" class="btn btn-sm btn-light" title="删除选中对象" @click="deleteSelectedObjects()">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
                                         <button type="button" class="btn btn-sm btn-light" title="清除画布" @click="clearCanvas()">
                                             <i class="fas fa-trash-alt"></i>
                                         </button>
+                                    </div>
+                                </div>
+                                <div class="style-tools position-absolute" style="top: 10px; left: 10px; z-index: 100; background-color: rgba(255,255,255,0.8); padding: 10px; border-radius: 5px; border: 1px solid #ddd;">
+                                    <div class="mb-2">
+                                        <label class="d-block mb-1 small">填充:</label>
+                                        <div class="custom-control custom-switch">
+                                            <input type="checkbox" class="custom-control-input" id="fillEnabledSwitch" v-model="fillEnabled" @change="updateSelectedObjectStyles">
+                                            <label class="custom-control-label small" for="fillEnabledSwitch">[[fillEnabled ? '开启' : '关闭']]</label>
+                                        </div>
+                                    </div>
+                                    <div class="mb-2" v-if="fillEnabled">
+                                        <label class="d-block mb-1 small">填充颜色:</label>
+                                        <input type="color" class="form-control form-control-sm" v-model="fillColor" @input="updateSelectedObjectStyles" style="width: 40px; height: 25px;">
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="d-block mb-1 small">线条颜色:</label>
+                                        <input type="color" class="form-control form-control-sm" v-model="strokeColor" @input="updateSelectedObjectStyles" style="width: 40px; height: 25px;">
+                                    </div>
+                                    <div>
+                                        <label class="d-block mb-1 small">线条宽度:</label>
+                                        <select class="form-control form-control-sm" v-model="strokeWidth" @change="updateSelectedObjectStyles" style="width: 60px;">
+                                            <option value="1">1px</option>
+                                            <option value="2">2px</option>
+                                            <option value="3">3px</option>
+                                            <option value="4">4px</option>
+                                            <option value="5">5px</option>
+                                        </select>
                                     </div>
                                 </div>
                             </div>
@@ -420,6 +450,7 @@
             selectedBuilding: null, // 当前选中的建筑
             selectedFloor: null, // 当前选中的楼层
             selectedLocation: null, // 当前选中的位置
+            selectedObjects: [], // 当前选中的对象
             
             // 园区画布
             parkCanvas: null,
@@ -643,6 +674,9 @@
                 this.canvas.off('mouse:move');
                 this.canvas.off('mouse:up');
                 this.canvas.off('mouse:dblclick');
+                this.canvas.off('selection:created');
+                this.canvas.off('selection:updated');
+                this.canvas.off('selection:cleared');
                 
                 console.log('设置画布事件监听器');
                 
@@ -651,10 +685,19 @@
                     if (this.currentTool === 'zoom') {
                         const delta = opt.e.deltaY;
                         let zoom = this.canvas.getZoom();
-                        zoom *= 0.999 ** delta;
+                        
+                        // 向下滚动缩小，向上滚动放大
+                        if (delta > 0) {
+                            zoom = zoom * 0.9; // 缩小10%
+                        } else {
+                            zoom = zoom * 1.1; // 放大10%
+                        }
+                        
+                        // 限制缩放范围
                         if (zoom > 20) zoom = 20;
                         if (zoom < 0.1) zoom = 0.1;
                         
+                        // 缩放到鼠标位置
                         const point = {
                             x: opt.e.offsetX,
                             y: opt.e.offsetY,
@@ -662,8 +705,59 @@
                         
                         this.canvas.zoomToPoint(point, zoom);
                         this.currentZoom = zoom;
+                        
+                        // 阻止浏览器默认滚动行为
                         opt.e.preventDefault();
                         opt.e.stopPropagation();
+                        
+                        console.log('缩放级别:', zoom.toFixed(2));
+                    }
+                });
+                
+                // 选择事件 - 当对象被选中时
+                this.canvas.on('selection:created', (opt) => {
+                    console.log('对象被选中', opt.selected);
+                    this.selectedObjects = opt.selected;
+                });
+                
+                this.canvas.on('selection:updated', (opt) => {
+                    console.log('选择更新', opt.selected);
+                    this.selectedObjects = opt.selected;
+                });
+                
+                this.canvas.on('selection:cleared', () => {
+                    console.log('选择清除');
+                    this.selectedObjects = [];
+                });
+                
+                // 键盘事件 - 删除选中的对象
+                document.addEventListener('keydown', (e) => {
+                    if ((e.key === 'Delete' || e.key === 'Backspace') && this.canvas) {
+                        const activeObject = this.canvas.getActiveObject();
+                        if (activeObject) {
+                            if (activeObject.type === 'activeSelection') {
+                                // 删除多个选中的对象
+                                activeObject.forEachObject((obj) => {
+                                    this.canvas.remove(obj);
+                                    // 从shapes数组中移除
+                                    const index = this.shapes.indexOf(obj);
+                                    if (index !== -1) {
+                                        this.shapes.splice(index, 1);
+                                    }
+                                });
+                                this.canvas.discardActiveObject();
+                            } else {
+                                // 删除单个选中对象
+                                this.canvas.remove(activeObject);
+                                // 从shapes数组中移除
+                                const index = this.shapes.indexOf(activeObject);
+                                if (index !== -1) {
+                                    this.shapes.splice(index, 1);
+                                }
+                            }
+                            this.canvas.renderAll();
+                            console.log('删除选中对象');
+                        }
                     }
                 });
                 
@@ -672,11 +766,14 @@
                     const pointer = this.canvas.getPointer(opt.e);
                     
                     if (this.currentTool === 'move') {
-                        this.isPanning = true;
-                        this.lastX = opt.e.clientX;
-                        this.lastY = opt.e.clientY;
-                        this.canvas.selection = false;
-                        this.canvas.setCursor('grabbing');
+                        // 如果点击到了对象，就不进行平移操作
+                        if (!opt.target) {
+                            this.isPanning = true;
+                            this.lastX = opt.e.clientX;
+                            this.lastY = opt.e.clientY;
+                            this.canvas.selection = true;
+                            this.canvas.setCursor('grabbing');
+                        }
                     } else if (this.currentTool === 'rectangle' && !this.isDrawing) {
                         this.startRectangleDrawing(pointer);
                     } else if (this.currentTool === 'polygon') {
@@ -1371,6 +1468,15 @@
                     this.canvas.defaultCursor = 'crosshair';
                     this.canvas.selection = false;
                     this.canvas.discardActiveObject();
+                    
+                    // 禁用对象选择和移动功能
+                    this.canvas.getObjects().forEach(obj => {
+                        if (!obj.isGridLine) {
+                            obj.selectable = false;
+                            obj.evented = false;
+                        }
+                    });
+                    
                     this.canvas.renderAll();
                 }
                 this.isDrawing = false;
@@ -1384,6 +1490,15 @@
                     this.canvas.defaultCursor = 'crosshair';
                     this.canvas.selection = false;
                     this.canvas.discardActiveObject();
+                    
+                    // 禁用对象选择和移动功能
+                    this.canvas.getObjects().forEach(obj => {
+                        if (!obj.isGridLine) {
+                            obj.selectable = false;
+                            obj.evented = false;
+                        }
+                    });
+                    
                     this.canvas.renderAll();
                 }
                 this.drawingPoints = [];
@@ -1398,19 +1513,18 @@
                     this.canvas.defaultCursor = 'zoom-in';
                     this.canvas.selection = false;
                     this.canvas.discardActiveObject();
+                    
+                    // 禁用对象选择和移动功能
+                    this.canvas.getObjects().forEach(obj => {
+                        if (!obj.isGridLine) {
+                            obj.selectable = false;
+                            obj.evented = false;
+                        }
+                    });
+                    
                     this.canvas.renderAll();
                 }
                 console.log('激活缩放工具');
-                // 启用对象选择和移动
-                if (this.parkCanvas) {
-                    this.parkCanvas.selection = true;
-                    this.parkCanvas.getObjects().forEach(obj => {
-                        if (obj.type !== 'line' && !obj.isGridLine) {
-                            obj.selectable = true;
-                            obj.evented = true;
-                        }
-                    });
-                }
             },
             
             // 激活移动工具
@@ -1419,7 +1533,15 @@
                 if (this.canvas) {
                     this.canvas.defaultCursor = 'grab';
                     this.canvas.selection = true;
-                    this.canvas.discardActiveObject();
+                    
+                    // 启用所有对象的选择和移动功能
+                    this.canvas.getObjects().forEach(obj => {
+                        if (!obj.isGridLine) {
+                            obj.selectable = true;
+                            obj.evented = true;
+                        }
+                    });
+                    
                     this.canvas.renderAll();
                 }
                 console.log('激活移动工具');
@@ -1432,6 +1554,15 @@
                     this.canvas.defaultCursor = 'crosshair';
                     this.canvas.selection = false;
                     this.canvas.discardActiveObject();
+                    
+                    // 禁用对象选择和移动功能
+                    this.canvas.getObjects().forEach(obj => {
+                        if (!obj.isGridLine) {
+                            obj.selectable = false;
+                            obj.evented = false;
+                        }
+                    });
+                    
                     this.canvas.renderAll();
                 }
                 this.isDrawing = false;
@@ -2318,6 +2449,75 @@
                 this.startPosition = null;
                 this.drawingShape = null;
                 this.canvas.renderAll();
+            },
+            
+            // 删除选中的对象
+            deleteSelectedObjects() {
+                const activeObject = this.canvas.getActiveObject();
+                if (activeObject) {
+                    if (activeObject.type === 'activeSelection') {
+                        // 删除多个选中的对象
+                        activeObject.forEachObject((obj) => {
+                            this.canvas.remove(obj);
+                            // 从shapes数组中移除
+                            const index = this.shapes.indexOf(obj);
+                            if (index !== -1) {
+                                this.shapes.splice(index, 1);
+                            }
+                        });
+                        this.canvas.discardActiveObject();
+                    } else {
+                        // 删除单个选中对象
+                        this.canvas.remove(activeObject);
+                        // 从shapes数组中移除
+                        const index = this.shapes.indexOf(activeObject);
+                        if (index !== -1) {
+                            this.shapes.splice(index, 1);
+                        }
+                    }
+                    this.canvas.renderAll();
+                    console.log('删除选中对象');
+                } else {
+                    alert('请先选择要删除的对象');
+                }
+            },
+            
+            // 更新选中对象的样式
+            updateSelectedObjectStyles() {
+                if (!this.canvas) return;
+                
+                const activeObject = this.canvas.getActiveObject();
+                if (activeObject) {
+                    // 应用样式到选中的对象
+                    if (activeObject.type === 'activeSelection') {
+                        // 多个对象被选中
+                        activeObject.forEachObject((obj) => {
+                            this.applyStyleToObject(obj);
+                        });
+                    } else {
+                        // 单个对象被选中
+                        this.applyStyleToObject(activeObject);
+                    }
+                    
+                    this.canvas.renderAll();
+                    console.log('更新选中对象的样式');
+                }
+            },
+            
+            // 应用样式到对象
+            applyStyleToObject(obj) {
+                // 对于所有对象设置线条样式
+                obj.set({
+                    stroke: this.strokeColor,
+                    strokeWidth: parseInt(this.strokeWidth)
+                });
+                
+                // 对于支持填充的对象设置填充样式
+                if (obj.type !== 'line' && obj._fftype !== 'line') {
+                    obj.set({
+                        fill: this.fillEnabled ? this.fillColor : 'transparent'
+                    });
+                }
             }
         },
         watch: {
