@@ -78,9 +78,9 @@
                             <p>暂无平面图，请点击"编辑平面图"进行绘制</p>
                         </div>
                     </div>
-                    <div v-else id="parkMapCanvas" style="width: 100%; height: 100%; min-height: 400px;">
+                    <canvas v-else id="parkMapCanvas" style="width: 100%; height: 100%; min-height: 400px;">
                         <!-- 平面图将在JS中渲染 -->
-                    </div>
+                    </canvas>
                 </div>
             </div>
             
@@ -188,9 +188,9 @@
                                 <div class="resize-handle" style="position: absolute; bottom: 0; left: 0; right: 0; height: 10px; background-color: #aaa; cursor: ns-resize; border-top: 1px solid #999; z-index: 1000; opacity: 0.8;" @mousedown="onResizeMouseDown">
                                     <div style="width: 40px; height: 4px; background-color: #333; margin: 3px auto; border-radius: 2px;"></div>
                                 </div>
-                                <div id="editParkMapEditor" style="width: 100%; height: calc(100% - 10px);">
+                                <canvas id="editParkMapEditor" style="width: 100%; height: calc(100% - 10px);">
                                     <!-- 平面图编辑器将在JS中初始化 -->
-                                </div>
+                                </canvas>
                                 <div class="map-tools position-absolute" style="top: 10px; right: 10px; z-index: 100;">
                                     <div class="btn-group-vertical">
                                         <button type="button" class="btn btn-sm btn-light" title="矩形工具" @click="activateRectangleTool()">
@@ -529,70 +529,98 @@
                         this.canvas.dispose();
                     }
                     
+                    // 获取DOM元素
+                    const container = document.getElementById('editParkMapEditor');
+                    if (!container) {
+                        console.error('找不到绘图容器元素: editParkMapEditor');
+                        return;
+                    }
+                    
+                    // 设置canvas元素的宽高
+                    const parentContainer = container.parentElement;
+                    const width = parentContainer.clientWidth;
+                    const height = parentContainer.clientHeight - 10; // 减去拖动手柄的高度
+                    
+                    container.width = width;
+                    container.height = height;
+                    
+                    console.log('Canvas元素尺寸设置为:', width, 'x', height);
+                    
                     // 初始化绘图画布
-                    this.canvas = new fabric.Canvas('parkMapEditor', {
-                        width: document.getElementById('parkMapEditor').offsetWidth,
-                        height: document.getElementById('parkMapEditor').offsetHeight,
-                        selection: true,
-                        preserveObjectStacking: true
-                    });
-                    
-                    // 绘制网格背景
-                    this.drawGrid();
-                    
-                    // 设置事件监听
-                    this.setupCanvasEvents();
-                    
-                    // 默认激活选择工具
-                    this.activateMoveTool();
+                    try {
+                        this.canvas = new fabric.Canvas('editParkMapEditor', {
+                            width: width,
+                            height: height,
+                            selection: true,
+                            preserveObjectStacking: true
+                        });
+                        
+                        console.log('Canvas初始化成功');
+                        
+                        // 绘制网格背景
+                        this.drawGrid();
+                        
+                        // 设置事件监听
+                        this.setupCanvasEvents();
+                        
+                        // 默认激活选择工具
+                        this.activateMoveTool();
+                    } catch (error) {
+                        console.error('Canvas初始化失败:', error);
+                    }
                 });
             },
             
             // 绘制网格背景
-            drawGrid() {
-                const gridSize = this.gridSize;
-                const width = this.canvas.width;
-                const height = this.canvas.height;
+            drawGrid(canvas, gridSize, lineColor) {
+                // 如果没有提供canvas参数，使用this.canvas
+                const targetCanvas = canvas || this.canvas;
+                // 如果canvas为null或undefined，直接返回
+                if (!targetCanvas) {
+                    console.error('无法绘制网格：canvas未初始化');
+                    return;
+                }
+                
+                const width = targetCanvas.getWidth();
+                const height = targetCanvas.getHeight();
                 
                 // 清除现有网格
-                this.canvas.getObjects().filter(obj => obj.type === 'grid').forEach(obj => {
-                    this.canvas.remove(obj);
+                targetCanvas.getObjects().forEach(obj => {
+                    if (obj.type === 'grid') {
+                        targetCanvas.remove(obj);
+                    }
                 });
                 
                 // 创建网格线
-                const gridLines = [];
-                
-                // 创建垂直线
-                for (let i = 0; i <= width; i += gridSize) {
-                    gridLines.push(new fabric.Line([i, 0, i, height], {
-                        stroke: '#e0e0e0',
+                for (let i = 0; i < width/(gridSize || 20); i++) {
+                    targetCanvas.add(new fabric.Line([i * (gridSize || 20), 0, i * (gridSize || 20), height], {
+                        stroke: lineColor || '#e0e0e0',
                         selectable: false,
-                        type: 'grid'
+                        evented: false,
+                        strokeWidth: 0.5
                     }));
                 }
                 
-                // 创建水平线
-                for (let i = 0; i <= height; i += gridSize) {
-                    gridLines.push(new fabric.Line([0, i, width, i], {
-                        stroke: '#e0e0e0',
+                for (let i = 0; i < height/(gridSize || 20); i++) {
+                    targetCanvas.add(new fabric.Line([0, i * (gridSize || 20), width, i * (gridSize || 20)], {
+                        stroke: lineColor || '#e0e0e0',
                         selectable: false,
-                        type: 'grid'
+                        evented: false,
+                        strokeWidth: 0.5
                     }));
                 }
                 
-                // 添加网格线到画布
-                this.canvas.add(...gridLines);
-                
-                // 将网格线放到底层
-                gridLines.forEach(line => {
-                    line.sendToBack();
-                });
-                
-                this.canvas.renderAll();
+                targetCanvas.renderAll();
             },
             
             // 设置画布事件
             setupCanvasEvents() {
+                // 如果canvas未初始化，直接返回
+                if (!this.canvas) {
+                    console.error('无法设置画布事件：canvas未初始化');
+                    return;
+                }
+                
                 // 鼠标滚轮事件 - 缩放
                 this.canvas.on('mouse:wheel', (opt) => {
                     if (this.currentTool === 'zoom') {
@@ -697,24 +725,34 @@
                 const container = document.getElementById('parkMapCanvas');
                 if (!container) return;
                 
-                // 创建画布对象
-                this.parkCanvas = new fabric.Canvas('parkMapCanvas', {
-                    width: container.offsetWidth,
-                    height: container.offsetHeight,
-                    selection: false
-                });
+                // 设置canvas元素的宽高
+                const width = container.parentElement.clientWidth;
+                const height = container.parentElement.clientHeight;
+                container.width = width;
+                container.height = height;
                 
-                // 加载地图数据
                 try {
-                    const mapData = JSON.parse(this.selectedPark.map_data);
-                    this.parkCanvas.loadFromJSON(mapData, () => {
-                        this.parkCanvas.renderAll();
-                        
-                        // 加载建筑物
-                        this.loadBuildings();
+                    // 创建画布对象
+                    this.parkCanvas = new fabric.Canvas('parkMapCanvas', {
+                        width: width,
+                        height: height,
+                        selection: false
                     });
-                } catch (e) {
-                    console.error('解析地图数据失败:', e);
+                    
+                    // 加载地图数据
+                    try {
+                        const mapData = JSON.parse(this.selectedPark.map_data);
+                        this.parkCanvas.loadFromJSON(mapData, () => {
+                            this.parkCanvas.renderAll();
+                            
+                            // 加载建筑物
+                            this.loadBuildings();
+                        });
+                    } catch (e) {
+                        console.error('解析地图数据失败:', e);
+                    }
+                } catch (error) {
+                    console.error('初始化园区地图Canvas失败:', error);
                 }
             },
             
@@ -878,31 +916,24 @@
                 
                 // 如果有地图数据，初始化地图编辑器
                 this.$nextTick(() => {
-                    const container = document.getElementById('editParkMapEditor');
-                    if (!container) return;
-                    
-                    // 创建地图编辑器
-                    this.parkCanvas = new fabric.Canvas('editParkMapEditor', {
-                        width: container.offsetWidth,
-                        height: container.offsetHeight,
-                        selection: false,
-                        backgroundColor: '#f8f9fa'
-                    });
-                    
-                    // 添加网格背景
-                    this.drawGrid(this.parkCanvas, 20, '#e0e0e0');
-                    
-                    // 加载现有地图数据
-                    if (park.map_data) {
-                        try {
-                            const mapData = JSON.parse(park.map_data);
-                            this.parkCanvas.loadFromJSON(mapData, () => {
-                                this.parkCanvas.renderAll();
-                            });
-                        } catch (e) {
-                            console.error('解析地图数据失败:', e);
+                    // 在模态框完全显示后初始化canvas
+                    $('#editParkModal').on('shown.bs.modal', () => {
+                        this.initMapEditor();
+                        
+                        // 加载现有地图数据
+                        if (park.map_data) {
+                            try {
+                                const mapData = JSON.parse(park.map_data);
+                                if (this.canvas) {
+                                    this.canvas.loadFromJSON(mapData, () => {
+                                        this.canvas.renderAll();
+                                    });
+                                }
+                            } catch (e) {
+                                console.error('解析地图数据失败:', e);
+                            }
                         }
-                    }
+                    });
                 });
             },
             
@@ -955,41 +986,13 @@
                     });
             },
             
-            // 初始化地图编辑器 (创建新园区时使用)
-            initMapEditor() {
-                // 确保DOM已经渲染完成
-                this.$nextTick(() => {
-                    // 清理之前的画布(如果存在)
-                    if (this.canvas) {
-                        this.canvas.dispose();
-                    }
-                    
-                    // 初始化绘图画布
-                    this.canvas = new fabric.Canvas('parkMapEditor', {
-                        width: document.getElementById('parkMapEditor').offsetWidth,
-                        height: document.getElementById('parkMapEditor').offsetHeight,
-                        selection: true,
-                        preserveObjectStacking: true
-                    });
-                    
-                    // 绘制网格背景
-                    this.drawGrid();
-                    
-                    // 设置事件监听
-                    this.setupCanvasEvents();
-                    
-                    // 默认激活选择工具
-                    this.activateMoveTool();
-                });
-            },
-            
             // 初始化园区编辑器 (编辑现有园区时使用)
             initParkMapEditor() {
                 // 初始化园区编辑器
-                const container = document.getElementById('parkMapEditor');
+                const container = document.getElementById('editParkMapEditor');
                 if (!container) return;
                 
-                this.parkCanvas = new fabric.Canvas('parkMapEditor', {
+                this.parkCanvas = new fabric.Canvas('editParkMapEditor', {
                     width: container.offsetWidth,
                     height: container.offsetHeight,
                     selection: false,
@@ -1000,88 +1003,64 @@
                 this.drawGrid(this.parkCanvas, 20, '#e0e0e0');
             },
             
-            // 绘制网格背景
-            drawGrid(canvas, gridSize, lineColor) {
-                const width = canvas.getWidth();
-                const height = canvas.getHeight();
-                
-                // 清除现有网格
-                canvas.getObjects().forEach(obj => {
-                    if (obj.type === 'grid') {
-                        canvas.remove(obj);
-                    }
-                });
-                
-                // 创建网格线
-                for (let i = 0; i < width/gridSize; i++) {
-                    canvas.add(new fabric.Line([i * gridSize, 0, i * gridSize, height], {
-                        stroke: lineColor,
-                        selectable: false,
-                        evented: false,
-                        strokeWidth: 0.5
-                    }));
-                }
-                
-                for (let i = 0; i < height/gridSize; i++) {
-                    canvas.add(new fabric.Line([0, i * gridSize, width, i * gridSize], {
-                        stroke: lineColor,
-                        selectable: false,
-                        evented: false,
-                        strokeWidth: 0.5
-                    }));
-                }
-                
-                canvas.renderAll();
-            },
-            
             // 激活矩形工具
             activateRectangleTool() {
                 this.currentTool = 'rectangle';
-                this.canvas.defaultCursor = 'crosshair';
-                this.canvas.selection = false;
+                if (this.canvas) {
+                    this.canvas.defaultCursor = 'crosshair';
+                    this.canvas.selection = false;
+                    this.canvas.discardActiveObject();
+                    this.canvas.renderAll();
+                }
                 this.isDrawing = false;
-                this.canvas.discardActiveObject();
-                this.canvas.renderAll();
                 console.log('激活矩形工具');
             },
             
             // 激活多边形工具
             activatePolygonTool() {
                 this.currentTool = 'polygon';
-                this.canvas.defaultCursor = 'crosshair';
-                this.canvas.selection = false;
+                if (this.canvas) {
+                    this.canvas.defaultCursor = 'crosshair';
+                    this.canvas.selection = false;
+                    this.canvas.discardActiveObject();
+                    this.canvas.renderAll();
+                }
                 this.drawingPoints = [];
                 this.isDrawing = false;
-                this.canvas.discardActiveObject();
-                this.canvas.renderAll();
                 console.log('激活多边形工具');
             },
             
             // 激活缩放工具
             activateZoomTool() {
                 this.currentTool = 'zoom';
-                this.canvas.defaultCursor = 'zoom-in';
-                this.canvas.selection = false;
-                this.canvas.discardActiveObject();
-                this.canvas.renderAll();
+                if (this.canvas) {
+                    this.canvas.defaultCursor = 'zoom-in';
+                    this.canvas.selection = false;
+                    this.canvas.discardActiveObject();
+                    this.canvas.renderAll();
+                }
                 console.log('激活缩放工具');
                 // 启用对象选择和移动
-                this.parkCanvas.selection = true;
-                this.parkCanvas.getObjects().forEach(obj => {
-                    if (obj.type !== 'line' && !obj.isGridLine) {
-                        obj.selectable = true;
-                        obj.evented = true;
-                    }
-                });
+                if (this.parkCanvas) {
+                    this.parkCanvas.selection = true;
+                    this.parkCanvas.getObjects().forEach(obj => {
+                        if (obj.type !== 'line' && !obj.isGridLine) {
+                            obj.selectable = true;
+                            obj.evented = true;
+                        }
+                    });
+                }
             },
             
             // 激活移动工具
             activateMoveTool() {
                 this.currentTool = 'move';
-                this.canvas.defaultCursor = 'grab';
-                this.canvas.selection = true;
-                this.canvas.discardActiveObject();
-                this.canvas.renderAll();
+                if (this.canvas) {
+                    this.canvas.defaultCursor = 'grab';
+                    this.canvas.selection = true;
+                    this.canvas.discardActiveObject();
+                    this.canvas.renderAll();
+                }
                 console.log('激活移动工具');
             },
             
@@ -1435,15 +1414,12 @@
                 // 显示编辑模态框
                 $('#editParkModal').modal('show');
                 
-                // 初始化绘图画布
-                this.$nextTick(() => {
-                    // 调整编辑器容器高度默认值
-                    // 在这里不设置固定高度，我们使用CSS和拖动功能来控制高度
-                    
+                // 初始化绘图画布 - 在模态框完全显示后
+                $('#editParkModal').on('shown.bs.modal', () => {
                     this.initMapEditor();
                     
                     // 如果有地图数据，加载到画布
-                    if (this.selectedPark.mapJson) {
+                    if (this.selectedPark.mapJson && this.canvas) {
                         try {
                             this.canvas.loadFromJSON(JSON.parse(this.selectedPark.mapJson), () => {
                                 this.canvas.renderAll();
@@ -1657,8 +1633,13 @@
                     // 调整画布大小
                     const container = document.getElementById('parkMapCanvas');
                     if (container) {
-                        this.parkCanvas.setWidth(container.offsetWidth);
-                        this.parkCanvas.setHeight(container.offsetHeight);
+                        const width = container.parentElement.clientWidth;
+                        const height = container.parentElement.clientHeight;
+                        container.width = width;
+                        container.height = height;
+                        
+                        this.parkCanvas.setWidth(width);
+                        this.parkCanvas.setHeight(height);
                         this.parkCanvas.renderAll();
                     }
                 }
@@ -1667,10 +1648,16 @@
                 if (this.canvas) {
                     const container = document.getElementById('editParkMapEditor');
                     if (container) {
-                        this.canvas.setWidth(container.offsetWidth);
-                        this.canvas.setHeight(container.offsetHeight - 10); // 减去拖动手柄的高度
+                        const width = container.parentElement.clientWidth;
+                        const height = container.parentElement.clientHeight - 10; // 减去拖动手柄的高度
+                        
+                        container.width = width;
+                        container.height = height;
+                        
+                        this.canvas.setWidth(width);
+                        this.canvas.setHeight(height);
                         this.canvas.renderAll();
-                        console.log('Canvas调整为:', container.offsetWidth, 'x', container.offsetHeight - 10);
+                        console.log('Canvas调整为:', width, 'x', height);
                     }
                 }
             },
@@ -1776,10 +1763,16 @@
                 if (this.canvas) {
                     const container = document.getElementById('editParkMapEditor');
                     if (container) {
-                        this.canvas.setWidth(container.offsetWidth);
-                        this.canvas.setHeight(container.offsetHeight - 10); // 减去拖动手柄的高度
+                        const width = container.parentElement.clientWidth;
+                        const height = container.parentElement.clientHeight - 10; // 减去拖动手柄的高度
+                        
+                        container.width = width;
+                        container.height = height;
+                        
+                        this.canvas.setWidth(width);
+                        this.canvas.setHeight(height);
                         this.canvas.renderAll();
-                        console.log('Canvas调整为:', container.offsetWidth, 'x', container.offsetHeight - 10);
+                        console.log('Canvas调整为:', width, 'x', height);
                     }
                 }
             },
