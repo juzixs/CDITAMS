@@ -199,6 +199,9 @@
                                         <button type="button" class="btn btn-sm btn-light" title="多边形工具" @click="activatePolygonTool()">
                                             <i class="fas fa-draw-polygon"></i>
                                         </button>
+                                        <button type="button" class="btn btn-sm btn-light" title="线段工具" @click="activateLineTool()">
+                                            <i class="fas fa-slash"></i>
+                                        </button>
                                         <button type="button" class="btn btn-sm btn-light" title="移动工具" @click="activateMoveTool()">
                                             <i class="fas fa-arrows-alt"></i>
                                         </button>
@@ -423,12 +426,18 @@
             
             // 绘图相关
             canvas: null, // fabric.js 画布对象
-            currentTool: 'move', // 当前选中的工具: move, rectangle, polygon, zoom
+            currentTool: 'move', // 当前选中的工具: move, rectangle, polygon, line, zoom
             isDrawing: false, // 是否正在绘制
             startPosition: null, // 绘制开始位置
             drawingShape: null, // 当前绘制的形状
             drawingPoints: [], // 当前绘制多边形的点
             shapes: [], // 已绘制的形状列表
+            
+            // 样式设置
+            fillEnabled: true, // 是否启用填充
+            fillColor: '#aed7ff', // 填充颜色
+            strokeColor: '#007bff', // 线条颜色
+            strokeWidth: 2, // 线条宽度
             
             // 拖动相关
             isPanning: false, // 是否正在拖动平移
@@ -672,6 +681,8 @@
                         this.startRectangleDrawing(pointer);
                     } else if (this.currentTool === 'polygon') {
                         this.handlePolygonDrawing(pointer);
+                    } else if (this.currentTool === 'line' && !this.isDrawing) {
+                        this.startLineDrawing(pointer);
                     }
                 });
                 
@@ -685,6 +696,8 @@
                         this.continueRectangleDrawing(pointer);
                     } else if (this.isDrawing && this.currentTool === 'polygon') {
                         this.updateDrawingPolygon(pointer);
+                    } else if (this.isDrawing && this.currentTool === 'line') {
+                        this.continueLineDrawing(pointer);
                     }
                 });
                 
@@ -696,6 +709,8 @@
                         this.canvas.setCursor('default');
                     } else if (this.isDrawing && this.currentTool === 'rectangle') {
                         this.finishRectangleDrawing();
+                    } else if (this.isDrawing && this.currentTool === 'line') {
+                        this.finishLineDrawing();
                     }
                 });
                 
@@ -1168,6 +1183,21 @@
                                                 
                                                 // 添加到shapes数组
                                                 this.shapes.push(polygon);
+                                            } else if (obj._fftype === 'line') {
+                                                // 创建线段
+                                                const line = new fabric.Line(
+                                                    [obj.x1 || 0, obj.y1 || 0, obj.x2 || 100, obj.y2 || 100], 
+                                                    {
+                                                        stroke: obj.stroke || '#007bff',
+                                                        strokeWidth: obj.strokeWidth || 2,
+                                                        selectable: true,
+                                                        _fftype: 'line'
+                                                    }
+                                                );
+                                                this.canvas.add(line);
+                                                
+                                                // 添加到shapes数组
+                                                this.shapes.push(line);
                                             }
                                         });
                                         
@@ -1395,20 +1425,33 @@
                 console.log('激活移动工具');
             },
             
+            // 激活线段工具
+            activateLineTool() {
+                this.currentTool = 'line';
+                if (this.canvas) {
+                    this.canvas.defaultCursor = 'crosshair';
+                    this.canvas.selection = false;
+                    this.canvas.discardActiveObject();
+                    this.canvas.renderAll();
+                }
+                this.isDrawing = false;
+                console.log('激活线段工具');
+            },
+            
             // 开始矩形绘制
             startRectangleDrawing(pointer) {
                 this.isDrawing = true;
                 this.startPosition = pointer;
                 
-                // 创建新矩形
+                // 创建新矩形，根据是否启用填充来设置填充颜色
                 this.drawingShape = new fabric.Rect({
                     left: pointer.x,
                     top: pointer.y,
                     width: 0,
                     height: 0,
-                    fill: 'rgba(0, 123, 255, 0.2)',
-                    stroke: '#007bff',
-                    strokeWidth: 2,
+                    fill: this.fillEnabled ? this.fillColor : 'transparent',
+                    stroke: this.strokeColor,
+                    strokeWidth: parseInt(this.strokeWidth),
                     selectable: true,
                     type: 'park_shape',
                     _fftype: 'rect'  // 添加自定义类型标记
@@ -1477,7 +1520,7 @@
                         left: pointer.x,
                         top: pointer.y,
                         radius: 5,
-                        fill: '#007bff',
+                        fill: this.strokeColor,
                         originX: 'center',
                         originY: 'center',
                         selectable: false,
@@ -1491,9 +1534,9 @@
                         x: pointer.x,
                         y: pointer.y
                     }], {
-                        fill: 'rgba(0, 123, 255, 0.2)',
-                        stroke: '#007bff',
-                        strokeWidth: 2,
+                        fill: 'transparent',
+                        stroke: this.strokeColor,
+                        strokeWidth: parseInt(this.strokeWidth),
                         selectable: false,
                         type: 'drawing_polygon'
                     });
@@ -1520,7 +1563,7 @@
                             left: pointer.x,
                             top: pointer.y,
                             radius: 5,
-                            fill: '#007bff',
+                            fill: this.strokeColor,
                             originX: 'center',
                             originY: 'center',
                             selectable: false,
@@ -1578,11 +1621,11 @@
                     });
                 }
                 
-                // 创建最终多边形
+                // 创建最终多边形，根据是否启用填充来设置填充颜色
                 const polygon = new fabric.Polygon(points, {
-                    fill: 'rgba(0, 123, 255, 0.2)',
-                    stroke: '#007bff',
-                    strokeWidth: 2,
+                    fill: this.fillEnabled ? this.fillColor : 'transparent',
+                    stroke: this.strokeColor,
+                    strokeWidth: parseInt(this.strokeWidth),
                     selectable: true,
                     type: 'park_shape',
                     _fftype: 'polygon'  // 添加自定义类型标记
@@ -1761,6 +1804,21 @@
                                                 
                                                 // 添加到shapes数组
                                                 this.shapes.push(polygon);
+                                            } else if (obj._fftype === 'line') {
+                                                // 创建线段
+                                                const line = new fabric.Line(
+                                                    [obj.x1 || 0, obj.y1 || 0, obj.x2 || 100, obj.y2 || 100], 
+                                                    {
+                                                        stroke: obj.stroke || '#007bff',
+                                                        strokeWidth: obj.strokeWidth || 2,
+                                                        selectable: true,
+                                                        _fftype: 'line'
+                                                    }
+                                                );
+                                                this.canvas.add(line);
+                                                
+                                                // 添加到shapes数组
+                                                this.shapes.push(line);
                                             }
                                         });
                                         
@@ -2208,6 +2266,58 @@
             closeEditParkModal() {
                 $('#editParkModal').modal('hide');
                 console.log('关闭编辑园区模态框');
+            },
+            
+            // 开始线段绘制
+            startLineDrawing(pointer) {
+                this.isDrawing = true;
+                this.startPosition = pointer;
+                
+                // 创建新线段
+                this.drawingShape = new fabric.Line([pointer.x, pointer.y, pointer.x, pointer.y], {
+                    stroke: this.strokeColor,
+                    strokeWidth: parseInt(this.strokeWidth),
+                    selectable: true,
+                    type: 'park_shape',
+                    _fftype: 'line'
+                });
+                
+                this.canvas.add(this.drawingShape);
+            },
+            
+            // 继续线段绘制
+            continueLineDrawing(pointer) {
+                if (!this.startPosition) return;
+                
+                this.drawingShape.set({
+                    x2: pointer.x,
+                    y2: pointer.y
+                });
+                
+                this.canvas.renderAll();
+            },
+            
+            // 完成线段绘制
+            finishLineDrawing() {
+                this.isDrawing = false;
+                
+                // 判断线段长度，如果太短就删除
+                const line = this.drawingShape;
+                const length = Math.sqrt(
+                    Math.pow(line.x2 - line.x1, 2) + 
+                    Math.pow(line.y2 - line.y1, 2)
+                );
+                
+                if (length < 5) {
+                    this.canvas.remove(line);
+                } else {
+                    // 将绘制的线段添加到shapes数组
+                    this.shapes.push(line);
+                }
+                
+                this.startPosition = null;
+                this.drawingShape = null;
+                this.canvas.renderAll();
             }
         },
         watch: {
