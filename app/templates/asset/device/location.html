@@ -22,8 +22,8 @@
                          @drop="onDrop($event, index)" @dragend="saveParksOrder">
                         <div class="card" style="width: 200px; cursor: move;" :class="{'border-primary': selectedPark && selectedPark.id === park.id}">
                             <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 120px;" @click="selectPark(park)">
-                                <i class="fas fa-map-marked-alt fa-3x text-primary" v-if="!park.map_data"></i>
-                                <img v-else :src="park.map_data" style="max-width: 100%; max-height: 100%;" alt="">
+                                <i class="fas fa-map-marked-alt fa-3x text-primary" v-if="!park.map_data || (park.map_data && !park.map_data.startsWith('data:image'))"></i>
+                                <img v-else-if="park.map_data && park.map_data.startsWith('data:image')" :src="park.map_data" style="max-width: 100%; max-height: 100%;" alt="">
                             </div>
                             <div class="card-body" @click="selectPark(park)">
                                 <h5 class="card-title">[[ park.name ]]</h5>
@@ -895,6 +895,12 @@
             // 加载地图图像
             loadMapImage() {
                 if (!this.parkCanvas || !this.selectedPark.map_data) return;
+                
+                // 确保map_data是图像数据
+                if (!this.selectedPark.map_data.startsWith('data:image')) {
+                    console.error('非图像数据无法加载:', this.selectedPark.map_data.substring(0, 50) + '...');
+                    return;
+                }
                 
                 fabric.Image.fromURL(this.selectedPark.map_data, (img) => {
                     // 调整图像大小以适应画布
