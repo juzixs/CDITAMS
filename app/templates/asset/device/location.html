@@ -219,24 +219,24 @@
                                         </button>
                                     </div>
                                 </div>
-                                <div class="style-tools position-absolute" style="top: 10px; left: 10px; z-index: 100; background-color: rgba(255,255,255,0.8); padding: 10px; border-radius: 5px; border: 1px solid #ddd;">
-                                    <div class="mb-2">
-                                        <label class="d-block mb-1 small">填充:</label>
+                                <div class="style-tools position-absolute" style="top: 10px; left: 10px; z-index: 100; background-color: rgba(255,255,255,0.8); padding: 10px; border-radius: 5px; border: 1px solid #ddd; width: 180px;">
+                                    <div class="mb-2 d-flex align-items-center">
+                                        <label class="mb-0 mr-2 small" style="width: 70px;">填充:</label>
                                         <div class="custom-control custom-switch">
                                             <input type="checkbox" class="custom-control-input" id="fillEnabledSwitch" v-model="fillEnabled" @change="updateSelectedObjectStyles">
                                             <label class="custom-control-label small" for="fillEnabledSwitch">[[fillEnabled ? '开启' : '关闭']]</label>
                                         </div>
                                     </div>
-                                    <div class="mb-2" v-if="fillEnabled">
-                                        <label class="d-block mb-1 small">填充颜色:</label>
+                                    <div class="mb-2 d-flex align-items-center" v-if="fillEnabled">
+                                        <label class="mb-0 mr-2 small" style="width: 70px;">填充颜色:</label>
                                         <input type="color" class="form-control form-control-sm" v-model="fillColor" @input="updateSelectedObjectStyles" style="width: 40px; height: 25px;">
                                     </div>
-                                    <div class="mb-2">
-                                        <label class="d-block mb-1 small">线条颜色:</label>
+                                    <div class="mb-2 d-flex align-items-center">
+                                        <label class="mb-0 mr-2 small" style="width: 70px;">线条颜色:</label>
                                         <input type="color" class="form-control form-control-sm" v-model="strokeColor" @input="updateSelectedObjectStyles" style="width: 40px; height: 25px;">
                                     </div>
-                                    <div>
-                                        <label class="d-block mb-1 small">线条宽度:</label>
+                                    <div class="d-flex align-items-center">
+                                        <label class="mb-0 mr-2 small" style="width: 70px;">线条宽度:</label>
                                         <select class="form-control form-control-sm" v-model="strokeWidth" @change="updateSelectedObjectStyles" style="width: 60px;">
                                             <option value="1">1px</option>
                                             <option value="2">2px</option>
@@ -244,6 +244,49 @@
                                             <option value="4">4px</option>
                                             <option value="5">5px</option>
                                         </select>
+                                    </div>
+                                </div>
+                                
+                                <!-- 添加对象选择器面板 -->
+                                <div id="objectSelector" class="object-selector border p-2" v-show="currentTool === 'move'" style="position: absolute; left: 10px; top: 175px; width: 180px; max-height: 50%; min-height: 200px; background-color: rgba(255,255,255,0.8); padding: 10px; border-radius: 5px; border: 1px solid #ddd; z-index: 100; overflow-y: auto; display: none;">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <label class="d-block mb-0 small">对象选择器:</label>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-1" style="font-size: 12px;" @click="refreshObjectList()">
+                                            <i class="fas fa-sync-alt"></i>
+                                        </button>
+                                    </div>
+                                    <div class="object-list">
+                                        <div v-for="(obj, index) in canvasObjects" :key="index" 
+                                             class="object-item p-1 mb-1 border-bottom" 
+                                             :class="{'bg-light': obj.active}" 
+                                             @click="selectObject(obj.id)" style="cursor: pointer;">
+                                            <div class="d-flex align-items-center">
+                                                <i class="fas fa-square text-primary mr-2" v-if="obj.type === 'rect'"></i>
+                                                <i class="fas fa-draw-polygon text-success mr-2" v-else-if="obj.type === 'polygon'"></i>
+                                                <i class="fas fa-circle text-danger mr-2" v-else-if="obj.type === 'circle'"></i>
+                                                <i class="fas fa-slash text-warning mr-2" v-else-if="obj.type === 'line'"></i>
+                                                <i class="fas fa-font text-info mr-2" v-else-if="obj.type === 'text'"></i>
+                                                <i class="fas fa-image text-secondary mr-2" v-else-if="obj.type === 'image'"></i>
+                                                <i class="fas fa-object-group text-dark mr-2" v-else></i>
+                                                <span class="small">[[ obj.name ]]</span>
+                                            </div>
+                                            <div class="object-controls mt-1" v-if="obj.active">
+                                                <div class="btn-group btn-group-sm w-100">
+                                                    <button type="button" class="btn btn-outline-primary btn-sm py-0" style="font-size: 12px;" @click.stop="bringForward(obj.id)">
+                                                        <i class="fas fa-arrow-up"></i>
+                                                    </button>
+                                                    <button type="button" class="btn btn-outline-primary btn-sm py-0" style="font-size: 12px;" @click.stop="sendBackward(obj.id)">
+                                                        <i class="fas fa-arrow-down"></i>
+                                                    </button>
+                                                    <button type="button" class="btn btn-outline-danger btn-sm py-0" style="font-size: 12px;" @click.stop="deleteObject(obj.id)">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div v-if="canvasObjects.length === 0" class="text-center py-2 text-muted small">
+                                            <i class="fas fa-info-circle mr-1"></i> 未找到可选择的对象
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -521,7 +564,10 @@
             // 设备相关
             devices: [],
             filteredDevices: [],
-            deviceSearchQuery: ''
+            deviceSearchQuery: '',
+            
+            // 对象选择器相关
+            canvasObjects: [] // 画布对象列表
         },
         methods: {            
             // 初始化拖拽功能
@@ -721,16 +767,28 @@
                 this.canvas.on('selection:created', (opt) => {
                     console.log('对象被选中', opt.selected);
                     this.selectedObjects = opt.selected;
+                    // 如果当前工具是移动工具，更新对象选择器
+                    if (this.currentTool === 'move') {
+                        this.refreshObjectList();
+                    }
                 });
                 
                 this.canvas.on('selection:updated', (opt) => {
                     console.log('选择更新', opt.selected);
                     this.selectedObjects = opt.selected;
+                    // 如果当前工具是移动工具，更新对象选择器
+                    if (this.currentTool === 'move') {
+                        this.refreshObjectList();
+                    }
                 });
                 
                 this.canvas.on('selection:cleared', () => {
                     console.log('选择清除');
                     this.selectedObjects = [];
+                    // 如果当前工具是移动工具，更新对象选择器
+                    if (this.currentTool === 'move') {
+                        this.refreshObjectList();
+                    }
                 });
                 
                 // 键盘事件 - 删除选中的对象
@@ -1531,6 +1589,10 @@
                     });
                     
                     this.canvas.renderAll();
+                    
+                    // 隐藏对象选择器
+                    const objectSelector = document.getElementById('objectSelector');
+                    if (objectSelector) objectSelector.style.display = 'none';
                 }
                 this.isDrawing = false;
                 console.log('激活矩形工具');
@@ -1553,8 +1615,11 @@
                     });
                     
                     this.canvas.renderAll();
+                    
+                    // 隐藏对象选择器
+                    const objectSelector = document.getElementById('objectSelector');
+                    if (objectSelector) objectSelector.style.display = 'none';
                 }
-                this.drawingPoints = [];
                 this.isDrawing = false;
                 console.log('激活多边形工具');
             },
@@ -1576,6 +1641,10 @@
                     });
                     
                     this.canvas.renderAll();
+                    
+                    // 隐藏对象选择器
+                    const objectSelector = document.getElementById('objectSelector');
+                    if (objectSelector) objectSelector.style.display = 'none';
                 }
                 console.log('激活缩放工具');
             },
@@ -1596,6 +1665,20 @@
                     });
                     
                     this.canvas.renderAll();
+                    
+                    // 显示对象选择器并刷新对象列表
+                    const objectSelector = document.getElementById('objectSelector');
+                    if (objectSelector) {
+                        objectSelector.style.display = 'block';
+                        console.log('显示对象选择器');
+                        // 确保对象选择器仅在移动工具激活时可见
+                        this.$nextTick(() => {
+                            if (this.currentTool !== 'move') {
+                                objectSelector.style.display = 'none';
+                            }
+                        });
+                    }
+                    this.refreshObjectList();
                 }
                 console.log('激活移动工具');
             },
@@ -1617,6 +1700,10 @@
                     });
                     
                     this.canvas.renderAll();
+                    
+                    // 隐藏对象选择器
+                    const objectSelector = document.getElementById('objectSelector');
+                    if (objectSelector) objectSelector.style.display = 'none';
                 }
                 this.isDrawing = false;
                 console.log('激活线段工具');
@@ -1683,6 +1770,11 @@
                 if (this.drawingShape && this.drawingShape.width > 5 && this.drawingShape.height > 5) {
                     this.drawingShape.setCoords();
                     this.shapes.push(this.drawingShape);
+                    
+                    // 如果当前工具是移动工具，刷新对象列表
+                    if (this.currentTool === 'move') {
+                        this.refreshObjectList();
+                    }
                 } else if (this.drawingShape) {
                     // 如果太小，移除它
                     this.canvas.remove(this.drawingShape);
@@ -2634,6 +2726,98 @@
                         '填充颜色:', this.fillColor,
                         '线条颜色:', this.strokeColor,
                         '线条宽度:', this.strokeWidth);
+                }
+            },
+            
+            // 刷新对象列表
+            refreshObjectList() {
+                if (!this.canvas) return;
+                
+                // 获取当前活动对象
+                const activeObj = this.canvas.getActiveObject();
+                
+                // 获取画布上所有可选择的对象
+                this.canvasObjects = this.canvas.getObjects()
+                    .filter(obj => !obj.isGridLine && obj.type !== 'polygon_point')
+                    .map((obj, index) => {
+                        // 确定对象类型
+                        const type = obj._fftype || obj.type;
+                        
+                        // 确定对象名称
+                        let name = '';
+                        if (type === 'rect') name = `矩形 ${index + 1}`;
+                        else if (type === 'circle') name = `圆形 ${index + 1}`;
+                        else if (type === 'polygon') name = `多边形 ${index + 1}`;
+                        else if (type === 'line') name = `线段 ${index + 1}`;
+                        else if (type === 'text') name = `文本 ${index + 1}`;
+                        else if (type === 'image') name = `图像 ${index + 1}`;
+                        else name = `对象 ${index + 1}`;
+                        
+                        return {
+                            id: obj.id || index,  // 使用对象ID或索引作为标识
+                            type: type,
+                            name: name,
+                            active: activeObj === obj,
+                            object: obj  // 存储对象引用
+                        };
+                    });
+            },
+            
+            // 选择对象
+            selectObject(id) {
+                if (!this.canvas) return;
+                
+                // 查找对应的对象
+                const objectItem = this.canvasObjects.find(item => item.id === id);
+                if (objectItem && objectItem.object) {
+                    // 将画布焦点设置到该对象
+                    this.canvas.setActiveObject(objectItem.object);
+                    this.canvas.renderAll();
+                    
+                    // 刷新对象列表以更新活动状态
+                    this.refreshObjectList();
+                }
+            },
+            
+            // 将对象上移一层
+            bringForward(id) {
+                if (!this.canvas) return;
+                
+                const objectItem = this.canvasObjects.find(item => item.id === id);
+                if (objectItem && objectItem.object) {
+                    this.canvas.bringForward(objectItem.object);
+                    this.canvas.renderAll();
+                }
+            },
+            
+            // 将对象下移一层
+            sendBackward(id) {
+                if (!this.canvas) return;
+                
+                const objectItem = this.canvasObjects.find(item => item.id === id);
+                if (objectItem && objectItem.object) {
+                    this.canvas.sendBackward(objectItem.object);
+                    this.canvas.renderAll();
+                }
+            },
+            
+            // 删除对象
+            deleteObject(id) {
+                if (!this.canvas) return;
+                
+                const objectItem = this.canvasObjects.find(item => item.id === id);
+                if (objectItem && objectItem.object) {
+                    this.canvas.remove(objectItem.object);
+                    this.canvas.renderAll();
+                    
+                    // 从shapes数组中移除
+                    const index = this.shapes.indexOf(objectItem.object);
+                    if (index !== -1) {
+                        this.shapes.splice(index, 1);
+                    }
+                    
+                    // 更新对象列表
+                    this.refreshObjectList();
                 }
             }
         },
