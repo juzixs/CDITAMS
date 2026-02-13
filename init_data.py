@@ -73,27 +73,96 @@ def init_departments():
 
 def init_categories():
     print("初始化资产分类...")
-    cats = [
-        {'name': '台式机', 'code': 'DJ', 'sort': 1},
-        {'name': '笔记本电脑', 'code': 'BJ', 'sort': 2},
-        {'name': '服务器', 'code': 'FW', 'sort': 3},
-        {'name': '打印机', 'code': 'DY', 'sort': 4},
-        {'name': '网络设备', 'code': 'WL', 'sort': 5},
-    ]
+    AssetCategory.objects.all().delete()
     
-    for c in cats:
-        AssetCategory.objects.get_or_create(code=c['code'], defaults=c)
+    xcd, _ = AssetCategory.objects.get_or_create(
+        code='XACD',
+        defaults={'name': '西安驰达', 'level': 1, 'description': '西安驰达飞机零部件制造股份有限公司', 'sort': 1}
+    )
+    xys, _ = AssetCategory.objects.get_or_create(
+        code='XAYS',
+        defaults={'name': '西安优盛', 'level': 1, 'description': '西安优盛航空科技有限公司', 'sort': 2}
+    )
+    
+    z_xcd, _ = AssetCategory.objects.get_or_create(
+        code='XACD-Z',
+        defaults={'name': '总经办', 'code': 'XACD-Z', 'parent': xcd, 'level': 2, 'sort': 1}
+    )
+    z_xys, _ = AssetCategory.objects.get_or_create(
+        code='XAYS-Z',
+        defaults={'name': '总经办', 'code': 'XAYS-Z', 'parent': xys, 'level': 2, 'sort': 1}
+    )
+    
+    jsj_001 = AssetCategory.objects.create(name='计算机', code='XACD-Z-001', parent=z_xcd, level=3, sort=1)
+    bgs_002 = AssetCategory.objects.create(name='办公设备', code='XACD-Z-002', parent=z_xcd, level=3, sort=2)
+    xx_003 = AssetCategory.objects.create(name='信息设备', code='XACD-Z-003', parent=z_xcd, level=3, sort=3)
+    
+    AssetCategory.objects.create(name='计算机', code='XAYS-Z-001', parent=z_xys, level=3, sort=1)
+    AssetCategory.objects.create(name='办公设备', code='XAYS-Z-002', parent=z_xys, level=3, sort=2)
+    AssetCategory.objects.create(name='信息设备', code='XAYS-Z-003', parent=z_xys, level=3, sort=3)
+    
+    computer_children = [
+        ('台式机', '001'), ('笔记本', '002'), ('显示器', '003'), ('其他', '004')
+    ]
+    for name, code in computer_children:
+        AssetCategory.objects.create(name=name, code=f'XACD-Z-001-{code}', parent=jsj_001, level=4, sort=int(code))
+        AssetCategory.objects.create(name=name, code=f'XAYS-Z-001-{code}', parent=AssetCategory.objects.get(code='XAYS-Z-001'), level=4, sort=int(code))
+    
+    office_children = [
+        ('空调', '001'), ('打印机', '002'), ('扫描仪', '003'), ('传真机', '004'), 
+        ('投影仪', '005'), ('交换机', '006'), ('平板一体机', '007'), ('照相机', '008'), ('其他', '009')
+    ]
+    for name, code in office_children:
+        AssetCategory.objects.create(name=name, code=f'XACD-Z-002-{code}', parent=bgs_002, level=4, sort=int(code))
+        AssetCategory.objects.create(name=name, code=f'XAYS-Z-002-{code}', parent=AssetCategory.objects.get(code='XAYS-Z-002'), level=4, sort=int(code))
+    
+    info_children = [
+        ('服务器', '001'), ('存储器', '002'), ('监控设备', '003'), ('监控系统', '004'), ('其他', '005')
+    ]
+    for name, code in info_children:
+        AssetCategory.objects.create(name=name, code=f'XACD-Z-003-{code}', parent=xx_003, level=4, sort=int(code))
+        AssetCategory.objects.create(name=name, code=f'XAYS-Z-003-{code}', parent=AssetCategory.objects.get(code='XAYS-Z-003'), level=4, sort=int(code))
+    
+    print(f"已初始化 {AssetCategory.objects.count()} 条分类数据")
 
 def init_locations():
     print("初始化位置...")
-    locs = [
-        {'name': '产业园区', 'code': 'CY', 'level': 1, 'park_code': 'CY', 'sort': 1},
-        {'name': '办公楼A栋', 'code': 'OA', 'level': 2, 'building_code': 'OA', 'sort': 1},
-        {'name': '3楼', 'code': '03', 'level': 3, 'floor_code': '03', 'sort': 1},
-    ]
+    AssetLocation.objects.all().delete()
     
-    for l in locs:
-        AssetLocation.objects.get_or_create(code=l['code'], defaults=l)
+    cy, _ = AssetLocation.objects.get_or_create(
+        code='CY',
+        defaults={'name': '产业园区', 'level': 1, 'park_code': 'CY', 'sort': 1}
+    )
+    
+    oa, _ = AssetLocation.objects.get_or_create(
+        code='CYOA',
+        defaults={'name': '办公楼', 'level': 2, 'park_code': 'CY', 'building_code': 'OA', 'floor_count': 5, 'basement_count': 1, 'has_rooftop': True, 'sort': 1}
+    )
+    oa.parent = cy
+    oa.save()
+    
+    basement_floors = [
+        ('B1层', 'B1', 'B1', 1),
+    ]
+    for name, floor_code, code_suffix, sort in basement_floors:
+        AssetLocation.objects.create(
+            name=name, code=f'CYOA{code_suffix}', level=3, parent=oa,
+            park_code='CY', building_code='OA', floor_code=floor_code, sort=sort
+        )
+    
+    floor_count = 5
+    for i in range(1, floor_count + 1):
+        AssetLocation.objects.create(
+            name=f'{i}楼', code=f'CYOA{i:02d}', level=3, parent=oa,
+            park_code='CY', building_code='OA', floor_code=f'{i:02d}', sort=i + 1
+        )
+    
+    AssetLocation.objects.create(
+        name='天台', code='CYOAC1', level=3, parent=oa,
+        park_code='CY', building_code='OA', floor_code='C1', sort=floor_count + 2
+    )
+    
+    print(f"已初始化 {AssetLocation.objects.count()} 条位置数据")
 
 def init_service_types():
     print("初始化服务类型...")

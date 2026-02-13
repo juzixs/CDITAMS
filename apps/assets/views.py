@@ -388,7 +388,7 @@ def location_list(request):
         'children',
         'workstations',
         'devices'
-    ).order_by('code', 'id')
+    ).order_by('sort', 'code', 'id')
     return render(request, 'assets/location_list.html', {'locations': locations})
 
 
@@ -930,7 +930,7 @@ def device_stats(request):
 @login_required
 def location_tree(request):
     def build_tree(location):
-        children = location.children.all()
+        children = location.children.all().order_by('sort', 'code')
         return {
             'id': location.id,
             'name': location.name,
@@ -947,7 +947,7 @@ def location_tree(request):
             'children': [build_tree(child) for child in children]
         }
     
-    roots = AssetLocation.objects.filter(parent__isnull=True)
+    roots = AssetLocation.objects.filter(parent__isnull=True).order_by('sort', 'code')
     tree_data = [build_tree(loc) for loc in roots]
     return JsonResponse({'data': tree_data})
 

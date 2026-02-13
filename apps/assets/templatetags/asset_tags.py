@@ -5,7 +5,7 @@ register = template.Library()
 
 @register.simple_tag
 def get_location_children(location):
-    return AssetLocation.objects.filter(parent=location).order_by('code', 'id')
+    return AssetLocation.objects.filter(parent=location).order_by('sort', 'code', 'id')
 
 @register.filter
 def has_children(location):
