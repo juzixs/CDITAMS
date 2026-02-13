@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title %}盘点计划 - 驰达IT资产管理系统{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+<h4>盘点计划</h4>
+<a href="{% url 'plan_create' %}" class="btn btn-primary"><i class="fas fa-plus"></i> 新建计划</a>
+</div>
+<div class="card"><div class="card-body">
+<table class="table table-hover"><thead><tr><th>计划编号</th><th>计划名称</th><th>类型</th><th>状态</th><th>计划时间</th><th>创建人</th><th>操作</th></tr></thead>
+<tbody>{% for p in plans %}<tr><td>{{ p.plan_no }}</td><td>{{ p.name }}</td><td>{{ p.get_plan_type_display }}</td>
+<td>{% if p.status == 'draft' %}<span class="badge bg-secondary">草稿</span>{% elif p.status == 'pending' %}<span class="badge bg-info">待执行</span>{% elif p.status == 'in_progress' %}<span class="badge bg-primary">执行中</span>{% else %}<span class="badge bg-success">已完成</span>{% endif %}</td>
+<td>{{ p.scheduled_start|date:"Y-m-d" }} ~ {{ p.scheduled_end|date:"Y-m-d" }}</td><td>{{ p.creator.realname|default:'-' }}</td>
+<td><a href="{% url 'plan_detail' p.id %}" class="btn btn-sm btn-outline-primary">详情</a></td></tr>{% empty %}<tr><td colspan="7" class="text-center text-muted">暂无数据</td></tr>{% endfor %}</tbody></table>
+</div></div>{% endblock %}

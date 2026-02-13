@@ -1,0 +1,8 @@
+{% extends 'base.html' %}
+{% block title %}资产日志 - 驰达IT资产管理系统{% endblock %}
+{% block content %}
+<h4 class="mb-4">资产日志</h4>
+<div class="card"><div class="card-body">
+<table class="table table-hover"><thead><tr><th>资产编号</th><th>操作</th><th>字段</th><th>操作人</th><th>时间</th></tr></thead>
+<tbody>{% for log in logs %}<tr><td>{{ log.device.asset_no }}</td><td>{{ log.get_action_display }}</td><td>{{ log.field_name|default:'-' }}</td><td>{{ log.user.realname|default:'-' }}</td><td>{{ log.created_at|date:"Y-m-d H:i:s" }}</td></tr>{% empty %}<tr><td colspan="5" class="text-center text-muted">暂无数据</td></tr>{% endfor %}</tbody></table>
+</div></div>{% endblock %}

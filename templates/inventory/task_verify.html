@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}盘点审核 - {{ task.task_no }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+<h4>盘点审核 - {{ task.task_no }}</h4>
+<div>
+<form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="action" value="confirm"><button type="submit" class="btn btn-success" onclick="return confirm('确认审核通过？')">审核通过</button></form>
+<a href="{% url 'task_list' %}" class="btn btn-outline-secondary">返回</a>
+</div>
+</div>
+<div class="row mb-4">
+<div class="col-md-3"><div class="card text-center"><div class="card-body"><h5 class="card-title">应盘数量</h5><p class="card-text display-6">{{ stats.total }}</p></div></div></div>
+<div class="col-md-3"><div class="card text-center"><div class="card-body"><h5 class="card-title">已盘数量</h5><p class="card-text display-6">{{ stats.checked }}</p></div></div></div>
+<div class="col-md-3"><div class="card text-center"><div class="card-body"><h5 class="card-title">在位</h5><p class="card-text display-6 text-success">{{ stats.in_place }}</p></div></div></div>
+<div class="col-md-3"><div class="card text-center"><div class="card-body"><h5 class="card-title">未找到</h5><p class="card-text display-6 text-danger">{{ stats.not_found }}</p></div></div></div>
+</div>
+<div class="card mb-3"><div class="card-header">差异处理</div><div class="card-body">
+<table class="table"><thead><tr><th>设备编号</th><th>设备名称</th><th>位置状态</th><th>资产状态</th><th>盘点人</th><th>时间</th><th>操作</th></tr></thead>
+<tbody>{% for r in records %}{% if r.location_status != 'in_place' or r.asset_status != 'normal' %}
+<tr class="{% if r.location_status == 'not_found' %}table-danger{% elif r.asset_status == 'damaged' %}table-warning{% endif %}">
+<td>{{ r.device.asset_no }}</td><td>{{ r.device.name }}</td>
+<td>{% if r.location_status == 'in_place' %}<span class="badge bg-success">在位</span>{% elif r.location_status == 'moved' %}<span class="badge bg-warning">搬离</span>{% else %}<span class="badge bg-danger">未找到</span>{% endif %}</td>
+<td>{% if r.asset_status == 'normal' %}<span class="badge bg-success">正常</span>{% elif r.asset_status == 'damaged' %}<span class="badge bg-warning">损坏</span>{% else %}<span class="badge bg-danger">丢失</span>{% endif %}</td>
+<td>{{ r.checked_by.realname|default:'-' }}</td><td>{{ r.checked_at|date:"Y-m-d H:i" }}</td>
+<td>{% if r.location_status == 'not_found' or r.asset_status == 'damaged' or r.asset_status == 'lost' %}
+<form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="action" value="difference"><input type="hidden" name="record_id" value="{{ r.id }}">
+<select name="diff_action" style="display:inline;width:auto;" class="form-select form-select-sm">
+<option value="">选择处理方式</option>
+<option value="profit">确认为盘盈</option>
+<option value="loss">确认为盘亏</option>
+<option value="damage">确认为损毁</option>
+</select><button type="submit" class="btn btn-sm btn-primary">确认</button></form>{% endif %}</td>
+</tr>{% endif %}{% empty %}<tr><td colspan="7" class="text-center">暂无差异记录</td></tr>{% endfor %}</tbody></table>
+</div></div>
+<div class="card"><div class="card-header">所有盘点记录</div><div class="card-body">
+<table class="table table-sm"><thead><tr><th>设备编号</th><th>设备名称</th><th>位置状态</th><th>资产状态</th><th>盘点人</th><th>时间</th></tr></thead>
+<tbody>{% for r in records %}<tr><td>{{ r.device.asset_no }}</td><td>{{ r.device.name }}</td>
+<td>{{ r.get_location_status_display }}</td><td>{{ r.get_asset_status_display }}</td><td>{{ r.checked_by.realname|default:'-' }}</td><td>{{ r.checked_at|date:"Y-m-d H:i" }}</td></tr>{% endfor %}</tbody></table>
+</div></div>{% endblock %}

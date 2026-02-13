@@ -1,0 +1,363 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if device %}编辑{% else %}新增{% endif %}设备 - 驰达IT资产管理系统{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+    .select2-container--default .select2-selection--single { height: 38px; border: 1px solid #ced4da; border-radius: 4px; }
+    .select2-container--default .select2-selection--single .select2-selection__rendered { line-height: 38px; padding-left: 12px; }
+    .select2-container--default .select2-selection--single .select2-selection__arrow { height: 36px; }
+    .select2-dropdown { border: 1px solid #ced4da; border-radius: 4px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+    .select2-container--default .select2-results > .select2-results__options { max-height: 400px; }
+    .select2-container--default .select2-results__option[aria-disabled=true] { opacity: 0.6; }
+    .select2-container--default .select2-results__option--highlighted[aria-selected] { background-color: #f0f0f0; color: #333; }
+    .select2-container--default .select2-results__option[aria-selected=true] { background-color: #e9ecef; }
+    .category-level-1 { font-weight: bold; color: #333; }
+    .category-level-2 { padding-left: 15px; }
+    .category-level-3 { padding-left: 30px; }
+    .category-level-4 { padding-left: 45px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4>{% if device %}编辑{% else %}新增{% endif %}设备</h4>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            
+            <h6 class="border-bottom pb-2 mb-3">基本信息</h6>
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label class="form-label">资产分类 <span class="text-danger">*</span></label>
+                    <select name="category" id="category-select" class="form-select" required>
+                        <option value="">请选择分类</option>
+                    </select>
+                    <small class="form-text text-muted">请选择末级分类</small>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">资产编号 <span class="text-danger">*</span></label>
+                    <input type="text" name="asset_no" id="asset_no" class="form-control" value="{{ device.asset_no|default:'' }}" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">设备名称 <span class="text-danger">*</span></label>
+                    <input type="text" name="name" class="form-control" value="{{ device.name|default:'' }}" required>
+                </div>
+            </div>
+            
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label class="form-label">设备编号</label>
+                    <input type="text" name="device_no" class="form-control" value="{{ device.device_no|default:'' }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">序列号</label>
+                    <input type="text" name="serial_no" class="form-control" value="{{ device.serial_no|default:'' }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">品牌</label>
+                    <input type="text" name="brand" class="form-control" value="{{ device.brand|default:'' }}">
+                </div>
+            </div>
+            
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label class="form-label">型号</label>
+                    <input type="text" name="model" class="form-control" value="{{ device.model|default:'' }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">设备状态</label>
+                    <select name="status" class="form-select">
+                        <option value="normal" {% if device.status == 'normal' or not device %}selected{% endif %}>正常</option>
+                        <option value="fault" {% if device.status == 'fault' %}selected{% endif %}>故障</option>
+                        <option value="repairing" {% if device.status == 'repairing' %}selected{% endif %}>维修中</option>
+                        <option value="scrapped" {% if device.status == 'scrapped' %}selected{% endif %}>已报废</option>
+                        <option value="unused" {% if device.status == 'unused' %}selected{% endif %}>闲置</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">密级</label>
+                    <select name="secret_level" class="form-select">
+                        <option value="public" {% if device.secret_level == 'public' or not device %}selected{% endif %}>公开</option>
+                        <option value="internal" {% if device.secret_level == 'internal' %}selected{% endif %}>内部</option>
+                        <option value="confidential" {% if device.secret_level == 'confidential' %}selected{% endif %}>机密</option>
+                        <option value="secret" {% if device.secret_level == 'secret' %}selected{% endif %}>绝密</option>
+                    </select>
+                </div>
+            </div>
+            
+            <h6 class="border-bottom pb-2 mb-3 mt-4">使用信息</h6>
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label class="form-label">使用人</label>
+                    <select name="user" class="form-select">
+                        <option value="">未分配</option>
+                        {% for u in users %}
+                        <option value="{{ u.id }}" {% if device.user_id == u.id %}selected{% endif %}>{{ u.realname }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">所属部门</label>
+                    <select name="department" class="form-select">
+                        <option value="">请选择</option>
+                        {% for dept in departments %}
+                        <option value="{{ dept.id }}" {% if device.department_id == dept.id %}selected{% endif %}>{{ dept.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">所在位置</label>
+                    <select name="location" class="form-select">
+                        <option value="">请选择</option>
+                        {% for loc in locations %}
+                        <option value="{{ loc.id }}" {% if device.location_id == loc.id %}selected{% endif %}>{{ loc.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            
+            <h6 class="border-bottom pb-2 mb-3 mt-4">网络信息</h6>
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label class="form-label">MAC地址</label>
+                    <input type="text" name="mac_address" class="form-control" value="{{ device.mac_address|default:'' }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">IP地址</label>
+                    <input type="text" name="ip_address" class="form-control" value="{{ device.ip_address|default:'' }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">操作系统</label>
+                    <input type="text" name="os_name" class="form-control" value="{{ device.os_name|default:'' }}">
+                </div>
+            </div>
+            
+            <h6 class="border-bottom pb-2 mb-3 mt-4">其他信息</h6>
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label class="form-label">购入日期</label>
+                    <input type="date" name="purchase_date" class="form-control" value="{{ device.purchase_date|default:'' }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">硬盘序列号</label>
+                    <input type="text" name="disk_serial" class="form-control" value="{{ device.disk_serial|default:'' }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">用途</label>
+                    <input type="text" name="purpose" class="form-control" value="{{ device.purpose|default:'' }}">
+                </div>
+            </div>
+            
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">固资在账</label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="is_fixed" id="is_fixed" {% if device.is_fixed %}checked{% endif %}>
+                        <label class="form-check-label" for="is_fixed">是</label>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">保密台账</label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="is_secret" id="is_secret" {% if device.is_secret %}checked{% endif %}>
+                        <label class="form-check-label" for="is_secret">是</label>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">备注</label>
+                <textarea name="remarks" class="form-control" rows="3">{{ device.remarks|default:'' }}</textarea>
+            </div>
+            
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">保存</button>
+                <a href="{% url 'device_list' %}" class="btn btn-outline-secondary">返回</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/i18n/zh-CN.js"></script>
+<script>
+let categoriesData = [];
+let categoriesLoaded = false;
+let userTypingAssetNo = false;
+const currentCategoryId = {{ device.category_id|default:'null' }};
+
+function formatCategoryOption(option) {
+    if (!option.id) return option.text;
+    
+    const $option = $('<span></span>');
+    const level = $(option.element).data('level');
+    
+    switch(level) {
+        case 1:
+            $option.append($('<i class="fas fa-folder mr-1"></i>'));
+            $option.addClass('font-weight-bold');
+            break;
+        case 2:
+            $option.css('padding-left', '15px');
+            break;
+        case 3:
+            $option.css('padding-left', '30px');
+            break;
+        case 4:
+            $option.css('padding-left', '45px');
+            break;
+    }
+    
+    $option.append(option.text);
+    return $option;
+}
+
+function formatCategorySelection(option) {
+    if (!option.id) return option.text;
+    return option.text;
+}
+
+function loadCategories() {
+    fetch('/assets/api/categories/')
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                categoriesData = data.data;
+                const select = $('#category-select');
+                
+                // 按层级递归添加选项
+                function addCategoryOptions(parentId, level) {
+                    const children = categoriesData.filter(c => {
+                        if (parentId === null) return c.parent_id === null || c.parent_id === undefined || c.parent_id === '';
+                        return String(c.parent_id) === String(parentId);
+                    });
+                    children.forEach(cat => {
+                        const opt = $('<option></option>');
+                        opt.val(cat.id);
+                        
+                        // 只添加缩进
+                        const indent = '\u00A0\u00A0'.repeat(level - 1);
+                        opt.text(indent + cat.name + ' [' + cat.code + ']');
+                        
+                        opt.attr('data-level', cat.level);
+                        opt.prop('disabled', cat.level < 4);
+                        select.append(opt);
+                        
+                        // 递归添加子分类
+                        addCategoryOptions(cat.id, level + 1);
+                    });
+                }
+                
+                // 从顶级分类开始添加（parent_id为null的分类）
+                addCategoryOptions(null, 1);
+                
+                select.select2({
+                    placeholder: '请选择分类',
+                    allowClear: true,
+                    width: '100%',
+                    language: 'zh-CN',
+                    escapeMarkup: function(markup) { return markup; },
+                    templateResult: formatCategoryOption,
+                    templateSelection: formatCategorySelection
+                });
+                
+                select.on('change', function() {
+                    const categoryId = $(this).val();
+                    if (categoryId && !userTypingAssetNo) {
+                        generateAssetNumber(categoryId);
+                    }
+                });
+                
+                if (currentCategoryId) {
+                    select.val(currentCategoryId).trigger('change');
+                }
+                
+                // 标记分类已加载完成
+                categoriesLoaded = true;
+            }
+        });
+}
+
+function generateAssetNumber(categoryId) {
+    if (!categoryId) return;
+    
+    $('#asset_no').attr('placeholder', '正在生成...');
+    
+    fetch('/assets/api/devices/generate-asset-number/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({ category_id: categoryId })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            $('#asset_no').val(data.asset_number);
+        }
+        $('#asset_no').removeAttr('placeholder');
+    })
+    .catch(() => {
+        $('#asset_no').removeAttr('placeholder');
+    });
+}
+
+function parseAssetNumber() {
+    const assetNo = $('#asset_no').val();
+    if (!assetNo || !categoriesLoaded || categoriesData.length === 0) return;
+    
+    const parts = assetNo.trim().split('-').filter(p => p);
+    if (parts.length < 1) return;
+    
+    // 分段匹配：逐级查找
+    let currentLevel = 1;
+    let currentParentId = null;
+    let matchedCategory = null;
+    
+    for (let i = 0; i < parts.length; i++) {
+        const codePart = parts[i];
+        
+        // 查找当前层级的分类
+        const candidates = categoriesData.filter(c => {
+            if (c.level !== currentLevel) return false;
+            if (currentLevel === 1) {
+                return c.code === codePart;
+            } else {
+                return c.code.endsWith('-' + codePart) && String(c.parent_id) === String(currentParentId);
+            }
+        });
+        
+        if (candidates.length === 0) break;
+        
+        matchedCategory = candidates[0];
+        currentParentId = matchedCategory.id;
+        currentLevel++;
+    }
+    
+    // 如果找到了分类且是末级(4级)，则选中
+    if (matchedCategory && matchedCategory.level === 4) {
+        userTypingAssetNo = true;
+        $('#category-select').val(matchedCategory.id.toString()).trigger('change');
+        // 延迟重置标志，让change事件先执行
+        setTimeout(() => { userTypingAssetNo = false; }, 100);
+    }
+}
+
+$(document).ready(function() {
+    loadCategories();
+    
+    // 绑定 input 事件
+    $('#asset_no').on('input', function() {
+        parseAssetNumber();
+    });
+});
+</script>
+{% endblock %}

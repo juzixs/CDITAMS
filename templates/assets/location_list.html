@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+{% block title %}位置管理 - 驰达IT资产管理系统{% endblock %}
+{% block extra_css %}
+<style>
+.tree-table td { vertical-align: middle; }
+.level-badge { font-size: 10px; padding: 2px 6px; }
+.btn-map { padding: 2px 6px; font-size: 12px; }
+.tree-toggle { cursor: pointer; width: 20px; display: inline-block; text-align: center; }
+.tree-toggle:hover { color: #0d6efd; }
+.parent-row[data-level="1"] { background: #fffbe6; }
+.parent-row[data-level="2"] { background: #e6f2ff; }
+.parent-row[data-level="3"] { background: #e6fffb; }
+.parent-row[data-level="4"] { background: #e6ffe6; }
+.child-of-0 { display: table-row; }
+.child-of:not(.child-of-0) { display: none; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+<h4><i class="fas fa-sitemap"></i> 位置管理</h4>
+<a href="{% url 'location_create' %}" class="btn btn-primary"><i class="fas fa-plus"></i> 新增位置</a>
+</div>
+
+<div class="card mb-3">
+<div class="card-header"><i class="fas fa-info-circle"></i> 操作说明</div>
+<div class="card-body">
+<p class="mb-2"><strong>层级结构：</strong></p>
+<ul class="text-muted">
+<li><span class="badge bg-warning text-dark">1级</span> <strong>园区</strong> → 如：产业园区、草滩园区</li>
+<li><span class="badge bg-primary">2级</span> <strong>设施</strong> → 如：办公楼A栋、生产车间（设置楼层数后自动生成楼层）</li>
+<li><span class="badge bg-info">3级</span> <strong>楼层</strong> → 如：1楼、2楼（在此绘制平面图）</li>
+<li><span class="badge bg-success">4级</span> <strong>房间/区域</strong> → 如：A301室（绑定到平面图区域）</li>
+</ul>
+<p class="mb-0"><small><i class="fas fa-lightbulb"></i> 提示：点击行可展开/折叠子级，3级位置可绘制平面图，4级位置可绑定到平面图区域</small></p>
+</div>
+</div>
+
+<div class="card">
+<div class="card-body">
+<table class="table table-hover" id="locationTable">
+<thead>
+<tr>
+<th style="width:30px;"></th>
+<th>位置名称</th>
+<th>位置编码</th>
+<th>级别</th>
+<th>地图</th>
+<th>工位数</th>
+<th>设备数</th>
+<th style="width:180px;">操作</th>
+</tr>
+</thead>
+<tbody>
+{% for loc in locations %}
+{% with loc as root %}
+{% include 'assets/location_tree_rows.html' %}
+{% endwith %}
+{% empty %}
+<tr><td colspan="8" class="text-center text-muted">暂无数据</td></tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.tree-toggle').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const id = this.dataset.id;
+            const isExpanded = this.classList.contains('expanded');
+            
+            document.querySelectorAll('.child-of-' + id).forEach(row => {
+                row.style.display = isExpanded ? 'none' : 'table-row';
+                if (!isExpanded) {
+                    const toggle = row.querySelector('.tree-toggle');
+                    if (toggle) {
+                        toggle.classList.add('expanded');
+                        toggle.querySelector('i').classList.remove('fa-plus-square');
+                        toggle.querySelector('i').classList.add('fa-minus-square');
+                    }
+                }
+            });
+            
+            this.classList.toggle('expanded', !isExpanded);
+            this.querySelector('i').classList.toggle('fa-plus-square', isExpanded);
+            this.querySelector('i').classList.toggle('fa-minus-square', !isExpanded);
+        });
+    });
+});
+</script>
+{% endblock %}

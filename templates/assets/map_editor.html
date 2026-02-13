@@ -1,0 +1,911 @@
+{% extends 'base.html' %}
+{% block title %}编辑地图 - 驰达IT资产管理系统{% endblock %}
+{% block extra_css %}
+<style>
+#editorContainer { position: relative; width: 100%; height: 650px; border: 1px solid #ddd; background: #f5f5f5; overflow: hidden; }
+#editorCanvas { cursor: crosshair; }
+.ruler-h { position: absolute; top: 0; left: 30px; height: 24px; background: #fff; border-bottom: 1px solid #ccc; overflow: hidden; z-index: 5; }
+.ruler-v { position: absolute; top: 0; left: 0; width: 24px; background: #fff; border-right: 1px solid #ccc; overflow: hidden; z-index: 5; }
+.ruler-h canvas, .ruler-v canvas { display: block; }
+.coord-tip { position: absolute; background: rgba(0,0,0,0.7); color: #fff; padding: 2px 6px; font-size: 11px; border-radius: 3px; pointer-events: none; display: none; z-index: 20; }
+.editor-toolbar { position: absolute; top: 30px; left: 10px; z-index: 10; background: #fff; padding: 10px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+.editor-toolbar .btn-group { margin-bottom: 5px; }
+.editor-toolbar .btn.active { background: #0d6efd; color: #fff; }
+.editor-toolbar .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.element-props { position: absolute; top: 30px; right: 10px; z-index: 10; background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); width: 260px; max-height: 500px; overflow-y: auto; }
+.element-props h6 { margin: 0 0 10px 0; border-bottom: 1px solid #eee; padding-bottom: 8px; }
+.map-settings { position: absolute; bottom: 10px; left: 10px; z-index: 10; background: #fff; padding: 10px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+.snap-indicator { position: absolute; top: 30px; left: 50%; transform: translateX(-50%); background: #28a745; color: #fff; padding: 4px 12px; border-radius: 20px; font-size: 12px; display: none; z-index: 15; }
+.door-props { display: none; background: #f8f9fa; padding: 10px; border-radius: 4px; margin-top: 10px; }
+.door-props.show { display: block; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4><i class="fas fa-edit"></i> 编辑地图 - {{ location.name }}</h4>
+    <div>
+        <button class="btn btn-success" onclick="editor.save()"><i class="fas fa-save"></i> 保存</button>
+        <a href="{% url 'location_map' location.id %}" class="btn btn-outline-secondary">返回查看</a>
+    </div>
+</div>
+<div class="row">
+    <div class="col-md-12">
+        <div id="editorContainer">
+            <div class="ruler-h" id="rulerH"><canvas id="rulerHCvs"></canvas></div>
+            <div class="ruler-v" id="rulerV"><canvas id="rulerVCvs"></canvas></div>
+            <canvas id="editorCanvas" width="{{ location.map_width }}" height="{{ location.map_height }}"></canvas>
+            <div class="coord-tip" id="coordTip"></div>
+            <div class="snap-indicator" id="snapIndicator"><i class="fas fa-magnet"></i> 吸附</div>
+            <div class="editor-toolbar">
+                <div class="btn-group btn-group-sm mb-2">
+                    <button class="btn btn-outline-secondary active" data-tool="select" title="选择 (V)"><i class="fas fa-mouse-pointer"></i></button>
+                    <button class="btn btn-outline-secondary" data-tool="wall" title="画墙 (W)"><i class="fas fa-minus"></i></button>
+                    <button class="btn btn-outline-secondary" data-tool="door" title="画门 (D)"><i class="fas fa-door-open"></i></button>
+                    <button class="btn btn-outline-secondary" data-tool="window" title="画窗 (N)"><i class="fas fa-window-maximize"></i></button>
+                    <button class="btn btn-outline-secondary" data-tool="desk" title="画工位 (B)"><i class="fas fa-th"></i></button>
+                    <button class="btn btn-outline-secondary" data-tool="polygon" title="画区域 (P)"><i class="fas fa-draw-polygon"></i></button>
+                </div>
+                <div class="btn-group btn-group-sm mb-2">
+                    <button class="btn btn-outline-secondary" onclick="editor.zoomIn()" title="放大 (+)"><i class="fas fa-search-plus"></i></button>
+                    <button class="btn btn-outline-secondary" onclick="editor.zoomOut()" title="缩小 (-)"><i class="fas fa-search-minus"></i></button>
+                    <button class="btn btn-outline-secondary" onclick="editor.toggleGrid()" title="网格 (G)"><i class="fas fa-border-all"></i></button>
+                </div>
+                <div class="btn-group btn-group-sm mb-2">
+                    <button class="btn btn-outline-secondary" id="btnUndo" onclick="editor.undo()" title="撤销 (Ctrl+Z)"><i class="fas fa-undo"></i></button>
+                    <button class="btn btn-outline-secondary" id="btnRedo" onclick="editor.redo()" title="重做 (Ctrl+Y)"><i class="fas fa-redo"></i></button>
+                    <button class="btn btn-outline-danger" onclick="editor.deleteSelected()" title="删除 (Del)"><i class="fas fa-trash"></i></button>
+                </div>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-secondary" onclick="editor.toggleSnap()" id="btnSnap" title="吸附 (S)"><i class="fas fa-magnet"></i></button>
+                </div>
+            </div>
+            <div class="element-props" id="elementProps">
+                <h6>元素属性</h6>
+                <div class="mb-2">
+                    <label class="form-label">类型</label>
+                    <select class="form-select form-select-sm" id="propType">
+                        <option value="wall">墙</option>
+                        <option value="door">门</option>
+                        <option value="window">窗</option>
+                        <option value="desk">工位</option>
+                        <option value="equipment">设备</option>
+                    </select>
+                </div>
+                <div class="row">
+                    <div class="col-6 mb-2">
+                        <label class="form-label">X</label>
+                        <input type="number" class="form-control form-control-sm" id="propX">
+                    </div>
+                    <div class="col-6 mb-2">
+                        <label class="form-label">Y</label>
+                        <input type="number" class="form-control form-control-sm" id="propY">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-6 mb-2">
+                        <label class="form-label">宽度</label>
+                        <input type="number" class="form-control form-control-sm" id="propWidth">
+                    </div>
+                    <div class="col-6 mb-2">
+                        <label class="form-label">高度</label>
+                        <input type="number" class="form-control form-control-sm" id="propHeight">
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">颜色</label>
+                    <input type="color" class="form-control form-control-color" id="propColor" value="#000000">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">线条粗细</label>
+                    <input type="number" class="form-control form-control-sm" id="propThickness" value="2" min="1" max="10">
+                </div>
+                <div class="door-props" id="doorProps">
+                    <div class="mb-2">
+                        <label class="form-label">门开方向</label>
+                        <select class="form-select form-select-sm" id="propDoorDirection">
+                            <option value="right">右开</option>
+                            <option value="left">左开</option>
+                            <option value="sliding">推拉</option>
+                        </select>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">门宽 (px)</label>
+                        <input type="number" class="form-control form-control-sm" id="propDoorWidth" value="60" min="30" max="150">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">打开角度</label>
+                        <input type="range" class="form-range" id="propDoorOpenAngle" min="45" max="180" value="90" oninput="document.getElementById('doorAngleVal').textContent = this.value + '°'">
+                        <small id="doorAngleVal">90°</small>
+                    </div>
+                    <div class="mb-2 form-check">
+                        <input type="checkbox" class="form-check-input" id="propAutoDoorstop" checked>
+                        <label class="form-check-label">自动生成门垛</label>
+                    </div>
+                    <div class="mb-2" id="doorstopWidthDiv">
+                        <label class="form-label">门垛宽度 (px)</label>
+                        <input type="number" class="form-control form-control-sm" id="propDoorstopWidth" value="15" min="5" max="50">
+                    </div>
+                </div>
+                <div class="mb-2 form-check">
+                    <input type="checkbox" class="form-check-input" id="propSnapEnabled" checked>
+                    <label class="form-check-label">启用吸附</label>
+                </div>
+                <button class="btn btn-sm btn-primary w-100" onclick="editor.updateElement()">更新</button>
+            </div>
+            <div class="map-settings">
+                <div class="row g-1 align-items-center">
+                    <div class="col-auto">
+                        <small class="text-muted">门垛宽度:</small>
+                    </div>
+                    <div class="col-auto">
+                        <input type="number" class="form-control form-control-sm" id="settingDoorstopWidth" value="{{ location.default_doorstop_width|default:15 }}" style="width:60px;">
+                    </div>
+                    <div class="col-auto">
+                        <small class="text-muted">吸附阈值:</small>
+                    </div>
+                    <div class="col-auto">
+                        <input type="number" class="form-control form-control-sm" id="settingSnapThreshold" value="{{ location.default_snap_threshold|default:10 }}" style="width:50px;">
+                    </div>
+                    <div class="col-auto">
+                        <small class="text-muted">网格:</small>
+                    </div>
+                    <div class="col-auto">
+                        <input type="number" class="form-control form-control-sm" id="settingGridSize" value="{{ location.grid_size|default:50 }}" style="width:50px;">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+const locationId = {{ location.id }};
+const mapElements = [
+    {% for el in elements %}{id:{{ el.id }},type:'{{ el.element_type }}',x:{{ el.x }},y:{{ el.y }},x2:{{ el.x2|default:'null' }},y2:{{ el.y2|default:'null' }},width:{{ el.width }},height:{{ el.height }},color:'{{ el.color }}',thickness:{{ el.thickness }},door_direction:'{{ el.door_direction|default:'right' }}',door_width:{{ el.door_width|default:60 }},door_open_angle:{{ el.door_open_angle|default:90 }},doorstop_width:{{ el.doorstop_width|default:15 }},auto_doorstop:{{ el.auto_doorstop|yesno:'true,false' }},snap_enabled:{{ el.snap_enabled|yesno:'true,false' }},snap_threshold:{{ el.snap_threshold|default:10 }}},{% endfor %}
+];
+const locationSettings = {
+    default_doorstop_width: {{ location.default_doorstop_width|default:15 }},
+    default_snap_threshold: {{ location.default_snap_threshold|default:10 }},
+    grid_size: {{ location.grid_size|default:50 }},
+    snap_enabled: {{ location.default_snap_enabled|yesno:'true,false' }}
+};
+
+class MapEditor {
+    constructor(canvasId) {
+        this.canvas = document.getElementById(canvasId);
+        this.ctx = this.canvas.getContext('2d');
+        this.scale = 1;
+        this.offsetX = 0;
+        this.offsetY = 0;
+        this.gridSize = locationSettings.grid_size;
+        this.showGrid = true;
+        this.tool = 'select';
+        this.elements = [...mapElements];
+        this.selectedElement = null;
+        this.isDrawing = false;
+        this.isDragging = false;
+        this.startX = 0;
+        this.startY = 0;
+        this.dragStartX = 0;
+        this.dragStartY = 0;
+        this.history = [];
+        this.historyIndex = -1;
+        this.snapEnabled = locationSettings.snap_enabled;
+        this.snapThreshold = locationSettings.default_snap_threshold;
+        this.snapIndicator = document.getElementById('snapIndicator');
+        
+        this.init();
+    }
+    
+    init() {
+        this.saveHistory();
+        this.initRulers();
+        this.updateSnapButton();
+        this.updateSettingsFromUI();
+        
+        document.querySelectorAll('[data-tool]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('[data-tool]').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                this.tool = btn.dataset.tool;
+                this.canvas.style.cursor = this.tool === 'select' ? 'default' : 'crosshair';
+            });
+        });
+        
+        this.canvas.addEventListener('mousedown', (e) => this.onMouseDown(e));
+        this.canvas.addEventListener('mousemove', (e) => this.onMouseMove(e));
+        this.canvas.addEventListener('mouseup', (e) => this.onMouseUp(e));
+        this.canvas.addEventListener('mouseleave', (e) => {
+            document.getElementById('coordTip').style.display = 'none';
+        });
+        
+        document.getElementById('propType').addEventListener('change', () => this.onTypeChange());
+        ['propX', 'propY', 'propWidth', 'propHeight', 'propColor', 'propThickness', 'propDoorDirection', 'propDoorWidth', 'propDoorOpenAngle', 'propDoorstopWidth'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('change', () => this.updateElement());
+        });
+        document.getElementById('propAutoDoorstop').addEventListener('change', () => this.updateElement());
+        document.getElementById('propSnapEnabled').addEventListener('change', () => this.updateElement());
+        
+        document.getElementById('settingDoorstopWidth').addEventListener('change', () => this.updateSettingsFromUI());
+        document.getElementById('settingSnapThreshold').addEventListener('change', () => this.updateSettingsFromUI());
+        document.getElementById('settingGridSize').addEventListener('change', () => this.updateSettingsFromUI());
+        
+        document.addEventListener('keydown', (e) => this.onKeyDown(e));
+        
+        this.render();
+    }
+    
+    initRulers() {
+        const rulerH = document.getElementById('rulerHCvs');
+        const rulerV = document.getElementById('rulerVCvs');
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+        
+        rulerH.width = w;
+        rulerH.height = 24;
+        rulerV.width = 24;
+        rulerV.height = h;
+        
+        this.drawRuler(rulerH.getContext('2d'), w, 24, true);
+        this.drawRuler(rulerV.getContext('2d'), h, 24, false);
+    }
+    
+    drawRuler(ctx, len, size, horizontal) {
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, len, size);
+        ctx.strokeStyle = '#999';
+        ctx.lineWidth = 1;
+        ctx.font = '9px Arial';
+        ctx.fillStyle = '#666';
+        
+        for (let i = 0; i <= len; i += 10) {
+            const isMajor = i % 50 === 0;
+            const tickH = isMajor ? size : size / 2;
+            ctx.beginPath();
+            if (horizontal) {
+                ctx.moveTo(i, size - tickH);
+                ctx.lineTo(i, size);
+                if (isMajor) ctx.fillText(i, i + 2, 10);
+            } else {
+                ctx.moveTo(size - tickH, i);
+                ctx.lineTo(size, i);
+                if (isMajor) ctx.fillText(i, 4, i + 3);
+            }
+            ctx.stroke();
+        }
+    }
+    
+    updateSettingsFromUI() {
+        this.snapThreshold = parseFloat(document.getElementById('settingSnapThreshold').value) || 10;
+        this.gridSize = parseInt(document.getElementById('settingGridSize').value) || 50;
+        locationSettings.default_doorstop_width = parseFloat(document.getElementById('settingDoorstopWidth').value) || 15;
+    }
+    
+    getMousePos(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const x = (e.clientX - rect.left - this.offsetX) / this.scale;
+        const y = (e.clientY - rect.top - this.offsetY) / this.scale;
+        
+        const tip = document.getElementById('coordTip');
+        tip.textContent = `X: ${Math.round(x)}, Y: ${Math.round(y)}`;
+        tip.style.left = (e.clientX - rect.left + 15) + 'px';
+        tip.style.top = (e.clientY - rect.top - 20) + 'px';
+        tip.style.display = 'block';
+        
+        return { x, y };
+    }
+    
+    onMouseDown(e) {
+        const pos = this.getMousePos(e);
+        this.startX = pos.x;
+        this.startY = pos.y;
+        this.dragStartX = pos.x;
+        this.dragStartY = pos.y;
+        
+        if (this.tool === 'select') {
+            this.selectedElement = this.findElementAt(pos.x, pos.y);
+            if (this.selectedElement) {
+                this.isDragging = true;
+                this.showElementProps(this.selectedElement);
+            } else {
+                document.getElementById('elementProps').style.display = 'none';
+            }
+            this.render();
+        } else {
+            this.isDrawing = true;
+        }
+    }
+    
+    onMouseMove(e) {
+        const pos = this.getMousePos(e);
+        
+        if (this.isDragging && this.selectedElement) {
+            const dx = pos.x - this.startX;
+            const dy = pos.y - this.startY;
+            
+            let newX = this.selectedElement.x + dx;
+            let newY = this.selectedElement.y + dy;
+            let snapped = false;
+            
+            if (this.snapEnabled && this.selectedElement.snap_enabled !== false) {
+                const snappedPos = this.applySnap(newX, newY, this.selectedElement);
+                if (snappedPos.x !== newX || snappedPos.y !== newY) {
+                    newX = snappedPos.x;
+                    newY = snappedPos.y;
+                    snapped = true;
+                }
+            }
+            
+            this.selectedElement.x = newX;
+            this.selectedElement.y = newY;
+            
+            if (this.selectedElement.x2 !== null) {
+                let newX2 = this.selectedElement.x2 + dx;
+                let newY2 = this.selectedElement.y2 + dy;
+                if (this.snapEnabled && this.selectedElement.snap_enabled !== false) {
+                    const snappedPos2 = this.applySnap(newX2, newY2, this.selectedElement, true);
+                    newX2 = snappedPos2.x;
+                    newY2 = snappedPos2.y;
+                }
+                this.selectedElement.x2 = newX2;
+                this.selectedElement.y2 = newY2;
+            }
+            
+            this.startX = pos.x;
+            this.startY = pos.y;
+            this.showSnapIndicator(snapped);
+            this.render();
+        } else if (this.isDrawing && this.tool !== 'select') {
+            this.render();
+            this.drawElement(this.ctx, this.createTempElement(pos.x, pos.y));
+        }
+    }
+    
+    onMouseUp(e) {
+        const pos = this.getMousePos(e);
+        
+        if (this.isDrawing && this.tool !== 'select') {
+            const element = this.createElementFromDraw(pos.x, pos.y);
+            if (element) {
+                let finalElement = { ...element };
+                
+                if (this.snapEnabled && (this.tool === 'door' || this.tool === 'window' || this.tool === 'desk')) {
+                    const snappedPos = this.applySnap(element.x, element.y, element);
+                    finalElement.x = snappedPos.x;
+                    finalElement.y = snappedPos.y;
+                }
+                
+                this.elements.push(finalElement);
+                
+                if ((this.tool === 'door' || this.tool === 'window') && finalElement.auto_doorstop) {
+                    this.autoCreateDoorstop(finalElement);
+                }
+                
+                this.saveHistory();
+            }
+        }
+        
+        this.isDrawing = false;
+        this.isDragging = false;
+        this.hideSnapIndicator();
+        this.render();
+    }
+    
+    applySnap(x, y, element, isEndpoint = false) {
+        let snappedX = x;
+        let snappedY = y;
+        const threshold = this.snapThreshold;
+        let snapped = false;
+        
+        if (this.snapEnabled && this.gridSize > 0) {
+            const gridX = Math.round(x / this.gridSize) * this.gridSize;
+            const gridY = Math.round(y / this.gridSize) * this.gridSize;
+            
+            if (Math.abs(x - gridX) < threshold) { snappedX = gridX; snapped = true; }
+            if (Math.abs(y - gridY) < threshold) { snappedY = gridY; snapped = true; }
+        }
+        
+        for (const el of this.elements) {
+            if (el === element) continue;
+            
+            const points = this.getElementPoints(el);
+            for (const p of points) {
+                if (Math.abs(x - p.x) < threshold) { snappedX = p.x; snapped = true; }
+                if (Math.abs(y - p.y) < threshold) { snappedY = p.y; snapped = true; }
+            }
+            
+            if (el.type === 'wall' && el.x2 !== null && el.y2 !== null) {
+                const midX = (el.x + el.x2) / 2;
+                const midY = (el.y + el.y2) / 2;
+                if (Math.abs(x - midX) < threshold) { snappedX = midX; snapped = true; }
+                if (Math.abs(y - midY) < threshold) { snappedY = midY; snapped = true; }
+            }
+        }
+        
+        return { x: snappedX, y: snappedY, snapped };
+    }
+    
+    getElementPoints(el) {
+        const points = [];
+        points.push({ x: el.x, y: el.y });
+        if (el.type === 'wall' && el.x2 !== null && el.y2 !== null) {
+            points.push({ x: el.x2, y: el.y2 });
+        } else {
+            points.push({ x: el.x + el.width, y: el.y });
+            points.push({ x: el.x, y: el.y + el.height });
+            points.push({ x: el.x + el.width, y: el.y + el.height });
+        }
+        return points;
+    }
+    
+    showSnapIndicator(show) {
+        this.snapIndicator.style.display = show ? 'block' : 'none';
+    }
+    
+    hideSnapIndicator() {
+        this.snapIndicator.style.display = 'none';
+    }
+    
+    autoCreateDoorstop(door) {
+        const doorstopWidth = locationSettings.default_doorstop_width;
+        
+        for (const wall of this.elements) {
+            if (wall.type !== 'wall') continue;
+            
+            const intersection = this.getLineIntersection(
+                door.x, door.y, door.x + door.width, door.y + door.height,
+                wall.x, wall.y, wall.x2 || wall.x + wall.width, wall.y2 || wall.y + wall.height
+            );
+            
+            if (intersection) {
+                let angle;
+                if (wall.x2 !== null && wall.y2 !== null) {
+                    angle = Math.atan2(wall.y2 - wall.y, wall.x2 - wall.x);
+                } else {
+                    angle = 0;
+                }
+                
+                const perpAngle = angle + Math.PI / 2;
+                const offset = doorstopWidth / 2;
+                
+                const dir = door.door_direction === 'left' ? -1 : 1;
+                
+                const ws1 = {
+                    id: null, type: 'wall',
+                    x: door.x + Math.cos(perpAngle) * offset * dir,
+                    y: door.y + Math.sin(perpAngle) * offset * dir,
+                    x2: door.x + Math.cos(perpAngle) * offset * dir * 2,
+                    y2: door.y + Math.sin(perpAngle) * offset * dir * 2,
+                    width: 0, height: 0,
+                    color: wall.color, thickness: wall.thickness,
+                    door_direction: 'right', door_width: 60, door_open_angle: 90,
+                    doorstop_width: doorstopWidth, auto_doorstop: false,
+                    snap_enabled: true, snap_threshold: this.snapThreshold
+                };
+                
+                const ws2 = {
+                    id: null, type: 'wall',
+                    x: door.x + door.width + Math.cos(perpAngle) * offset * dir,
+                    y: door.y + door.height + Math.sin(perpAngle) * offset * dir,
+                    x2: door.x + door.width + Math.cos(perpAngle) * offset * dir * 2,
+                    y2: door.y + door.height + Math.sin(perpAngle) * offset * dir * 2,
+                    width: 0, height: 0,
+                    color: wall.color, thickness: wall.thickness,
+                    door_direction: 'right', door_width: 60, door_open_angle: 90,
+                    doorstop_width: doorstopWidth, auto_doorstop: false,
+                    snap_enabled: true, snap_threshold: this.snapThreshold
+                };
+                
+                this.elements.push(ws1, ws2);
+                break;
+            }
+        }
+    }
+    
+    getLineIntersection(x1, y1, x2, y2, x3, y3, x4, y4) {
+        const denom = (y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1);
+        if (Math.abs(denom) < 0.0001) return null;
+        
+        const ua = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / denom;
+        const ub = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / denom;
+        
+        if (ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1) {
+            return {
+                x: x1 + ua * (x2 - x1),
+                y: y1 + ua * (y2 - y1)
+            };
+        }
+        return null;
+    }
+    
+    createTempElement(endX, endY) {
+        return this.createElementFromDraw(endX, endY);
+    }
+    
+    createElementFromDraw(endX, endY) {
+        const doorstopWidth = locationSettings.default_doorstop_width;
+        
+        switch(this.tool) {
+            case 'wall':
+                return { 
+                    id: null, type: 'wall', x: this.startX, y: this.startY, 
+                    x2: endX, y2: endY, width: 0, height: 0, 
+                    color: '#000', thickness: 2,
+                    door_direction: 'right', door_width: 60, door_open_angle: 90,
+                    doorstop_width: doorstopWidth, auto_doorstop: false,
+                    snap_enabled: true, snap_threshold: this.snapThreshold
+                };
+            case 'door':
+            case 'window':
+                return { 
+                    id: null, type: this.tool, x: this.startX, y: this.startY, 
+                    x2: null, y2: null, width: Math.abs(endX - this.startX) || 60, height: 20, 
+                    color: '#333', thickness: 2,
+                    door_direction: 'right', door_width: 60, door_open_angle: 90,
+                    doorstop_width: doorstopWidth, auto_doorstop: true,
+                    snap_enabled: true, snap_threshold: this.snapThreshold
+                };
+            case 'desk':
+                return { 
+                    id: null, type: 'desk', x: this.startX, y: this.startY, 
+                    x2: null, y2: null, width: Math.abs(endX - this.startX) || 30, height: Math.abs(endY - this.startY) || 20, 
+                    color: '#ddd', thickness: 1,
+                    door_direction: 'right', door_width: 60, door_open_angle: 90,
+                    doorstop_width: doorstopWidth, auto_doorstop: false,
+                    snap_enabled: true, snap_threshold: this.snapThreshold
+                };
+            case 'polygon':
+                return { 
+                    id: null, type: 'polygon', x: this.startX, y: this.startY, 
+                    x2: null, y2: null, width: 0, height: 0, 
+                    color: '#28a745', thickness: 2,
+                    points: JSON.stringify([{x: this.startX, y: this.startY}, {x: endX, y: endY}]),
+                    door_direction: 'right', door_width: 60, door_open_angle: 90,
+                    doorstop_width: doorstopWidth, auto_doorstop: false,
+                    snap_enabled: true, snap_threshold: this.snapThreshold
+                };
+            default:
+                return null;
+        }
+    }
+    
+    findElementAt(x, y) {
+        for (let i = this.elements.length - 1; i >= 0; i--) {
+            const el = this.elements[i];
+            if (el.type === 'wall') {
+                const dist = this.pointToLineDistance(x, y, el.x, el.y, el.x2, el.y2);
+                if (dist < 10) return el;
+            } else {
+                if (x >= el.x && x <= el.x + el.width && y >= el.y && y <= el.y + el.height) {
+                    return el;
+                }
+            }
+        }
+        return null;
+    }
+    
+    pointToLineDistance(px, py, x1, y1, x2, y2) {
+        const A = px - x1;
+        const B = py - y1;
+        const C = x2 - x1;
+        const D = y2 - y1;
+        const dot = A * C + B * D;
+        const lenSq = C * C + D * D;
+        let param = -1;
+        if (lenSq !== 0) param = dot / lenSq;
+        let xx, yy;
+        if (param < 0) { xx = x1; yy = y1; }
+        else if (param > 1) { xx = x2; yy = y2; }
+        else { xx = x1 + param * C; yy = y1 + param * D; }
+        const dx = px - xx;
+        const dy = py - yy;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+    
+    onTypeChange() {
+        const type = document.getElementById('propType').value;
+        const doorProps = document.getElementById('doorProps');
+        doorProps.classList.toggle('show', type === 'door' || type === 'window');
+    }
+    
+    showElementProps(el) {
+        document.getElementById('elementProps').style.display = 'block';
+        document.getElementById('propType').value = el.type;
+        document.getElementById('propX').value = Math.round(el.x);
+        document.getElementById('propY').value = Math.round(el.y);
+        document.getElementById('propWidth').value = Math.round(el.width);
+        document.getElementById('propHeight').value = Math.round(el.height);
+        document.getElementById('propColor').value = el.color || '#000000';
+        document.getElementById('propThickness').value = el.thickness || 2;
+        
+        const doorProps = document.getElementById('doorProps');
+        doorProps.classList.toggle('show', el.type === 'door' || el.type === 'window');
+        
+        if (el.type === 'door' || el.type === 'window') {
+            document.getElementById('propDoorDirection').value = el.door_direction || 'right';
+            document.getElementById('propDoorWidth').value = el.door_width || 60;
+            document.getElementById('propDoorOpenAngle').value = el.door_open_angle || 90;
+            document.getElementById('doorAngleVal').textContent = (el.door_open_angle || 90) + '°';
+            document.getElementById('propAutoDoorstop').checked = el.auto_doorstop !== false;
+            document.getElementById('propDoorstopWidth').value = el.doorstop_width || 15;
+        }
+        
+        document.getElementById('propSnapEnabled').checked = el.snap_enabled !== false;
+    }
+    
+    updateElement() {
+        if (!this.selectedElement) return;
+        
+        this.selectedElement.type = document.getElementById('propType').value;
+        this.selectedElement.x = parseFloat(document.getElementById('propX').value) || 0;
+        this.selectedElement.y = parseFloat(document.getElementById('propY').value) || 0;
+        this.selectedElement.width = parseFloat(document.getElementById('propWidth').value) || 0;
+        this.selectedElement.height = parseFloat(document.getElementById('propHeight').value) || 0;
+        this.selectedElement.color = document.getElementById('propColor').value;
+        this.selectedElement.thickness = parseInt(document.getElementById('propThickness').value) || 2;
+        
+        if (this.selectedElement.type === 'door' || this.selectedElement.type === 'window') {
+            this.selectedElement.door_direction = document.getElementById('propDoorDirection').value;
+            this.selectedElement.door_width = parseFloat(document.getElementById('propDoorWidth').value) || 60;
+            this.selectedElement.door_open_angle = parseInt(document.getElementById('propDoorOpenAngle').value) || 90;
+            this.selectedElement.auto_doorstop = document.getElementById('propAutoDoorstop').checked;
+            this.selectedElement.doorstop_width = parseFloat(document.getElementById('propDoorstopWidth').value) || 15;
+        }
+        
+        this.selectedElement.snap_enabled = document.getElementById('propSnapEnabled').checked;
+        
+        this.saveHistory();
+        this.render();
+    }
+    
+    deleteSelected() {
+        if (this.selectedElement) {
+            this.elements = this.elements.filter(el => el !== this.selectedElement);
+            this.selectedElement = null;
+            document.getElementById('elementProps').style.display = 'none';
+            this.saveHistory();
+            this.render();
+        }
+    }
+    
+    toggleSnap() {
+        this.snapEnabled = !this.snapEnabled;
+        this.updateSnapButton();
+    }
+    
+    updateSnapButton() {
+        const btn = document.getElementById('btnSnap');
+        btn.classList.toggle('active', this.snapEnabled);
+        btn.style.background = this.snapEnabled ? '#28a745' : '';
+        btn.style.color = this.snapEnabled ? '#fff' : '';
+    }
+    
+    render() {
+        const ctx = this.ctx;
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+        
+        ctx.clearRect(0, 0, w, h);
+        
+        ctx.save();
+        ctx.translate(this.offsetX, this.offsetY);
+        ctx.scale(this.scale, this.scale);
+        
+        if (this.showGrid) this.drawGrid(ctx, w, h);
+        
+        this.elements.forEach(el => {
+            this.drawElement(ctx, el, el === this.selectedElement);
+        });
+        
+        ctx.restore();
+    }
+    
+    drawGrid(ctx, w, h) {
+        ctx.strokeStyle = '#e0e0e0';
+        ctx.lineWidth = 0.5;
+        for (let x = 0; x <= w; x += this.gridSize) {
+            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+        }
+        for (let y = 0; y <= h; y += this.gridSize) {
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+        }
+    }
+    
+    drawElement(ctx, el, selected) {
+        ctx.strokeStyle = el.color;
+        ctx.lineWidth = el.thickness;
+        
+        if (el.type === 'wall') {
+            ctx.beginPath();
+            ctx.moveTo(el.x, el.y);
+            if (el.x2 !== null && el.y2 !== null) ctx.lineTo(el.x2, el.y2);
+            ctx.stroke();
+        } else if (el.type === 'door') {
+            this.drawDoor(ctx, el);
+        } else if (el.type === 'window') {
+            ctx.beginPath();
+            ctx.moveTo(el.x, el.y);
+            ctx.lineTo(el.x + el.width, el.y + el.height);
+            ctx.stroke();
+        } else if (el.type === 'desk' || el.type === 'equipment') {
+            ctx.fillStyle = el.color;
+            ctx.fillRect(el.x, el.y, el.width, el.height);
+            ctx.strokeRect(el.x, el.y, el.width, el.height);
+        }
+        
+        if (selected) {
+            ctx.strokeStyle = '#0d6efd';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            if (el.type === 'wall') {
+                ctx.beginPath();
+                ctx.moveTo(el.x, el.y);
+                if (el.x2 !== null && el.y2 !== null) ctx.lineTo(el.x2, el.y2);
+                ctx.stroke();
+            } else if (el.type === 'door') {
+                ctx.strokeRect(el.x - 3, el.y - 3, el.width + 6, el.height + 6);
+            } else {
+                ctx.strokeRect(el.x - 3, el.y - 3, el.width + 6, el.height + 6);
+            }
+            ctx.setLineDash([]);
+        }
+    }
+    
+    drawDoor(ctx, el) {
+        const angle = (el.door_open_angle || 90) * Math.PI / 180;
+        const doorWidth = el.door_width || 60;
+        
+        ctx.beginPath();
+        
+        if (el.door_direction === 'sliding') {
+            ctx.moveTo(el.x, el.y);
+            ctx.lineTo(el.x + doorWidth, el.y);
+            ctx.stroke();
+        } else {
+            const swingDir = el.door_direction === 'left' ? -1 : 1;
+            const arcEndX = el.x + Math.cos(angle) * doorWidth * swingDir;
+            const arcEndY = el.y + Math.sin(angle) * doorWidth * swingDir;
+            
+            ctx.moveTo(el.x, el.y);
+            ctx.lineTo(el.x + doorWidth, el.y);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.arc(el.x, el.y, doorWidth, 0, angle * swingDir, swingDir < 0);
+            ctx.stroke();
+        }
+    }
+    
+    zoomIn() { this.scale *= 1.2; this.render(); }
+    zoomOut() { this.scale /= 1.2; this.render(); }
+    toggleGrid() { this.showGrid = !this.showGrid; this.render(); }
+    
+    saveHistory() {
+        this.history = this.history.slice(0, this.historyIndex + 1);
+        this.history.push(JSON.stringify(this.elements));
+        this.historyIndex++;
+        this.updateHistoryButtons();
+    }
+    
+    updateHistoryButtons() {
+        document.getElementById('btnUndo').disabled = this.historyIndex <= 0;
+        document.getElementById('btnRedo').disabled = this.historyIndex >= this.history.length - 1;
+    }
+    
+    undo() {
+        if (this.historyIndex > 0) {
+            this.historyIndex--;
+            this.elements = JSON.parse(this.history[this.historyIndex]);
+            this.selectedElement = null;
+            document.getElementById('elementProps').style.display = 'none';
+            this.updateHistoryButtons();
+            this.render();
+        }
+    }
+    
+    redo() {
+        if (this.historyIndex < this.history.length - 1) {
+            this.historyIndex++;
+            this.elements = JSON.parse(this.history[this.historyIndex]);
+            this.selectedElement = null;
+            this.updateHistoryButtons();
+            this.render();
+        }
+    }
+    
+    onKeyDown(e) {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+        
+        const key = e.key.toLowerCase();
+        
+        if (e.ctrlKey || e.metaKey) {
+            if (key === 'z') {
+                e.preventDefault();
+                if (e.shiftKey) this.redo();
+                else this.undo();
+                return;
+            }
+            if (key === 'y') {
+                e.preventDefault();
+                this.redo();
+                return;
+            }
+        }
+        
+        switch(key) {
+            case 'v': this.setTool('select'); break;
+            case 'w': this.setTool('wall'); break;
+            case 'd': this.setTool('door'); break;
+            case 'n': this.setTool('window'); break;
+            case 'b': this.setTool('desk'); break;
+            case 'g': this.toggleGrid(); break;
+            case 's': this.toggleSnap(); break;
+            case '+': case '=': this.zoomIn(); break;
+            case '-': this.zoomOut(); break;
+            case 'delete': case 'backspace': this.deleteSelected(); break;
+        }
+    }
+    
+    setTool(tool) {
+        this.tool = tool;
+        document.querySelectorAll('[data-tool]').forEach(b => b.classList.remove('active'));
+        document.querySelector(`[data-tool="${tool}"]`)?.classList.add('active');
+        this.canvas.style.cursor = tool === 'select' ? 'default' : 'crosshair';
+    }
+    
+    save() {
+        this.updateSettingsFromUI();
+        
+        const data = new FormData();
+        data.append('location_id', locationId);
+        data.append('elements', JSON.stringify(this.elements.map(el => ({
+            id: el.id,
+            type: el.type,
+            x: el.x, y: el.y,
+            x2: el.x2, y2: el.y2,
+            width: el.width, height: el.height,
+            color: el.color, thickness: el.thickness,
+            door_direction: el.door_direction || 'right',
+            door_width: el.door_width || 60,
+            door_open_angle: el.door_open_angle || 90,
+            doorstop_width: el.doorstop_width || 15,
+            auto_doorstop: el.auto_doorstop !== false,
+            snap_enabled: el.snap_enabled !== false,
+            snap_threshold: el.snap_threshold || 10
+        }))));
+        
+        fetch(`/locations/${locationId}/elements/save/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+            body: data
+        })
+        .then(r => r.json())
+        .then(result => {
+            if (result.success) {
+                alert('保存成功');
+                this.history = [];
+                this.historyIndex = -1;
+                this.elements.forEach(el => {
+                    if (result.saved_ids && result.saved_ids.includes(el.id)) {
+                    } else if (!el.id) {
+                        el.id = result.saved_ids?.[this.elements.indexOf(el)];
+                    }
+                });
+            } else {
+                alert('保存失败: ' + result.message);
+            }
+        })
+        .catch(err => {
+            alert('保存失败: ' + err);
+        });
+    }
+}
+
+let editor;
+document.addEventListener('DOMContentLoaded', function() {
+    editor = new MapEditor('editorCanvas');
+});
+</script>
+{% endblock %}

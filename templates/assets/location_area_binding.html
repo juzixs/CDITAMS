@@ -1,0 +1,273 @@
+{% extends 'base.html' %}
+{% block title %}房间区域绑定 - {{ location.name }} - 驰达IT资产管理系统{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4><i class="fas fa-draw-polygon"></i> 房间区域绑定 - {{ location.name }}</h4>
+    <div>
+        <a href="{% url 'location_map' location.id %}" class="btn btn-success"><i class="fas fa-map"></i> 查看平面图</a>
+        <a href="{% url 'location_map_edit' location.id %}" class="btn btn-primary"><i class="fas fa-edit"></i> 编辑平面图</a>
+        <a href="{% url 'location_list' %}" class="btn btn-outline-secondary">返回位置列表</a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">房间列表</div>
+            <div class="card-body p-0" style="max-height: 500px; overflow-y: auto;">
+                <div class="list-group list-group-flush" id="roomList">
+                    {% for room in child_locations %}
+                    <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center {% if binding_map|get_item:room.id %}list-group-item-success{% endif %}"
+                         data-room-id="{{ room.id }}" data-room-name="{{ room.name }}" data-room-code="{{ room.code }}">
+                        <span>{{ room.name }} <small class="text-muted">({{ room.code }})</small></span>
+                        {% if binding_map|get_item:room.id %}
+                        <span class="badge bg-success">已绑定</span>
+                        {% else %}
+                        <span class="badge bg-secondary">未绑定</span>
+                        {% endif %}
+                    </div>
+                    {% empty %}
+                    <div class="list-group-item text-muted">暂无4级房间，请先创建</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">绑定说明</div>
+            <div class="card-body">
+                <ol class="small text-muted">
+                    <li>点击左侧房间列表中的房间</li>
+                    <li>在平面图中使用多边形工具绘制区域</li>
+                    <li>点击"绑定选中房间"按钮完成绑定</li>
+                    <li>已绑定的区域会在平面图中显示</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>平面图 - 点击房间后在图中绘制区域</span>
+                <button class="btn btn-primary btn-sm" id="bindBtn" disabled onclick="bindSelectedRoom()">
+                    <i class="fas fa-link"></i> 绑定选中房间
+                </button>
+            </div>
+            <div class="card-body p-0">
+                <div id="editorContainer" style="position: relative; width: 100%; height: 500px; border: 1px solid #ddd; background: #f5f5f5; overflow: hidden;">
+                    <canvas id="bindingCanvas" width="{{ location.map_width }}" height="{{ location.map_height }}" style="cursor: crosshair;"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">已绑定区域</div>
+            <div class="card-body p-0">
+                <table class="table table-sm mb-0">
+                    <thead><tr><th>房间</th><th>区域名称</th><th>颜色</th><th>操作</th></tr></thead>
+                    <tbody>
+                        {% for binding in bindings %}
+                        <tr>
+                            <td>{{ binding.location.name }}</td>
+                            <td>{{ binding.area_name }}</td>
+                            <td><span style="display:inline-block;width:20px;height:20px;background:{{ binding.area_color }};border:1px solid #ccc;"></span></td>
+                            <td>
+                                <a href="{% url 'location_area_binding_delete' location.id binding.id %}" class="btn btn-sm btn-danger" onclick="return confirm('确定删除此绑定?')">删除</a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="4" class="text-muted text-center">暂无绑定</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<template id="polygonTemplate">
+    <div class="polygon-area" style="position: absolute; border: 2px solid; opacity: 0.5; pointer-events: none;"></div>
+</template>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const locationId = {{ location.id }};
+const mapWidth = {{ location.map_width }};
+const mapHeight = {{ location.map_height }};
+let selectedRoomId = null;
+let selectedRoomName = null;
+let currentPolygon = [];
+let polygons = [
+    {% for binding in bindings %}{
+        id: {{ binding.id }},
+        location_id: {{ binding.location_id }},
+        location_name: '{{ binding.location.name }}',
+        area_name: '{{ binding.area_name }}',
+        points: {{ binding.area_points|safe }},
+        color: '{{ binding.area_color }}'
+    },{% endfor %}
+];
+
+document.addEventListener('DOMContentLoaded', function() {
+    initCanvas();
+    loadExistingBindings();
+    
+    document.querySelectorAll('#roomList .list-group-item').forEach(item => {
+        item.addEventListener('click', function() {
+            document.querySelectorAll('#roomList .list-group-item').forEach(i => i.classList.remove('active'));
+            this.classList.add('active');
+            selectedRoomId = this.dataset.roomId;
+            selectedRoomName = this.dataset.roomName;
+            document.getElementById('bindBtn').disabled = false;
+            currentPolygon = [];
+            renderCanvas();
+        });
+    });
+});
+
+function initCanvas() {
+    const canvas = document.getElementById('bindingCanvas');
+    canvas.addEventListener('click', onCanvasClick);
+    canvas.addEventListener('dblclick', onCanvasDoubleClick);
+    renderCanvas();
+}
+
+function loadExistingBindings() {
+    fetch(`/api/locations/${locationId}/area-bindings/`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.bindings) {
+                polygons = data.bindings;
+                renderCanvas();
+            }
+        });
+}
+
+function onCanvasClick(e) {
+    if (!selectedRoomId) {
+        alert('请先在左侧选择一个房间');
+        return;
+    }
+    
+    const canvas = document.getElementById('bindingCanvas');
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    currentPolygon.push({x, y});
+    renderCanvas();
+}
+
+function onCanvasDoubleClick(e) {
+    if (currentPolygon.length < 3) {
+        alert('请至少绘制3个点形成多边形');
+        return;
+    }
+    renderCanvas();
+}
+
+function renderCanvas() {
+    const canvas = document.getElementById('bindingCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    ctx.fillStyle = '#f5f5f5';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    ctx.strokeStyle = '#e0e0e0';
+    ctx.lineWidth = 0.5;
+    const gridSize = 50;
+    for (let x = 0; x <= canvas.width; x += gridSize) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+    }
+    for (let y = 0; y <= canvas.height; y += gridSize) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+    }
+    
+    polygons.forEach(poly => {
+        if (poly.points && poly.points.length >= 3) {
+            ctx.fillStyle = poly.color + '80';
+            ctx.strokeStyle = poly.color;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(poly.points[0].x, poly.points[0].y);
+            for (let i = 1; i < poly.points.length; i++) {
+                ctx.lineTo(poly.points[i].x, poly.points[i].y);
+            }
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            
+            if (poly.area_name) {
+                const cx = poly.points.reduce((s, p) => s + p.x, 0) / poly.points.length;
+                const cy = poly.points.reduce((s, p) => s + p.y, 0) / poly.points.length;
+                ctx.fillStyle = '#000';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(poly.area_name, cx, cy);
+            }
+        }
+    });
+    
+    if (currentPolygon.length >= 2) {
+        ctx.strokeStyle = '#ff0000';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.moveTo(currentPolygon[0].x, currentPolygon[0].y);
+        for (let i = 1; i < currentPolygon.length; i++) {
+            ctx.lineTo(currentPolygon[i].x, currentPolygon[i].y);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+        
+        currentPolygon.forEach((p, i) => {
+            ctx.fillStyle = '#ff0000';
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#fff';
+            ctx.font = '10px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(i + 1, p.x, p.y - 8);
+        });
+    }
+}
+
+function bindSelectedRoom() {
+    if (!selectedRoomId || currentPolygon.length < 3) {
+        alert('请先选择一个房间并绘制至少3个点形成多边形');
+        return;
+    }
+    
+    const colors = ['#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#34495e'];
+    const color = colors[polygons.length % colors.length];
+    
+    const formData = new FormData();
+    formData.append('location_id', selectedRoomId);
+    formData.append('area_points', JSON.stringify(currentPolygon));
+    formData.append('area_color', color);
+    formData.append('area_name', selectedRoomName);
+    
+    fetch(`/locations/${locationId}/area-binding/`, {
+        method: 'POST',
+        headers: {'X-CSRFToken': '{{ csrf_token }}'},
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('绑定失败: ' + data.message);
+        }
+    })
+    .catch(err => {
+        alert('绑定失败: ' + err);
+    });
+}
+</script>
+{% endblock %}

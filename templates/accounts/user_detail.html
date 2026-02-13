@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block title %}用户详情{% endblock %}
+{% block content %}
+<h4 class="mb-4">用户详情</h4>
+<div class="card"><div class="card-body">
+<p><strong>工号：</strong>{{ user.emp_no }}</p>
+<p><strong>姓名：</strong>{{ user.realname }}</p>
+<p><strong>性别：</strong>{% if user.gender == 'male' %}男{% else %}女{% endif %}</p>
+<p><strong>邮箱：</strong>{{ user.email|default:'-' }}</p>
+<p><strong>电话：</strong>{{ user.phone|default:'-' }}</p>
+<p><strong>部门：</strong>{{ user.department.name|default:'-' }}</p>
+<p><strong>角色：</strong>{{ user.role.name|default:'-' }}</p>
+<p><strong>状态：</strong>{% if user.is_active %}<span class="badge bg-success">启用</span>{% else %}<span class="badge bg-secondary">禁用</span>{% endif %}</p>
+<p><strong>创建时间：</strong>{{ user.created_at|date:"Y-m-d H:i" }}</p>
+<a href="{% url 'user_list' %}" class="btn btn-outline-secondary">返回</a>
+</div></div>{% endblock %}

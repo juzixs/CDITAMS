@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block title %}设备详情{% endblock %}
+{% block content %}
+<h4 class="mb-4">设备详情</h4>
+<div class="card mb-3"><div class="card-header">基本信息</div><div class="card-body">
+<div class="row"><div class="col-md-6"><p><strong>资产编号：</strong>{{ device.asset_no }}</p></div>
+<div class="col-md-6"><p><strong>设备名称：</strong>{{ device.name }}</p></div>
+<div class="col-md-6"><p><strong>设备编号：</strong>{{ device.device_no|default:'-' }}</p></div>
+<div class="col-md-6"><p><strong>序列号：</strong>{{ device.serial_no|default:'-' }}</p></div>
+<div class="col-md-6"><p><strong>品牌：</strong>{{ device.brand|default:'-' }}</p></div>
+<div class="col-md-6"><p><strong>型号：</strong>{{ device.model|default:'-' }}</p></div>
+<div class="col-md-6"><p><strong>分类：</strong>{{ device.category.name }}</p></div>
+<div class="col-md-6"><p><strong>状态：</strong>{% if device.status == 'normal' %}<span class="badge bg-success">正常</span>{% elif device.status == 'fault' %}<span class="badge bg-danger">故障</span>{% else %}{{ device.get_status_display }}{% endif %}</p></div>
+</div></div></div>
+<div class="card mb-3"><div class="card-header">使用信息</div><div class="card-body">
+<div class="row"><div class="col-md-6"><p><strong>使用人：</strong>{{ device.user.realname|default:'-' }}</p></div>
+<div class="col-md-6"><p><strong>部门：</strong>{{ device.department.name|default:'-' }}</p></div>
+<div class="col-md-6"><p><strong>位置：</strong>{{ device.location.name|default:'-' }}</p></div>
+<div class="col-md-6"><p><strong>位置描述：</strong>{{ device.location_text|default:'-' }}</p></div>
+</div></div></div>
+<div class="card mb-3"><div class="card-header">网络信息</div><div class="card-body">
+<div class="row"><div class="col-md-6"><p><strong>MAC地址：</strong>{{ device.mac_address|default:'-' }}</p></div>
+<div class="col-md-6"><p><strong>IP地址：</strong>{{ device.ip_address|default:'-' }}</p></div>
+<div class="col-md-6"><p><strong>操作系统：</strong>{{ device.os_name|default:'-' }}</p></div>
+</div></div></div>
+<div class="card mb-3"><div class="card-header">操作记录</div><div class="card-body">
+<table class="table table-sm"><thead><tr><th>操作</th><th>字段</th><th>操作人</th><th>时间</th></tr></thead>
+<tbody>{% for log in logs %}<tr><td>{{ log.get_action_display }}</td><td>{{ log.field_name|default:'-' }}</td><td>{{ log.user.realname|default:'-' }}</td><td>{{ log.created_at|date:"Y-m-d H:i" }}</td></tr>{% empty %}<tr><td colspan="4" class="text-center">暂无记录</td></tr>{% endfor %}</tbody></table>
+</div></div>
+<div><a href="{% url 'device_list' %}" class="btn btn-outline-secondary">返回</a></div>{% endblock %}

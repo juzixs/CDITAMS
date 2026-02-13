@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block title %}新建服务请求 - 驰达IT资产管理系统{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4"><h4>新建服务请求</h4></div>
+<div class="card"><div class="card-body">
+<form method="post">{% csrf_token %}
+<div class="mb-3"><label class="form-label">标题 <span class="text-danger">*</span></label><input type="text" name="title" class="form-control" required></div>
+<div class="row mb-3">
+<div class="col-md-6"><label class="form-label">服务类型</label><select name="service_type" class="form-select">{% for t in service_types %}<option value="{{ t.id }}">{{ t.name }}</option>{% endfor %}</select></div>
+<div class="col-md-6"><label class="form-label">优先级</label><select name="priority" class="form-select"><option value="low">低</option><option value="normal" selected>普通</option><option value="high">高</option><option value="urgent">紧急</option></select></div>
+</div>
+<div class="mb-3"><label class="form-label">关联设备</label><select name="device" class="form-select"><option value="">无</option>{% for d in devices %}<option value="{{ d.id }}">{{ d.asset_no }} - {{ d.name }}</option>{% endfor %}</select></div>
+<div class="mb-3"><label class="form-label">描述 <span class="text-danger">*</span></label><textarea name="description" class="form-control" rows="4" required></textarea></div>
+<div class="mt-4"><button type="submit" class="btn btn-primary">提交</button><a href="{% url 'service_list' %}" class="btn btn-outline-secondary">返回</a></div>
+</form></div></div>{% endblock %}

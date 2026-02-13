@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title %}{% if role %}编辑{% else %}新增{% endif %}角色{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4"><h4>{% if role %}编辑{% else %}新增{% endif %}角色</h4></div>
+<div class="card"><div class="card-body">
+<form method="post">{% csrf_token %}
+<div class="row mb-3">
+<div class="col-md-6"><label class="form-label">角色名称 <span class="text-danger">*</span></label><input type="text" name="name" class="form-control" value="{{ role.name|default:'' }}" required></div>
+<div class="col-md-6"><label class="form-label">角色标识</label><input type="text" name="code" class="form-control" value="{{ role.code|default:'' }}"></div>
+</div>
+<div class="mb-3"><label class="form-label">描述</label><textarea name="description" class="form-control" rows="2">{{ role.description|default:'' }}</textarea></div>
+<div class="mb-3"><label class="form-label">排序</label><input type="number" name="sort" class="form-control" value="{{ role.sort|default:0 }}"></div>
+<div class="mt-4"><button type="submit" class="btn btn-primary">保存</button><a href="{% url 'role_list' %}" class="btn btn-outline-secondary">返回</a></div>
+</form></div></div>{% endblock %}

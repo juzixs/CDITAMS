@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block title %}盘点任务详情{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+<h4>盘点任务详情</h4>
+<a href="{% url 'task_list' %}" class="btn btn-outline-secondary">返回</a>
+</div>
+<div class="card mb-3"><div class="card-body">
+<p><strong>任务编号：</strong>{{ task.task_no }}</p>
+<p><strong>所属计划：</strong>{{ task.plan.name }}</p>
+<p><strong>应盘数量：</strong>{{ task.device_count }}</p>
+<p><strong>已盘数量：</strong>{{ task.checked_count }}</p>
+<p><strong>状态：</strong>{{ task.get_status_display }}</p>
+</div></div>
+<div class="card"><div class="card-header">盘点记录</div><div class="card-body">
+<table class="table"><thead><tr><th>设备编号</th><th>设备名称</th><th>位置状态</th><th>资产状态</th><th>盘点人</th><th>盘点时间</th></tr></thead>
+<tbody>{% for r in records %}<tr><td>{{ r.device.asset_no }}</td><td>{{ r.device.name }}</td><td>{{ r.get_location_status_display }}</td><td>{{ r.get_asset_status_display }}</td><td>{{ r.checked_by.realname|default:'-' }}</td><td>{{ r.checked_at|date:"Y-m-d H:i" }}</td></tr>{% empty %}<tr><td colspan="6" class="text-center">暂无记录</td></tr>{% endfor %}</tbody></table>
+</div></div>{% endblock %}

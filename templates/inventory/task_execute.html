@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block title %}执行盘点{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+<h4>执行盘点 - {{ task.task_no }}</h4>
+<a href="{% url 'task_detail' task.id %}" class="btn btn-outline-secondary">返回</a>
+</div>
+<div class="card"><div class="card-body">
+<form method="post">{% csrf_token %}
+<div class="mb-3"><label class="form-label">选择设备</label><select name="device_id" class="form-select" required>{% for d in devices %}<option value="{{ d.id }}">{{ d.asset_no }} - {{ d.name }}</option>{% endfor %}</select></div>
+<div class="row mb-3">
+<div class="col-md-6"><label class="form-label">位置状态</label><select name="location_status" class="form-select" required><option value="in_place">在位</option><option value="moved">搬离</option><option value="not_found">未找到</option></select></div>
+<div class="col-md-6"><label class="form-label">资产状态</label><select name="asset_status" class="form-select"><option value="normal">正常</option><option value="damaged">损坏</option><option value="lost">丢失</option></select></div>
+</div>
+<div class="mb-3"><label class="form-label">备注</label><textarea name="remarks" class="form-control" rows="2"></textarea></div>
+<button type="submit" class="btn btn-primary">提交盘点</button>
+</form>
+</div></div>{% endblock %}

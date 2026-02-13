@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+
+{% block title %}字段管理 - 驰达IT资产管理系统{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4>字段管理</h4>
+    <div>
+        <a href="{% url 'field_create' %}" class="btn btn-primary"><i class="fas fa-plus"></i> 新增字段</a>
+    </div>
+</div>
+
+<div class="alert alert-info mb-3">
+    <i class="fas fa-info-circle"></i> 
+    系统字段是设备模型的固有字段，您可以编辑它们的名称、是否在列表显示、排序等属性。自定义字段可以完全编辑或删除。
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>字段名称</th>
+                    <th>字段键名</th>
+                    <th>字段类型</th>
+                    <th>所属分类</th>
+                    <th>系统字段</th>
+                    <th>必填</th>
+                    <th>列表显示</th>
+                    <th>排序</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for field in fields %}
+                <tr>
+                    <td>{{ field.name }}</td>
+                    <td>{{ field.field_key }}</td>
+                    <td>{{ field.get_field_type_display }}</td>
+                    <td>{{ field.category.name|default:'-' }}</td>
+                    <td>{% if field.is_system %}<span class="badge bg-warning">系统</span>{% else %}<span class="badge bg-secondary">自定义</span>{% endif %}</td>
+                    <td>{% if field.is_required %}<span class="badge bg-danger">是</span>{% else %}否{% endif %}</td>
+                    <td>{% if field.is_visible %}<span class="badge bg-success">是</span>{% else %}否{% endif %}</td>
+                    <td>{{ field.sort }}</td>
+                    <td>
+                        <a href="{% url 'field_edit' field.id %}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-edit"></i></a>
+                        {% if not field.is_system %}
+                        <a href="{% url 'field_delete' field.id %}" class="btn btn-sm btn-outline-danger" onclick="return confirm('确定删除该字段？')"><i class="fas fa-trash"></i></a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" class="text-center text-muted">暂无数据</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

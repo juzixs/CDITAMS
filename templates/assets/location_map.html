@@ -1,0 +1,465 @@
+{% extends 'base.html' %}
+{% block title %}设备地图 - 驰达IT资产管理系统{% endblock %}
+{% block extra_css %}
+<style>
+#mapContainer { position: relative; width: 100%; height: 650px; border: 1px solid #ddd; background: #f5f5f5; overflow: hidden; }
+#mapCanvas { cursor: grab; }
+#mapCanvas:active { cursor: grabbing; }
+.ruler-h { position: absolute; top: 0; left: 30px; height: 24px; background: #fff; border-bottom: 1px solid #ccc; overflow: hidden; z-index: 5; }
+.ruler-v { position: absolute; top: 0; left: 0; width: 24px; background: #fff; border-right: 1px solid #ccc; overflow: hidden; z-index: 5; }
+.ruler-h canvas, .ruler-v canvas { display: block; }
+.coord-tip { position: absolute; background: rgba(0,0,0,0.7); color: #fff; padding: 2px 6px; font-size: 11px; border-radius: 3px; pointer-events: none; display: none; z-index: 20; }
+.location-tree { max-height: 400px; overflow-y: auto; }
+.tree-item { padding: 8px 12px; cursor: pointer; border-radius: 4px; }
+.tree-item:hover { background: #f0f0f0; }
+.tree-item.active { background: #e3f2fd; }
+.toolbar { position: absolute; top: 30px; right: 10px; z-index: 10; background: #fff; padding: 10px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+.toolbar button { margin: 2px; }
+.status-legend { position: absolute; bottom: 10px; left: 10px; z-index: 10; background: #fff; padding: 10px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+.status-dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 5px; }
+.workstation-popup { position: absolute; background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 100; display: none; min-width: 200px; }
+.workstation-popup h6 { margin: 0 0 10px 0; border-bottom: 1px solid #eee; padding-bottom: 8px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4><i class="fas fa-map-marked-alt"></i> 设备地图</h4>
+    <div>
+        <a href="{% url 'location_area_binding' location.id %}" class="btn btn-warning"><i class="fas fa-draw-polygon"></i> 绑定房间区域</a>
+        <a href="{% url 'location_map_edit' location.id %}" class="btn btn-primary"><i class="fas fa-edit"></i> 编辑地图</a>
+        <a href="{% url 'workstation_list' location.id %}" class="btn btn-outline-secondary"><i class="fas fa-th"></i> 工位管理</a>
+        <a href="{% url 'location_list' %}" class="btn btn-outline-secondary">返回位置</a>
+    </div>
+</div>
+<div class="row">
+    <div class="col-md-3">
+        <div class="card mb-3">
+            <div class="card-header"><i class="fas fa-sitemap"></i> 位置导航</div>
+            <div class="card-body location-tree" id="locationTree"></div>
+        </div>
+        <div class="card">
+            <div class="card-header"><i class="fas fa-info-circle"></i> 当前信息</div>
+            <div class="card-body">
+                <p><strong>位置：</strong>{{ location.name }}</p>
+                <p><strong>编码：</strong>{{ location.code }}</p>
+                <p><strong>级别：</strong>{{ location.get_level_display }}</p>
+                <p><strong>工位数：</strong><span id="workstationCount">{{ workstations.count }}</span></p>
+                <p><strong>设备数：</strong><span id="deviceCount">0</span></p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-9">
+        <div id="mapContainer">
+            <div class="ruler-h" id="rulerH"><canvas id="rulerHCvs"></canvas></div>
+            <div class="ruler-v" id="rulerV"><canvas id="rulerVCvs"></canvas></div>
+            <canvas id="mapCanvas" width="{{ location.map_width }}" height="{{ location.map_height }}"></canvas>
+            <div class="coord-tip" id="coordTip"></div>
+            <div class="toolbar">
+                <button class="btn btn-sm btn-outline-secondary" onclick="mapViewer.zoomIn()" title="放大"><i class="fas fa-search-plus"></i></button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="mapViewer.zoomOut()" title="缩小"><i class="fas fa-search-minus"></i></button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="mapViewer.resetView()" title="适应画布"><i class="fas fa-compress-arrows-alt"></i></button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="mapViewer.toggleGrid()" title="网格"><i class="fas fa-border-all"></i></button>
+            </div>
+            <div class="status-legend">
+                <div class="mb-1"><span class="status-dot" style="background:#28a745;"></span>正常</div>
+                <div class="mb-1"><span class="status-dot" style="background:#ffc107;"></span>维修中</div>
+                <div class="mb-1"><span class="status-dot" style="background:#dc3545;"></span>故障</div>
+                <div><span class="status-dot" style="background:#6c757d;"></span>闲置</div>
+            </div>
+            <div class="workstation-popup" id="workstationPopup"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+const locationData = {{ location_tree|safe }};
+const currentLocationId = {{ location.id }};
+const mapData = {
+    elements: [
+        {% for el in elements %}{id:{{ el.id }},type:'{{ el.element_type }}',x:{{ el.x }},y:{{ el.y }},x2:{{ el.x2|default:'null' }},y2:{{ el.y2|default:'null' }},width:{{ el.width }},height:{{ el.height }},color:'{{ el.color }}',thickness:{{ el.thickness }},door_direction:'{{ el.door_direction|default:'right' }}',door_width:{{ el.door_width|default:60 }},door_open_angle:{{ el.door_open_angle|default:90 }}},{% endfor %}
+    ],
+    workstations: [
+        {% for ws in workstations %}{id:{{ ws.id }},code:'{{ ws.workstation_code }}',name:'{{ ws.name }}',x:{{ ws.x }},y:{{ ws.y }},width:{{ ws.width }},height:{{ ws.height }},status:'{{ ws.status }}',devices:[{% for d in ws.devices.all %}{id:{{ d.id }},asset_no:'{{ d.asset_no }}',name:'{{ d.name }}',status:'{{ d.status }}',user:'{{ d.user.realname|default:'' }}'},{% endfor %}]},{% endfor %}
+    ],
+    areaBindings: [
+        {% for binding in area_bindings %}{id:{{ binding.id }},location_id:{{ binding.location_id }},location_name:'{{ binding.location.name }}',area_name:'{{ binding.area_name }}',area_points:{{ binding.area_points|safe }},area_color:'{{ binding.area_color }}'},{% endfor %}
+    ],
+    background: {{ background|yesno:'true,false' }}
+};
+
+class MapViewer {
+    constructor(canvasId) {
+        this.canvas = document.getElementById(canvasId);
+        this.ctx = this.canvas.getContext('2d');
+        this.scale = 1;
+        this.offsetX = 0;
+        this.offsetY = 0;
+        this.showGrid = false;
+        this.workstations = mapData.workstations || [];
+        this.elements = mapData.elements || [];
+        this.areaBindings = mapData.areaBindings || [];
+        this.popup = document.getElementById('workstationPopup');
+        this.gridSize = 50;
+        this.init();
+    }
+    
+    init() {
+        this.initRulers();
+        
+        this.canvas.addEventListener('mousedown', (e) => this.onMouseDown(e));
+        this.canvas.addEventListener('mousemove', (e) => this.onMouseMove(e));
+        this.canvas.addEventListener('mouseup', (e) => this.onMouseUp(e));
+        this.canvas.addEventListener('click', (e) => this.onClick(e));
+        this.canvas.addEventListener('mouseleave', () => {
+            document.getElementById('coordTip').style.display = 'none';
+        });
+        
+        this.render();
+    }
+    
+    initRulers() {
+        const rulerH = document.getElementById('rulerHCvs');
+        const rulerV = document.getElementById('rulerVCvs');
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+        
+        rulerH.width = w;
+        rulerH.height = 24;
+        rulerV.width = 24;
+        rulerV.height = h;
+        
+        this.drawRuler(rulerH.getContext('2d'), w, 24, true);
+        this.drawRuler(rulerV.getContext('2d'), h, 24, false);
+    }
+    
+    drawRuler(ctx, len, size, horizontal) {
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, len, size);
+        ctx.strokeStyle = '#999';
+        ctx.lineWidth = 1;
+        ctx.font = '9px Arial';
+        ctx.fillStyle = '#666';
+        
+        for (let i = 0; i <= len; i += 10) {
+            const isMajor = i % 50 === 0;
+            const tickH = isMajor ? size : size / 2;
+            ctx.beginPath();
+            if (horizontal) {
+                ctx.moveTo(i, size - tickH);
+                ctx.lineTo(i, size);
+                if (isMajor) ctx.fillText(i, i + 2, 10);
+            } else {
+                ctx.moveTo(size - tickH, i);
+                ctx.lineTo(size, i);
+                if (isMajor) ctx.fillText(i, 4, i + 3);
+            }
+            ctx.stroke();
+        }
+    }
+    
+    getMousePos(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const x = (e.clientX - rect.left - this.offsetX) / this.scale;
+        const y = (e.clientY - rect.top - this.offsetY) / this.scale;
+        
+        const tip = document.getElementById('coordTip');
+        tip.textContent = `X: ${Math.round(x)}, Y: ${Math.round(y)}`;
+        tip.style.left = (e.clientX - rect.left + 15) + 'px';
+        tip.style.top = (e.clientY - rect.top - 20) + 'px';
+        tip.style.display = 'block';
+        
+        return { x, y };
+    }
+    
+    onMouseDown(e) {
+        this.isDragging = true;
+        this.lastX = e.clientX;
+        this.lastY = e.clientY;
+    }
+    
+    onMouseMove(e) {
+        const pos = this.getMousePos(e);
+        
+        if (this.isDragging) {
+            this.offsetX += e.clientX - this.lastX;
+            this.offsetY += e.clientY - this.lastY;
+            this.lastX = e.clientX;
+            this.lastY = e.clientY;
+            this.render();
+        }
+        
+        const ws = this.getWorkstationAt(pos.x, pos.y);
+        this.canvas.style.cursor = ws ? 'pointer' : 'grab';
+    }
+    
+    onMouseUp() {
+        this.isDragging = false;
+    }
+    
+    onClick(e) {
+        const pos = this.getMousePos(e);
+        const ws = this.getWorkstationAt(pos.x, pos.y);
+        if (ws) {
+            this.showWorkstationPopup(ws, e.clientX, e.clientY);
+        } else {
+            this.popup.style.display = 'none';
+        }
+    }
+    
+    getWorkstationAt(x, y) {
+        for (const ws of this.workstations) {
+            if (x >= ws.x && x <= ws.x + ws.width && y >= ws.y && y <= ws.y + ws.height) {
+                return ws;
+            }
+        }
+        return null;
+    }
+    
+    showWorkstationPopup(ws, clientX, clientY) {
+        const mapContainer = document.getElementById('mapContainer');
+        const rect = mapContainer.getBoundingClientRect();
+        
+        let html = `<h6>工位: ${ws.code}</h6>`;
+        if (ws.devices && ws.devices.length > 0) {
+            html += '<ul class="list-unstyled mb-0">';
+            ws.devices.forEach(d => {
+                const statusColor = d.status === 'normal' ? '#28a745' : d.status === 'fault' ? '#dc3545' : d.status === 'repairing' ? '#ffc107' : '#6c757d';
+                html += `<li class="mb-1"><span class="status-dot" style="background:${statusColor}"></span>${d.asset_no} - ${d.name}</li>`;
+            });
+            html += '</ul>';
+        } else {
+            html += '<p class="text-muted mb-0">暂无设备</p>';
+        }
+        
+        this.popup.innerHTML = html;
+        this.popup.style.left = (clientX - rect.left + 10) + 'px';
+        this.popup.style.top = (clientY - rect.top + 10) + 'px';
+        this.popup.style.display = 'block';
+    }
+    
+    zoomIn() {
+        this.scale *= 1.2;
+        this.render();
+    }
+    
+    zoomOut() {
+        this.scale /= 1.2;
+        this.render();
+    }
+    
+    resetView() {
+        this.scale = 1;
+        this.offsetX = 0;
+        this.offsetY = 0;
+        this.render();
+    }
+    
+    toggleGrid() {
+        this.showGrid = !this.showGrid;
+        this.render();
+    }
+    
+    render() {
+        const ctx = this.ctx;
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+        
+        ctx.clearRect(0, 0, w, h);
+        
+        ctx.save();
+        ctx.translate(this.offsetX, this.offsetY);
+        ctx.scale(this.scale, this.scale);
+        
+        if (this.showGrid) {
+            this.drawGrid(ctx, w, h);
+        }
+        
+        this.areaBindings.forEach(area => {
+            this.drawAreaBinding(ctx, area);
+        });
+        
+        this.elements.forEach(el => {
+            this.drawElement(ctx, el);
+        });
+        
+        this.workstations.forEach(ws => {
+            this.drawWorkstation(ctx, ws);
+        });
+        
+        ctx.restore();
+    }
+    
+    drawAreaBinding(ctx, area) {
+        if (!area.area_points || area.area_points.length < 3) return;
+        
+        ctx.fillStyle = area.area_color + '60';
+        ctx.strokeStyle = area.area_color;
+        ctx.lineWidth = 2;
+        
+        ctx.beginPath();
+        ctx.moveTo(area.area_points[0].x, area.area_points[0].y);
+        for (let i = 1; i < area.area_points.length; i++) {
+            ctx.lineTo(area.area_points[i].x, area.area_points[i].y);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        
+        const cx = area.area_points.reduce((s, p) => s + p.x, 0) / area.area_points.length;
+        const cy = area.area_points.reduce((s, p) => s + p.y, 0) / area.area_points.length;
+        ctx.fillStyle = '#000';
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(area.area_name || area.location_name, cx, cy);
+    }
+    
+    drawGrid(ctx, w, h) {
+        ctx.strokeStyle = '#e0e0e0';
+        ctx.lineWidth = 0.5;
+        const gridSize = 50;
+        
+        for (let x = 0; x <= w; x += gridSize) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, h);
+            ctx.stroke();
+        }
+        for (let y = 0; y <= h; y += gridSize) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(w, y);
+            ctx.stroke();
+        }
+    }
+    
+    drawElement(ctx, el) {
+        ctx.strokeStyle = el.color || '#000';
+        ctx.lineWidth = el.thickness || 2;
+        
+        if (el.type === 'wall') {
+            ctx.beginPath();
+            ctx.moveTo(el.x, el.y);
+            if (el.x2 !== null && el.y2 !== null) {
+                ctx.lineTo(el.x2, el.y2);
+            }
+            ctx.stroke();
+        } else if (el.type === 'door') {
+            this.drawDoor(ctx, el);
+        } else if (el.type === 'window') {
+            ctx.beginPath();
+            ctx.moveTo(el.x, el.y);
+            ctx.lineTo(el.x + el.width, el.y + el.height);
+            ctx.stroke();
+        } else if (el.type === 'desk' || el.type === 'equipment') {
+            ctx.fillStyle = el.color || '#ddd';
+            ctx.fillRect(el.x, el.y, el.width, el.height);
+            ctx.strokeRect(el.x, el.y, el.width, el.height);
+        }
+    }
+    
+    drawDoor(ctx, el) {
+        const angle = (el.door_open_angle || 90) * Math.PI / 180;
+        const doorWidth = el.door_width || 60;
+        
+        ctx.strokeStyle = el.color || '#333';
+        ctx.lineWidth = el.thickness || 2;
+        
+        ctx.beginPath();
+        
+        if (el.door_direction === 'sliding') {
+            ctx.moveTo(el.x, el.y);
+            ctx.lineTo(el.x + doorWidth, el.y);
+            ctx.stroke();
+            
+            ctx.setLineDash([3, 3]);
+            ctx.moveTo(el.x, el.y + 5);
+            ctx.lineTo(el.x + doorWidth, el.y + 5);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        } else {
+            ctx.moveTo(el.x, el.y);
+            ctx.lineTo(el.x + doorWidth, el.y);
+            ctx.stroke();
+            
+            const swingDir = el.door_direction === 'left' ? -1 : 1;
+            
+            ctx.beginPath();
+            ctx.arc(el.x, el.y, doorWidth, 0, angle * swingDir, swingDir < 0);
+            ctx.stroke();
+            
+            ctx.setLineDash([3, 3]);
+            ctx.beginPath();
+            ctx.moveTo(el.x, el.y);
+            ctx.lineTo(el.x + Math.cos(angle * swingDir) * doorWidth, el.y + Math.sin(angle * swingDir) * doorWidth);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+    }
+    
+    drawWorkstation(ctx, ws) {
+        let bgColor;
+        switch(ws.status) {
+            case 'occupied': bgColor = '#d4edda'; break;
+            case 'maintenance': bgColor = '#fff3cd'; break;
+            default: bgColor = '#e2e3e5';
+        }
+        
+        ctx.fillStyle = bgColor;
+        ctx.fillRect(ws.x, ws.y, ws.width, ws.height);
+        ctx.strokeStyle = '#495057';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(ws.x, ws.y, ws.width, ws.height);
+        
+        ctx.fillStyle = '#212529';
+        ctx.font = '10px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(ws.code.split('-').pop(), ws.x + ws.width/2, ws.y + ws.height/2 + 3);
+    }
+    
+    loadMapData(locationId) {
+        fetch(`/api/map-data/${locationId}/`)
+            .then(r => r.json())
+            .then(data => {
+                this.workstations = data.workstations || [];
+                this.elements = data.elements || [];
+                document.getElementById('workstationCount').textContent = this.workstations.length;
+                document.getElementById('deviceCount').textContent = data.devices ? data.devices.length : 0;
+                this.render();
+            });
+    }
+}
+
+function buildTreeHtml(nodes, activeId) {
+    let html = '';
+    nodes.forEach(node => {
+        const hasChildren = node.children && node.children.length > 0;
+        const isActive = node.id === activeId;
+        const hasMapIcon = node.has_map ? '<i class="fas fa-map text-primary ms-1"></i>' : '';
+        
+        html += `<div class="tree-item ${isActive ? 'active' : ''}" data-id="${node.id}" onclick="selectLocation(${node.id}, '${node.name}')">
+            <i class="fas ${hasChildren ? 'fa-folder' : 'fa-map-marker'} me-1"></i>${node.name}${hasMapIcon}
+        </div>`;
+        if (hasChildren) {
+            html += `<div class="ms-3">${buildTreeHtml(node.children, activeId)}</div>`;
+        }
+    });
+    return html;
+}
+
+function selectLocation(id, name) {
+    document.querySelectorAll('.tree-item').forEach(el => el.classList.remove('active'));
+    document.querySelector(`[data-id="${id}"]`).classList.add('active');
+    mapViewer.loadMapData(id);
+}
+
+let mapViewer;
+document.addEventListener('DOMContentLoaded', function() {
+    const treeHtml = buildTreeHtml(locationData, currentLocationId);
+    document.getElementById('locationTree').innerHTML = treeHtml || '<p class="text-muted p-2">暂无位置数据</p>';
+    
+    mapViewer = new MapViewer('mapCanvas');
+    mapViewer.loadMapData(currentLocationId);
+});
+</script>
+{% endblock %}

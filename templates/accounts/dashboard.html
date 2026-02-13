@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+
+{% block title %}首页 - 驰达IT资产管理系统{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h4>欢迎使用驰达IT资产管理系统</h4>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+            <i class="fas fa-desktop"></i>
+            <div class="stat-value">{{ stats.total_devices }}</div>
+            <div class="stat-label">设备总数</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">
+            <i class="fas fa-check-circle"></i>
+            <div class="stat-value">{{ stats.normal_devices }}</div>
+            <div class="stat-label">正常设备</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card" style="background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);">
+            <i class="fas fa-exclamation-triangle"></i>
+            <div class="stat-value">{{ stats.fault_devices }}</div>
+            <div class="stat-label">故障设备</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+            <i class="fas fa-clipboard-list"></i>
+            <div class="stat-value">{{ stats.pending_tasks }}</div>
+            <div class="stat-label">待盘点任务</div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-chart-pie me-2"></i>设备状态分布
+            </div>
+            <div class="card-body">
+                <canvas id="deviceStatusChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-tasks me-2"></i>我的待办
+            </div>
+            <div class="card-body">
+                <div class="list-group list-group-flush">
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <span>待处理盘点任务</span>
+                        <span class="badge bg-primary rounded-pill">{{ stats.pending_tasks }}</span>
+                    </div>
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <span>我的待办事项</span>
+                        <span class="badge bg-info rounded-pill">{{ stats.my_todos }}</span>
+                    </div>
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <span>待审批资产</span>
+                        <span class="badge bg-warning rounded-pill">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.bootcdn.net/ajax/libs/Chart.js/4.3.0/chart.umd.min.js"></script>
+<script>
+    const ctx = document.getElementById('deviceStatusChart');
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['正常', '故障', '维修中', '已报废', '闲置'],
+            datasets: [{
+                data: [
+                    {{ stats.normal_devices }},
+                    {{ stats.fault_devices }},
+                    {{ stats.repairing_devices|default:0 }},
+                    {{ stats.scrapped_devices }},
+                    {{ stats.unused_devices|default:0 }}
+                ],
+                backgroundColor: ['#28a745', '#dc3545', '#ffc107', '#6c757d', '#17a2b8']
+            }]
+        },
+        options: { responsive: true }
+    });
+</script>
+{% endblock %}

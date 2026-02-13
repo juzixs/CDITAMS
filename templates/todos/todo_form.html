@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block title %}{% if todo %}编辑{% else %}新建{% endif %}待办{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4"><h4>{% if todo %}编辑{% else %}新建{% endif %}待办</h4></div>
+<div class="card"><div class="card-body">
+<form method="post">{% csrf_token %}
+<div class="mb-3"><label class="form-label">标题 <span class="text-danger">*</span></label><input type="text" name="title" class="form-control" value="{{ todo.title|default:'' }}" required></div>
+<div class="row mb-3">
+<div class="col-md-6"><label class="form-label">类型</label><select name="todo_type" class="form-select"><option value="personal" {% if todo.todo_type == 'personal' %}selected{% endif %}>个人待办</option><option value="asset_approval" {% if todo.todo_type == 'asset_approval' %}selected{% endif %}>资产审批</option><option value="maintenance" {% if todo.todo_type == 'maintenance' %}selected{% endif %}>维修审批</option><option value="inventory" {% if todo.todo_type == 'inventory' %}selected{% endif %}>盘点任务</option></select></div>
+<div class="col-md-6"><label class="form-label">优先级</label><select name="priority" class="form-select"><option value="low">低</option><option value="normal" selected>普通</option><option value="high">高</option><option value="urgent">紧急</option></select></div>
+</div>
+<div class="mb-3"><label class="form-label">截止时间</label><input type="date" name="due_date" class="form-control" value="{{ todo.due_date|date:'Y-m-d'|default:'' }}"></div>
+<div class="mb-3"><label class="form-label">内容</label><textarea name="content" class="form-control" rows="3">{{ todo.content|default:'' }}</textarea></div>
+<div class="mt-4"><button type="submit" class="btn btn-primary">保存</button><a href="{% url 'todo_list' %}" class="btn btn-outline-secondary">返回</a></div>
+</form></div></div>{% endblock %}

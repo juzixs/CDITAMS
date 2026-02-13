@@ -1,0 +1,204 @@
+{% extends 'base.html' %}
+{% load asset_tags %}
+
+{% block title %}设备管理 - 驰达IT资产管理系统{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4>设备管理</h4>
+    <div>
+        <a href="{% url 'field_list' %}" class="btn btn-outline-secondary me-2"><i class="fas fa-cog"></i> 字段管理</a>
+        <a href="{% url 'device_create' %}" class="btn btn-primary"><i class="fas fa-plus"></i> 新增设备</a>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <input type="text" name="search" class="form-control" placeholder="搜索资产编号/设备名称/序列号" value="{{ request.GET.search }}">
+            </div>
+            <div class="col-md-2">
+                <select name="category" class="form-select">
+                    <option value="">全部分类</option>
+                    {% for cat in categories %}
+                    <option value="{{ cat.id }}" {% if request.GET.category == cat.id|stringformat:"s" %}selected{% endif %}>{{ cat.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select name="location" class="form-select">
+                    <option value="">全部位置</option>
+                    {% for loc in locations %}
+                    <option value="{{ loc.id }}" {% if request.GET.location == loc.id|stringformat:"s" %}selected{% endif %}>{{ loc.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select name="status" class="form-select">
+                    <option value="">全部状态</option>
+                    <option value="normal" {% if request.GET.status == 'normal' %}selected{% endif %}>正常</option>
+                    <option value="fault" {% if request.GET.status == 'fault' %}selected{% endif %}>故障</option>
+                    <option value="repairing" {% if request.GET.status == 'repairing' %}selected{% endif %}>维修中</option>
+                    <option value="scrapped" {% if request.GET.status == 'scrapped' %}selected{% endif %}>已报废</option>
+                    <option value="unused" {% if request.GET.status == 'unused' %}selected{% endif %}>闲置</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-primary">搜索</button>
+                <a href="{% url 'device_list' %}" class="btn btn-outline-secondary">重置</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="post" id="batchForm">
+            {% csrf_token %}
+            <div class="mb-3">
+                <button type="button" class="btn btn-sm btn-danger" onclick="batchDelete()"><i class="fas fa-trash"></i> 批量删除</button>
+                <button type="button" class="btn btn-sm btn-success" onclick="showAssignModal()"><i class="fas fa-user-plus"></i> 批量分配</button>
+                <button type="button" class="btn btn-sm btn-warning" onclick="batchFault()"><i class="fas fa-exclamation-triangle"></i> 批量报障</button>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="batchScrap()"><i class="fas fa-times"></i> 批量报废</button>
+            </div>
+            
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th><input type="checkbox" id="selectAll"></th>
+                            {% for field in visible_fields %}
+                            <th>{{ field.name }}</th>
+                            {% endfor %}
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for device in devices %}
+                        <tr>
+                            <td><input type="checkbox" name="device_ids" value="{{ device.id }}"></td>
+                            {% for field in visible_fields %}
+                            <td>
+                                {% if field.field_key == 'status' %}
+                                    {% if device.status == 'normal' %}
+                                    <span class="badge bg-success">正常</span>
+                                    {% elif device.status == 'fault' %}
+                                    <span class="badge bg-danger">故障</span>
+                                    {% elif device.status == 'repairing' %}
+                                    <span class="badge bg-warning">维修中</span>
+                                    {% elif device.status == 'scrapped' %}
+                                    <span class="badge bg-secondary">已报废</span>
+                                    {% else %}
+                                    <span class="badge bg-info">闲置</span>
+                                    {% endif %}
+                                {% elif field.field_key == 'secret_level' %}
+                                    {% if device.secret_level == 'public' %}公开{% elif device.secret_level == 'internal' %}内部{% elif device.secret_level == 'confidential' %}机密{% elif device.secret_level == 'secret' %}绝密{% else %}-{% endif %}
+                                {% elif field.field_key == 'user' %}
+                                    {{ device.user.realname|default:'-' }}
+                                {% elif field.field_key == 'department' %}
+                                    {{ device.department.name|default:'-' }}
+                                {% elif field.field_key == 'location' %}
+                                    {{ device.location.name|default:'-' }}
+                                {% elif field.field_key == 'category' %}
+                                    {{ device.category.name }}
+                                {% elif field.field_key == 'is_fixed' %}
+                                    {% if device.is_fixed %}<span class="badge bg-success">是</span>{% else %}<span class="badge bg-secondary">否</span>{% endif %}
+                                {% elif field.field_key == 'is_secret' %}
+                                    {% if device.is_secret %}<span class="badge bg-success">是</span>{% else %}<span class="badge bg-secondary">否</span>{% endif %}
+                                {% elif field.field_key == 'created_at' or field.field_key == 'updated_at' %}
+                                    {{ device|getattr:field.field_key|date:"Y-m-d H:i" }}
+                                {% elif field.field_key == 'purchase_date' or field.field_key == 'enable_date' or field.field_key == 'install_date' %}
+                                    {{ device|getattr:field.field_key|date:"Y-m-d"|default:'-' }}
+                                {% else %}
+                                    {{ device|getattr:field.field_key|default:'-' }}
+                                {% endif %}
+                            </td>
+                            {% endfor %}
+                            <td>
+                                <a href="{% url 'device_detail' device.id %}" class="btn btn-sm btn-outline-primary"><i class="fas fa-eye"></i></a>
+                                <a href="{% url 'device_edit' device.id %}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-edit"></i></a>
+                                <a href="{% url 'device_print_label' device.id %}" class="btn btn-sm btn-outline-info"><i class="fas fa-print"></i></a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="{{ visible_fields|length|add:2 }}" class="text-center text-muted">暂无数据</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            {% if devices.has_other_pages %}
+            <nav>
+                <ul class="pagination justify-content-center">
+                    {% if devices.has_previous %}
+                    <li class="page-item"><a class="page-link" href="?page={{ devices.previous_page_number }}">上一页</a></li>
+                    {% endif %}
+                    {% for num in devices.paginator.page_range %}
+                    <li class="page-item {% if devices.number == num %}active{% endif %}"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                    {% endfor %}
+                    {% if devices.has_next %}
+                    <li class="page-item"><a class="page-link" href="?page={{ devices.next_page_number }}">下一页</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.getElementById('selectAll').addEventListener('change', function() {
+        document.querySelectorAll('input[name="device_ids"]').forEach(cb => cb.checked = this.checked);
+    });
+    
+    function getSelectedIds() {
+        return Array.from(document.querySelectorAll('input[name="device_ids"]:checked')).map(cb => cb.value);
+    }
+    
+    function batchDelete() {
+        const ids = getSelectedIds();
+        if (ids.length === 0) return alert('请选择要删除的设备');
+        if (!confirm('确定要删除选中的 ' + ids.length + ' 台设备吗？')) return;
+        const form = document.createElement('form');
+        form.method = 'post';
+        form.action = '{% url "device_batch_delete" %}';
+        form.innerHTML = '{% csrf_token %}<input type="hidden" name="ids" value="' + ids.join(',') + '">';
+        document.body.appendChild(form);
+        form.submit();
+    }
+    
+    function batchFault() {
+        const ids = getSelectedIds();
+        if (ids.length === 0) return alert('请选择要标记的设备');
+        const form = document.createElement('form');
+        form.method = 'post';
+        form.action = '{% url "device_batch_fault" %}';
+        form.innerHTML = '{% csrf_token %}<input type="hidden" name="ids" value="' + ids.join(',') + '">';
+        document.body.appendChild(form);
+        form.submit();
+    }
+    
+    function batchScrap() {
+        const ids = getSelectedIds();
+        if (ids.length === 0) return alert('请选择要标记的设备');
+        const form = document.createElement('form');
+        form.method = 'post';
+        form.action = '{% url "device_batch_scrap" %}';
+        form.innerHTML = '{% csrf_token %}<input type="hidden" name="ids" value="' + ids.join(',') + '">';
+        document.body.appendChild(form);
+        form.submit();
+    }
+    
+    function showAssignModal() {
+        const ids = getSelectedIds();
+        if (ids.length === 0) return alert('请选择要分配的设备');
+        alert('请在用户管理中选择用户后进行分配');
+        window.location.href = '{% url "user_list" %}';
+    }
+</script>
+{% endblock %}

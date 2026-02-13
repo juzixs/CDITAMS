@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block title %}盘点报表 - 驰达IT资产管理系统{% endblock %}
+{% block content %}
+<h4 class="mb-4">盘点统计报表</h4>
+<div class="row mb-4">
+<div class="col-md-3"><div class="stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"><i class="fas fa-clipboard-list"></i><div class="stat-value">{{ total_plans }}</div><div class="stat-label">盘点计划总数</div></div></div>
+<div class="col-md-3"><div class="stat-card" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);"><i class="fas fa-check-circle"></i><div class="stat-value">{{ completed_plans }}</div><div class="stat-label">已完成计划</div></div></div>
+<div class="col-md-3"><div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);"><i class="fas fa-spinner"></i><div class="stat-value">{{ in_progress_plans }}</div><div class="stat-label">进行中计划</div></div></div>
+<div class="col-md-3"><div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);"><i class="fas fa-tasks"></i><div class="stat-value">{{ total_tasks }}</div><div class="stat-label">盘点任务总数</div></div></div>
+</div>
+<div class="row mb-4">
+<div class="col-md-4"><div class="card"><div class="card-header">设备盘点情况</div><div class="card-body">
+<p>设备总数：<strong>{{ total_devices }}</strong></p>
+<p>已盘点记录：<strong>{{ total_records }}</strong></p>
+</div></div></div>
+<div class="col-md-4"><div class="card"><div class="card-header">差异统计</div><div class="card-body">
+<p class="text-danger">未找到：<strong>{{ not_found_count }}</strong></p>
+<p class="text-warning">损坏：<strong>{{ damaged_count }}</strong></p>
+<p class="text-danger">丢失：<strong>{{ lost_count }}</strong></p>
+</div></div></div>
+<div class="col-md-4"><div class="card"><div class="card-header">任务完成情况</div><div class="card-body">
+<p>已完成任务：<strong>{{ completed_tasks }}</strong></p>
+<p>已审核任务：<strong>{{ verified_tasks }}</strong></p>
+</div></div></div>
+</div>
+<div class="card"><div class="card-header">盘点完成率</div><div class="card-body">
+{% if total_devices > 0 %}
+{% widthratio total_records total_devices 100 %}%
+{% else %}0%{% endif %}
+</div></div>{% endblock %}

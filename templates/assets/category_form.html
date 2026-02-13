@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block title %}{% if category %}编辑{% else %}新增{% endif %}分类 - 驰达IT资产管理系统{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4"><h4>{% if category %}编辑{% else %}新增{% endif %}分类</h4></div>
+<div class="card"><div class="card-body">
+<form method="post">{% csrf_token %}
+<div class="row mb-3">
+<div class="col-md-6"><label class="form-label">分类名称 <span class="text-danger">*</span></label><input type="text" name="name" class="form-control" value="{{ category.name|default:'' }}" required></div>
+<div class="col-md-6"><label class="form-label">分类编码</label><input type="text" name="code" class="form-control" value="{{ category.code|default:'' }}"></div>
+</div>
+<div class="row mb-3">
+<div class="col-md-6"><label class="form-label">上级分类</label><select name="parent" class="form-select"><option value="">顶级分类</option>{% for c in categories %}{% if c.id != category.id %}<option value="{{ c.id }}" {% if category.parent_id == c.id %}selected{% endif %}>{{ c.name }}</option>{% endif %}{% endfor %}</select></div>
+<div class="col-md-6"><label class="form-label">排序</label><input type="number" name="sort" class="form-control" value="{{ category.sort|default:0 }}"></div>
+</div>
+<div class="mb-3"><label class="form-label">描述</label><textarea name="description" class="form-control" rows="2">{{ category.description|default:'' }}</textarea></div>
+<div class="mt-4"><button type="submit" class="btn btn-primary">保存</button><a href="{% url 'category_list' %}" class="btn btn-outline-secondary">返回</a></div>
+</form></div></div>{% endblock %}

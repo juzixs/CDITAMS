@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block title %}设备扫码{% endblock %}
+{% block content %}
+<h4 class="mb-4">设备信息</h4>
+<div class="card"><div class="card-body">
+<p><strong>资产编号：</strong>{{ device.asset_no }}</p>
+<p><strong>设备名称：</strong>{{ device.name }}</p>
+<p><strong>分类：</strong>{{ device.category.name }}</p>
+<p><strong>位置：</strong>{{ device.location.name|default:'-' }}</p>
+<p><strong>使用人：</strong>{{ device.user.realname|default:'-' }}</p>
+<p><strong>状态：</strong>{{ device.get_status_display }}</p>
+</div></div>{% endblock %}

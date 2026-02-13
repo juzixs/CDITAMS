@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block title %}个人设置 - 驰达IT资产管理系统{% endblock %}
+{% block content %}
+<h4 class="mb-4">个人设置</h4>
+<div class="card"><div class="card-body">
+<form method="post" enctype="multipart/form-data">{% csrf_token %}
+<div class="row mb-3">
+<div class="col-md-6"><label class="form-label">工号</label><input type="text" class="form-control" value="{{ user.emp_no }}" disabled></div>
+<div class="col-md-6"><label class="form-label">姓名</label><input type="text" name="realname" class="form-control" value="{{ user.realname }}"></div>
+</div>
+<div class="row mb-3">
+<div class="col-md-6"><label class="form-label">邮箱</label><input type="email" name="email" class="form-control" value="{{ user.email|default:'' }}"></div>
+<div class="col-md-6"><label class="form-label">电话</label><input type="text" name="phone" class="form-control" value="{{ user.phone|default:'' }}"></div>
+</div>
+<div class="row mb-3">
+<div class="col-md-6"><label class="form-label">性别</label><select name="gender" class="form-select"><option value="">请选择</option><option value="male" {% if user.gender == 'male' %}selected{% endif %}>男</option><option value="female" {% if user.gender == 'female' %}selected{% endif %}>女</option></select></div>
+<div class="col-md-6"><label class="form-label">新密码（留空不修改）</label><input type="password" name="password" class="form-control"></div>
+</div>
+<div class="mt-4"><button type="submit" class="btn btn-primary">保存</button></div>
+</form></div></div>{% endblock %}

@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if field %}编辑{% endif %}字段管理 - 驰达IT资产管理系统{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4>{% if field %}编辑{% else %}新增{% endif %}字段</h4>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            
+            {% if field and field.is_system %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i> 这是系统字段，字段键名和类型不可修改，但可以设置是否在列表显示、是否必填和排序。
+            </div>
+            {% endif %}
+            
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">字段名称 <span class="text-danger">*</span></label>
+                    <input type="text" name="name" class="form-control" value="{{ field.name|default:'' }}" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">字段键名 <span class="text-danger">*</span></label>
+                    <input type="text" name="field_key" class="form-control" value="{{ field.field_key|default:'' }}" {% if field and field.is_system %}readonly{% endif %} required>
+                </div>
+            </div>
+            
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">字段类型</label>
+                    <select name="field_type" class="form-select" {% if field and field.is_system %}disabled{% endif %}>
+                        <option value="text" {% if field.field_type == 'text' or not field %}selected{% endif %}>文本</option>
+                        <option value="textarea" {% if field.field_type == 'textarea' %}selected{% endif %}>多行文本</option>
+                        <option value="number" {% if field.field_type == 'number' %}selected{% endif %}>数字</option>
+                        <option value="select" {% if field.field_type == 'select' %}selected{% endif %}>下拉选择</option>
+                        <option value="multi_select" {% if field.field_type == 'multi_select' %}selected{% endif %}>多选</option>
+                        <option value="date" {% if field.field_type == 'date' %}selected{% endif %}>日期</option>
+                        <option value="datetime" {% if field.field_type == 'datetime' %}selected{% endif %}>日期时间</option>
+                        <option value="checkbox" {% if field.field_type == 'checkbox' %}selected{% endif %}>复选框</option>
+                        <option value="file" {% if field.field_type == 'file' %}selected{% endif %}>文件上传</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">所属分类</label>
+                    <select name="category" class="form-select">
+                        <option value="">通用字段</option>
+                        {% for cat in categories %}
+                        <option value="{{ cat.id }}" {% if field.category_id == cat.id %}selected{% endif %}>{{ cat.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="is_required" id="is_required" {% if field.is_required %}checked{% endif %}>
+                        <label class="form-check-label" for="is_required">是否必填</label>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="is_visible" id="is_visible" {% if field.is_visible or not field %}checked{% endif %}>
+                        <label class="form-check-label" for="is_visible">是否在列表显示</label>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">排序</label>
+                    <input type="number" name="sort" class="form-control" value="{{ field.sort|default:0 }}">
+                </div>
+            </div>
+            
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">选项(JSON格式)</label>
+                    <textarea name="options" class="form-control" rows="3" placeholder='["选项1", "选项2", "选项3"]'>{{ field.options|default:'' }}</textarea>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">默认值</label>
+                    <input type="text" name="default_value" class="form-control" value="{{ field.default_value|default:'' }}">
+                </div>
+            </div>
+            
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">保存</button>
+                <a href="{% url 'field_list' %}" class="btn btn-outline-secondary">返回</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

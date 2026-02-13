@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block title %}{% if plan %}编辑{% else %}新建{% endif %}盘点计划{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4"><h4>{% if plan %}编辑{% else %}新建{% endif %}盘点计划</h4></div>
+<div class="card"><div class="card-body">
+<form method="post">{% csrf_token %}
+<div class="row mb-3">
+<div class="col-md-6"><label class="form-label">计划名称 <span class="text-danger">*</span></label><input type="text" name="name" class="form-control" value="{{ plan.name|default:'' }}" required></div>
+<div class="col-md-6"><label class="form-label">计划类型</label><select name="plan_type" class="form-select"><option value="full" {% if plan.plan_type == 'full' %}selected{% endif %}>全盘</option><option value="sample" {% if plan.plan_type == 'sample' %}selected{% endif %}>抽盘</option><option value="dynamic" {% if plan.plan_type == 'dynamic' %}selected{% endif %}>动态盘点</option></select></div>
+</div>
+<div class="row mb-3">
+<div class="col-md-6"><label class="form-label">计划开始时间</label><input type="date" name="scheduled_start" class="form-control" value="{{ plan.scheduled_start|date:'Y-m-d'|default:'' }}"></div>
+<div class="col-md-6"><label class="form-label">计划结束时间</label><input type="date" name="scheduled_end" class="form-control" value="{{ plan.scheduled_end|date:'Y-m-d'|default:'' }}"></div>
+</div>
+<div class="mb-3"><label class="form-label">备注</label><textarea name="remarks" class="form-control" rows="2">{{ plan.remarks|default:'' }}</textarea></div>
+<div class="mt-4"><button type="submit" class="btn btn-primary">保存</button><a href="{% url 'plan_list' %}" class="btn btn-outline-secondary">返回</a></div>
+</form></div></div>{% endblock %}

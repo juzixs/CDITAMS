@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+{% block title %}批量创建工位 - 驰达IT资产管理系统{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4><i class="fas fa-plus-square"></i> 批量创建工位</h4>
+</div>
+<div class="card">
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">所属位置 <span class="text-danger">*</span></label>
+                    <select name="location_id" class="form-select" required id="locationSelect">
+                        <option value="">选择位置</option>
+                        {% for loc in locations %}
+                        <option value="{{ loc.id }}" {% if location and location.id == loc.id %}selected{% endif %}>{{ loc.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">工位前缀</label>
+                    <input type="text" class="form-control" id="prefixPreview" readonly placeholder="选择位置后自动生成">
+                </div>
+            </div>
+            <hr>
+            <h6 class="mb-3">布局设置</h6>
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <label class="form-label">行数</label>
+                    <input type="number" name="rows" class="form-control" value="5" min="1" max="50">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">列数</label>
+                    <input type="number" name="cols" class="form-control" value="10" min="1" max="50">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">间距X (px)</label>
+                    <input type="number" name="spacing_x" class="form-control" value="50" min="0">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">间距Y (px)</label>
+                    <input type="number" name="spacing_y" class="form-control" value="40" min="0">
+                </div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <label class="form-label">起始X坐标</label>
+                    <input type="number" name="start_x" class="form-control" value="10">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">起始Y坐标</label>
+                    <input type="number" name="start_y" class="form-control" value="10">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">工位宽度 (px)</label>
+                    <input type="number" name="width" class="form-control" value="30">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">工位高度 (px)</label>
+                    <input type="number" name="height" class="form-control" value="20">
+                </div>
+            </div>
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i> 
+                预览：将创建 <strong id="previewCount">50</strong> 个工位 (5行 x 10列)
+            </div>
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">批量创建</button>
+                {% if location %}
+                <a href="{% url 'workstation_list' location.id %}" class="btn btn-outline-secondary">返回</a>
+                {% else %}
+                <a href="{% url 'location_list' %}" class="btn btn-outline-secondary">返回</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    function updatePreview() {
+        var rows = parseInt(document.querySelector('input[name="rows"]').value) || 1;
+        var cols = parseInt(document.querySelector('input[name="cols"]').value) || 1;
+        var select = document.getElementById('locationSelect');
+        var option = select.options[select.selectedIndex];
+        
+        document.getElementById('previewCount').textContent = rows * cols;
+        document.getElementById('prefixPreview').value = option.value ? 'L' + option.value + '-XXXX' : '';
+    }
+    
+    document.getElementById('locationSelect').addEventListener('change', updatePreview);
+    document.querySelector('input[name="rows"]').addEventListener('input', updatePreview);
+    document.querySelector('input[name="cols"]').addEventListener('input', updatePreview);
+});
+</script>
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block title %}数据管理 - 驰达IT资产管理系统{% endblock %}
+{% block content %}
+<h4 class="mb-4">数据管理</h4>
+<div class="row">
+<div class="col-md-6">
+<div class="card mb-4"><div class="card-header">数据备份</div><div class="card-body">
+<form method="post">{% csrf_token %}
+<input type="hidden" name="action" value="backup">
+<button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> 立即备份</button>
+</form>
+<p class="mt-3 text-muted">点击按钮将立即创建数据库备份文件</p>
+</div></div>
+</div>
+<div class="col-md-6">
+<div class="card mb-4"><div class="card-header">数据清理</div><div class="card-body">
+<form method="post">{% csrf_token %}
+<div class="mb-3"><button type="submit" name="action" value="clean_logs" class="btn btn-warning"><i class="fas fa-broom"></i> 清理日志</button></div>
+<p class="text-muted">清理所有系统日志、操作日志、登录日志</p>
+<hr>
+<div class="mb-3"><button type="submit" name="action" value="clean_old_devices" class="btn btn-danger"><i class="fas fa-trash"></i> 清理报废设备</button></div>
+<p class="text-muted">删除所有状态为"已报废"的设备记录</p>
+</form>
+</div></div>
+</div>
+</div>
+<div class="card"><div class="card-header">备份文件列表</div><div class="card-body">
+<table class="table"><thead><tr><th>文件名</th><th>大小</th><th>创建时间</th><th>操作</th></tr></thead>
+<tbody>{% for b in backups %}<tr><td>{{ b.name }}</td><td>{{ b.size|filesizeformat }}</td><td>{{ b.time|date:"Y-m-d H:i:s" }}</td>
+<td><a href="{% url 'download_backup' %}?file={{ b.path }}" class="btn btn-sm btn-outline-primary">下载</a></td></tr>{% empty %}<tr><td colspan="4" class="text-center">暂无备份文件</td></tr>{% endfor %}</tbody></table>
+</div></div>{% endblock %}

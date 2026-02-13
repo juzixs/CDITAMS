@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block title %}工位管理 - {{ location.name }} - 驰达IT资产管理系统{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4><i class="fas fa-th"></i> 工位管理 - {{ location.name }}</h4>
+    <div>
+        <a href="{% url 'workstation_batch_create' %}?location_id={{ location.id }}" class="btn btn-success"><i class="fas fa-plus-square"></i> 批量创建</a>
+        <a href="{% url 'workstation_create' %}?location_id={{ location.id }}" class="btn btn-primary"><i class="fas fa-plus"></i> 新增工位</a>
+        <a href="{% url 'location_map' location.id %}" class="btn btn-outline-secondary"><i class="fas fa-map"></i> 地图查看</a>
+        <a href="{% url 'location_list' %}" class="btn btn-outline-secondary">返回位置</a>
+    </div>
+</div>
+<div class="card">
+    <div class="card-body">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>工位编号</th>
+                    <th>工位名称</th>
+                    <th>位置</th>
+                    <th>坐标</th>
+                    <th>状态</th>
+                    <th>设备数</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ws in workstations %}
+                <tr>
+                    <td><strong>{{ ws.workstation_code }}</strong></td>
+                    <td>{{ ws.name }}</td>
+                    <td>{{ location.name }}</td>
+                    <td>{{ ws.x|floatformat:0 }}, {{ ws.y|floatformat:0 }}</td>
+                    <td>
+                        {% if ws.status == 'available' %}
+                        <span class="badge bg-success">可用</span>
+                        {% elif ws.status == 'occupied' %}
+                        <span class="badge bg-primary">已占用</span>
+                        {% else %}
+                        <span class="badge bg-warning">维修中</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ ws.devices.count }}</td>
+                    <td>
+                        <a href="{% url 'workstation_edit' ws.id %}" class="btn btn-sm btn-outline-primary">编辑</a>
+                        <a href="{% url 'workstation_delete' ws.id %}" class="btn btn-sm btn-outline-danger" onclick="return confirm('确定删除此工位？')">删除</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="text-center text-muted">暂无工位数据</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

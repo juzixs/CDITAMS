@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% block title %}登录日志 - 驰达IT资产管理系统{% endblock %}
+{% block content %}
+<h4 class="mb-4">登录日志</h4>
+<div class="card"><div class="card-body">
+<table class="table table-hover"><thead><tr><th>账号</th><th>操作</th><th>IP地址</th><th>备注</th><th>时间</th></tr></thead>
+<tbody>{% for log in logs %}<tr><td>{{ log.username }}</td><td>{% if log.action == 'login' %}<span class="badge bg-success">登录</span>{% else %}<span class="badge bg-danger">失败</span>{% endif %}</td><td>{{ log.ip_address|default:'-' }}</td><td>{{ log.message|default:'-' }}</td><td>{{ log.created_at|date:"Y-m-d H:i:s" }}</td></tr>{% empty %}<tr><td colspan="5" class="text-center text-muted">暂无数据</td></tr>{% endfor %}</tbody></table>
+{% if logs.has_other_pages %}<nav><ul class="pagination justify-content-center">{% if logs.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ logs.previous_page_number }}">上一页</a></li>{% endif %}{% for num in logs.paginator.page_range %}{% if logs.number == num %}<li class="page-item active"><span class="page-link">{{ num }}</span></li>{% else %}<li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>{% endif %}{% endfor %}{% if logs.has_next %}<li class="page-item"><a class="page-link" href="?page={{ logs.next_page_number }}">下一页</a></li>{% endif %}</ul></nav>{% endif %}
+</div></div>{% endblock %}

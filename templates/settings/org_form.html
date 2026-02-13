@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block title %}企业信息 - 驰达IT资产管理系统{% endblock %}
+{% block content %}
+<h4 class="mb-4">企业信息</h4>
+<div class="card"><div class="card-body">
+<form method="post" enctype="multipart/form-data">{% csrf_token %}
+<div class="row mb-3">
+<div class="col-md-6"><label class="form-label">企业名称</label><input type="text" name="name" class="form-control" value="{{ org.name|default:'' }}"></div>
+<div class="col-md-6"><label class="form-label">简称</label><input type="text" name="short_name" class="form-control" value="{{ org.short_name|default:'' }}"></div>
+</div>
+<div class="row mb-3">
+<div class="col-md-6"><label class="form-label">企业编码</label><input type="text" name="code" class="form-control" value="{{ org.code|default:'' }}"></div>
+<div class="col-md-6"><label class="form-label">联系人</label><input type="text" name="contact_person" class="form-control" value="{{ org.contact_person|default:'' }}"></div>
+</div>
+<div class="row mb-3">
+<div class="col-md-6"><label class="form-label">联系电话</label><input type="text" name="contact_phone" class="form-control" value="{{ org.contact_phone|default:'' }}"></div>
+<div class="col-md-6"><label class="form-label">联系邮箱</label><input type="email" name="contact_email" class="form-control" value="{{ org.contact_email|default:'' }}"></div>
+</div>
+<div class="mb-3"><label class="form-label">地址</label><input type="text" name="address" class="form-control" value="{{ org.address|default:'' }}"></div>
+<div class="mb-3"><label class="form-label">简介</label><textarea name="description" class="form-control" rows="3">{{ org.description|default:'' }}</textarea></div>
+<div class="mt-4"><button type="submit" class="btn btn-primary">保存</button></div>
+</form></div></div>{% endblock %}
