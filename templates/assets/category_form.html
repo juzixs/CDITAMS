@@ -9,9 +9,16 @@
 <div class="col-md-6"><label class="form-label">分类编码</label><input type="text" name="code" class="form-control" value="{{ category.code|default:'' }}"></div>
 </div>
 <div class="row mb-3">
-<div class="col-md-6"><label class="form-label">上级分类</label><select name="parent" class="form-select"><option value="">顶级分类</option>{% for c in categories %}{% if c.id != category.id %}<option value="{{ c.id }}" {% if category.parent_id == c.id %}selected{% endif %}>{{ c.name }}</option>{% endif %}{% endfor %}</select></div>
+<div class="col-md-6"><label class="form-label">上级分类</label>
+<select name="parent" class="form-select" id="parentSelect">
+<option value="">顶级分类 (1级)</option>
+{% for c in categories %}{% if c.id != category.id and c.level < 4 %}<option value="{{ c.id }}" {% if category.parent_id == c.id %}selected{% endif %}>{% if c.level == 1 %}{{ c.name }}{% elif c.level == 2 %}　├─ {{ c.name }}{% elif c.level == 3 %}　　├─ {{ c.name }}{% endif %} ({{ c.level }}级)</option>{% endif %}{% endfor %}
+</select>
+<small class="text-muted">选择上级分类后，将自动设置为下级（最多4级）</small>
+</div>
 <div class="col-md-6"><label class="form-label">排序</label><input type="number" name="sort" class="form-control" value="{{ category.sort|default:0 }}"></div>
 </div>
 <div class="mb-3"><label class="form-label">描述</label><textarea name="description" class="form-control" rows="2">{{ category.description|default:'' }}</textarea></div>
 <div class="mt-4"><button type="submit" class="btn btn-primary">保存</button><a href="{% url 'category_list' %}" class="btn btn-outline-secondary">返回</a></div>
-</form></div></div>{% endblock %}
+</form></div></div>
+{% endblock %}

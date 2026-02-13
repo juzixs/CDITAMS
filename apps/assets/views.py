@@ -318,7 +318,14 @@ def generate_asset_no(category):
 
 @login_required
 def category_list(request):
-    categories = AssetCategory.objects.filter(parent__isnull=True).prefetch_related('children')
+    categories = AssetCategory.objects.filter(
+        parent__isnull=True
+    ).prefetch_related(
+        'children__children__children',
+        'children__children',
+        'children',
+        'devices'
+    ).order_by('sort', 'code', 'id')
     return render(request, 'assets/category_list.html', {'categories': categories})
 
 
@@ -331,6 +338,12 @@ def category_create(request):
         description = request.POST.get('description')
         sort = request.POST.get('sort', 0)
         
+        level = 1
+        if parent_id:
+            parent = AssetCategory.objects.filter(pk=parent_id).first()
+            if parent:
+                level = parent.level + 1
+        
         if code and AssetCategory.objects.filter(code=code).exists():
             messages.error(request, '分类编码已存在')
         else:
@@ -338,6 +351,7 @@ def category_create(request):
                 name=name,
                 code=code,
                 parent_id=parent_id if parent_id else None,
+                level=level,
                 description=description,
                 sort=sort
             )
@@ -355,7 +369,16 @@ def category_edit(request, pk):
     if request.method == 'POST':
         category.name = request.POST.get('name')
         category.code = request.POST.get('code')
-        category.parent_id = request.POST.get('parent') or None
+        parent_id = request.POST.get('parent') or None
+        
+        if parent_id:
+            parent = AssetCategory.objects.filter(pk=parent_id).first()
+            if parent:
+                category.level = parent.level + 1
+        else:
+            category.level = 1
+        
+        category.parent_id = parent_id
         category.description = request.POST.get('description')
         category.sort = request.POST.get('sort', 0)
         category.save()
