@@ -29,6 +29,14 @@ class AssetCategory(models.Model):
             current = current.parent
         return '-'.join(codes)
 
+    def get_full_path(self):
+        names = []
+        current = self
+        while current:
+            names.insert(0, current.name)
+            current = current.parent
+        return ' - '.join(names)
+
     @classmethod
     def find_by_asset_prefix(cls, asset_prefix):
         parts = asset_prefix.split('-')

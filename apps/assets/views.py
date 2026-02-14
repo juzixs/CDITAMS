@@ -102,6 +102,7 @@ def device_create(request):
             department_id=request.POST.get('department') or None,
             location_id=request.POST.get('location') or None,
             workstation_id=request.POST.get('workstation') or None,
+            location_text=request.POST.get('location_text') or '',
             purchase_date=request.POST.get('purchase_date') or None,
             enable_date=request.POST.get('enable_date') or None,
             install_date=request.POST.get('install_date') or None,
@@ -177,6 +178,7 @@ def device_edit(request, pk):
         device.department_id = request.POST.get('department') or None
         device.location_id = request.POST.get('location') or None
         device.workstation_id = request.POST.get('workstation') or None
+        device.location_text = request.POST.get('location_text') or ''
         device.purchase_date = request.POST.get('purchase_date') or None
         device.enable_date = request.POST.get('enable_date') or None
         device.install_date = request.POST.get('install_date') or None

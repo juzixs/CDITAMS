@@ -10,63 +10,89 @@
     .select2-container--default .select2-selection--single .select2-selection__arrow { height: 36px; }
     .select2-dropdown { border: 1px solid #ced4da; border-radius: 4px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
     .select2-container--default .select2-results > .select2-results__options { max-height: 400px; }
-    .select2-container--default .select2-results__option[aria-disabled=true] { opacity: 0.6; }
-    .select2-container--default .select2-results__option--highlighted[aria-selected] { background-color: #f0f0f0; color: #333; }
-    .select2-container--default .select2-results__option[aria-selected=true] { background-color: #e9ecef; }
-    .category-level-1 { font-weight: bold; color: #333; }
-    .category-level-2 { padding-left: 15px; }
-    .category-level-3 { padding-left: 30px; }
-    .category-level-4 { padding-left: 45px; }
-    .photo-preview { max-width: 200px; max-height: 200px; border: 1px solid #ddd; border-radius: 4px; }
+    .photo-preview { max-width: 150px; max-height: 150px; border: 1px solid #ddd; border-radius: 4px; object-fit: cover; }
+    .form-section { margin-bottom: 1.5rem; }
+    .form-section-title { 
+        font-size: 0.95rem; 
+        font-weight: 600; 
+        padding: 0.5rem 0.75rem; 
+        margin-bottom: 1rem; 
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+    }
+    .form-section-title i { margin-right: 0.5rem; }
+    .form-section-title.basic { background-color: #e3f2fd; color: #0d47a1; border-left: 4px solid #1976d2; }
+    .form-section-title.usage { background-color: #e8f5e9; color: #1b5e20; border-left: 4px solid #388e3c; }
+    .form-section-title.network { background-color: #f3e5f5; color: #4a148c; border-left: 4px solid #7b1fa2; }
+    .form-section-title.computer { background-color: #fff3e0; color: #e65100; border-left: 4px solid #f57c00; }
+    .form-section-title.finance { background-color: #e0f7fa; color: #006064; border-left: 4px solid #0097a7; }
+    .form-section-title.security { background-color: #ffebee; color: #b71c1c; border-left: 4px solid #c62828; }
+    .form-section-title.attachment { background-color: #f5f5f5; color: #424242; border-left: 4px solid #616161; }
+    .form-section-title.system { background-color: #f5f5f5; color: #616161; border-left: 4px solid #9e9e9e; }
+    .form-label { font-weight: 500; font-size: 0.875rem; }
+    .required-mark { color: #dc3545; }
+    .checkbox-wrapper { display: flex; align-items: center; height: 38px; }
+    .checkbox-wrapper .form-check-input { margin-top: 0; margin-right: 0.5rem; }
+    .location-path { font-size: 0.8rem; margin-top: 0.25rem; }
+    .field-group-card { border: 1px solid #e0e0e0; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+    .field-group-title { font-weight: 600; color: #495057; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid #e0e0e0; }
+    @media (max-width: 768px) {
+        .form-section-title { font-size: 0.85rem; }
+        .photo-preview { max-width: 100px; max-height: 100px; }
+    }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h4>{% if device %}编辑{% else %}新增{% endif %}设备</h4>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="mb-0">{% if device %}编辑{% else %}新增{% endif %}设备</h5>
 </div>
 
-<div class="card">
-    <div class="card-body">
-        <form method="post" enctype="multipart/form-data">
-            {% csrf_token %}
-            
-            <h6 class="border-bottom pb-2 mb-3">基本信息</h6>
-            <div class="row mb-3">
-                <div class="col-md-4">
-                    <label class="form-label">资产分类 <span class="text-danger">*</span></label>
+<form method="post" enctype="multipart/form-data" class="card">
+    {% csrf_token %}
+    
+    <div class="card-body p-3 p-md-4">
+        <!-- 基本信息 sort 1-7 -->
+        <div class="form-section">
+            <div class="form-section-title basic">
+                <i class="fas fa-cube"></i> 基本信息
+            </div>
+            <!-- sort 1-3: 资产分类、资产编号、设备编号 -->
+            <div class="row g-2 g-md-3 mb-2">
+                <div class="col-12 col-md-4">
+                    <label class="form-label">资产分类 <span class="required-mark">*</span></label>
                     <select name="category" id="category-select" class="form-select" required>
                         <option value="">请选择分类</option>
                     </select>
-                    <small class="form-text text-muted">请选择末级分类</small>
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label">资产编号 <span class="text-danger">*</span></label>
+                <div class="col-12 col-md-4">
+                    <label class="form-label">资产编号 <span class="required-mark">*</span></label>
                     <input type="text" name="asset_no" id="asset_no" class="form-control" value="{{ device.asset_no|default:'' }}" required>
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label">设备名称 <span class="text-danger">*</span></label>
-                    <input type="text" name="name" class="form-control" value="{{ device.name|default:'' }}" required>
-                </div>
-            </div>
-            
-            <div class="row mb-3">
-                <div class="col-md-4">
+                <div class="col-12 col-md-4">
                     <label class="form-label">设备编号</label>
                     <input type="text" name="device_no" class="form-control" value="{{ device.device_no|default:'' }}">
                 </div>
-                <div class="col-md-4">
+            </div>
+            <!-- sort 4-6: 设备名称、型号、序列号 -->
+            <div class="row g-2 g-md-3 mb-2">
+                <div class="col-12 col-md-4">
+                    <label class="form-label">设备名称 <span class="required-mark">*</span></label>
+                    <input type="text" name="name" class="form-control" value="{{ device.name|default:'' }}" required>
+                </div>
+                <div class="col-12 col-md-4">
                     <label class="form-label">型号</label>
                     <input type="text" name="model" class="form-control" value="{{ device.model|default:'' }}">
                 </div>
-                <div class="col-md-4">
+                <div class="col-12 col-md-4">
                     <label class="form-label">序列号</label>
                     <input type="text" name="serial_no" class="form-control" value="{{ device.serial_no|default:'' }}">
                 </div>
             </div>
-            
-            <div class="row mb-3">
-                <div class="col-md-4">
+            <!-- sort 7: 密级 -->
+            <div class="row g-2 g-md-3">
+                <div class="col-12 col-md-4">
                     <label class="form-label">密级</label>
                     <select name="secret_level" class="form-select">
                         <option value="public" {% if device.secret_level == 'public' or not device %}selected{% endif %}>公开</option>
@@ -75,7 +101,55 @@
                         <option value="secret" {% if device.secret_level == 'secret' %}selected{% endif %}>绝密</option>
                     </select>
                 </div>
-                <div class="col-md-4">
+            </div>
+        </div>
+
+        <!-- 使用信息 sort 8-12 -->
+        <div class="form-section">
+            <div class="form-section-title usage">
+                <i class="fas fa-user"></i> 使用信息
+            </div>
+            <!-- sort 8-9: 所属部门、使用人 -->
+            <div class="row g-2 g-md-3 mb-2">
+                <div class="col-12 col-md-6">
+                    <label class="form-label">所属部门</label>
+                    <select name="department" class="form-select">
+                        <option value="">请选择</option>
+                        {% for dept in departments %}
+                        <option value="{{ dept.id }}" {% if device.department_id == dept.id %}selected{% endif %}>{{ dept.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-12 col-md-6">
+                    <label class="form-label">使用人</label>
+                    <select name="user" class="form-select">
+                        <option value="">未分配</option>
+                        {% for u in users %}
+                        <option value="{{ u.id }}" {% if device.user_id == u.id %}selected{% endif %}>{{ u.realname }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <!-- sort 10-11: 位置、工位 -->
+            <div class="row g-2 g-md-3 mb-2">
+                <div class="col-12 col-md-6">
+                    <label class="form-label">位置</label>
+                    <select id="location-select" class="form-select">
+                        <option value="">请选择位置</option>
+                    </select>
+                    <small class="text-muted location-path" id="location-path"></small>
+                    <input type="hidden" name="location" id="location-input" value="{{ device.location_id|default:'' }}">
+                </div>
+                <div class="col-12 col-md-6">
+                    <label class="form-label">工位</label>
+                    <select name="workstation" id="workstation-select" class="form-select">
+                        <option value="">请先选择位置</option>
+                    </select>
+                </div>
+            </div>
+            <!-- sort 12: 设备状态 -->
+            <div class="row g-2 g-md-3">
+                <div class="col-12 col-md-4">
                     <label class="form-label">设备状态</label>
                     <select name="status" class="form-select">
                         <option value="normal" {% if device.status == 'normal' or not device %}selected{% endif %}>正常</option>
@@ -86,137 +160,151 @@
                     </select>
                 </div>
             </div>
-            
-            <h6 class="border-bottom pb-2 mb-3 mt-4">使用信息</h6>
-            <div class="row mb-3">
-                <div class="col-md-4">
-                    <label class="form-label">所属部门</label>
-                    <select name="department" class="form-select">
-                        <option value="">请选择</option>
-                        {% for dept in departments %}
-                        <option value="{{ dept.id }}" {% if device.department_id == dept.id %}selected{% endif %}>{{ dept.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">使用人</label>
-                    <select name="user" class="form-select">
-                        <option value="">未分配</option>
-                        {% for u in users %}
-                        <option value="{{ u.id }}" {% if device.user_id == u.id %}selected{% endif %}>{{ u.realname }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">位置</label>
-                    <select id="location-select" class="form-select">
-                        <option value="">请选择位置</option>
-                    </select>
-                    <small class="text-muted d-block location-path" id="location-path"></small>
-                    <input type="hidden" name="location" id="location-input" value="{{ device.location_id|default:'' }}">
-                </div>
+        </div>
+
+        <!-- 网络信息 sort 13-14 -->
+        <div class="form-section">
+            <div class="form-section-title network">
+                <i class="fas fa-network-wired"></i> 网络信息
             </div>
-            
-            <div class="row mb-3">
-                <div class="col-md-4">
-                    <label class="form-label">工位</label>
-                    <select name="workstation" id="workstation-select" class="form-select">
-                        <option value="">请先选择位置</option>
-                    </select>
-                </div>
-            </div>
-            <div class="row mb-3">
-                <div class="col-md-4">
+            <div class="row g-2 g-md-3">
+                <div class="col-12 col-md-6">
                     <label class="form-label">MAC地址</label>
                     <input type="text" name="mac_address" class="form-control" value="{{ device.mac_address|default:'' }}">
                 </div>
-                <div class="col-md-4">
+                <div class="col-12 col-md-6">
                     <label class="form-label">IP地址</label>
                     <input type="text" name="ip_address" class="form-control" value="{{ device.ip_address|default:'' }}">
                 </div>
-                <div class="col-md-4">
+            </div>
+        </div>
+
+        <!-- 计算机信息 sort 15-19 -->
+        <div class="form-section">
+            <div class="form-section-title computer">
+                <i class="fas fa-desktop"></i> 计算机信息
+            </div>
+            <!-- sort 15-16: 操作系统、安装时间 -->
+            <div class="row g-2 g-md-3 mb-2">
+                <div class="col-12 col-md-6">
                     <label class="form-label">操作系统</label>
                     <input type="text" name="os_name" class="form-control" value="{{ device.os_name|default:'' }}">
                 </div>
-            </div>
-            
-            <h6 class="border-bottom pb-2 mb-3 mt-4">计算机信息</h6>
-            <div class="row mb-3">
-                <div class="col-md-4">
+                <div class="col-12 col-md-6">
                     <label class="form-label">安装时间</label>
                     <input type="date" name="install_date" class="form-control" value="{{ device.install_date|default:'' }}">
                 </div>
-                <div class="col-md-4">
+            </div>
+            <!-- sort 17: 硬盘序列号 -->
+            <div class="row g-2 g-md-3 mb-2">
+                <div class="col-12">
                     <label class="form-label">硬盘序列号</label>
-                    <input type="text" name="disk_serial" class="form-control" value="{{ device.disk_serial|default:'' }}">
+                    <textarea name="disk_serial" class="form-control" rows="2">{{ device.disk_serial|default:'' }}</textarea>
                 </div>
             </div>
-            
-            <h6 class="border-bottom pb-2 mb-3 mt-4">日期信息</h6>
-            <div class="row mb-3">
-                <div class="col-md-4">
+            <!-- sort 18-19: 购入日期、启用时间 -->
+            <div class="row g-2 g-md-3">
+                <div class="col-12 col-md-6">
                     <label class="form-label">购入日期</label>
                     <input type="date" name="purchase_date" class="form-control" value="{{ device.purchase_date|default:'' }}">
                 </div>
-                <div class="col-md-4">
+                <div class="col-12 col-md-6">
                     <label class="form-label">启用时间</label>
                     <input type="date" name="enable_date" class="form-control" value="{{ device.enable_date|default:'' }}">
                 </div>
-                <div class="col-md-4">
+            </div>
+        </div>
+
+        <!-- 其他信息 sort 20-25 -->
+        <div class="form-section">
+            <div class="form-section-title finance">
+                <i class="fas fa-cog"></i> 其他信息
+            </div>
+            <!-- sort 20: 用途 -->
+            <div class="row g-2 g-md-3 mb-2">
+                <div class="col-12">
                     <label class="form-label">用途</label>
                     <input type="text" name="purpose" class="form-control" value="{{ device.purpose|default:'' }}">
                 </div>
             </div>
-            
-            <h6 class="border-bottom pb-2 mb-3 mt-4">财务与保密</h6>
-            <div class="row mb-3">
-                <div class="col-md-4">
-                    <label class="form-label">固资在账</label>
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" name="is_fixed" id="is_fixed" {% if device.is_fixed %}checked{% endif %}>
-                        <label class="form-check-label" for="is_fixed">是</label>
+            <!-- sort 21: 备注 -->
+            <div class="row g-2 g-md-3 mb-2">
+                <div class="col-12">
+                    <label class="form-label">备注</label>
+                    <textarea name="remarks" class="form-control" rows="2">{{ device.remarks|default:'' }}</textarea>
+                </div>
+            </div>
+            <!-- sort 22-25: 固资在账、卡片编号、保密台账、台账分类 -->
+            <div class="row g-2 g-md-3">
+                <!-- 固资信息组 -->
+                <div class="col-12 col-md-6">
+                    <div class="border rounded p-3 h-100">
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="fw-bold">固资信息</span>
+                        </div>
+                        <div class="row g-2 align-items-center">
+                            <div class="col-auto">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="is_fixed" id="is_fixed" {% if device.is_fixed %}checked{% endif %}>
+                                    <label class="form-check-label" for="is_fixed">固资在账</label>
+                                </div>
+                            </div>
+                            <div class="col-auto">
+                                <span class="me-2">卡片编号:</span>
+                            </div>
+                            <div class="col-auto flex-grow-1">
+                                <input type="text" name="asset_card_no" class="form-control form-control-sm" placeholder="请输入" value="{{ device.asset_card_no|default:'' }}">
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label">卡片编号</label>
-                    <input type="text" name="asset_card_no" class="form-control" value="{{ device.asset_card_no|default:'' }}">
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">保密台账</label>
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" name="is_secret" id="is_secret" {% if device.is_secret %}checked{% endif %}>
-                        <label class="form-check-label" for="is_secret">是</label>
+                <!-- 保密信息组 -->
+                <div class="col-12 col-md-6">
+                    <div class="border rounded p-3 h-100">
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="fw-bold">保密信息</span>
+                        </div>
+                        <div class="row g-2 align-items-center">
+                            <div class="col-auto">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="is_secret" id="is_secret" {% if device.is_secret %}checked{% endif %}>
+                                    <label class="form-check-label" for="is_secret">保密台账</label>
+                                </div>
+                            </div>
+                            <div class="col-auto">
+                                <span class="me-2">台账分类:</span>
+                            </div>
+                            <div class="col-auto flex-grow-1">
+                                <select name="secret_category" class="form-select form-select-sm">
+                                    <option value="">请选择</option>
+                                    <option value="信息系统" {% if device.secret_category == '信息系统' %}selected{% endif %}>信息系统</option>
+                                    <option value="信息设备" {% if device.secret_category == '信息设备' %}selected{% endif %}>信息设备</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
-            
-            <div class="row mb-3">
-                <div class="col-md-4">
-                    <label class="form-label">台账分类</label>
-                    <input type="text" name="secret_category" class="form-control" value="{{ device.secret_category|default:'' }}">
-                </div>
+        </div>
+
+        <!-- 附件信息 sort 26-27（仅编辑时显示） -->
+        {% if device %}
+        <div class="form-section">
+            <div class="form-section-title attachment">
+                <i class="fas fa-paperclip"></i> 附件信息
             </div>
-            
-            <div class="mb-3">
-                <label class="form-label">备注</label>
-                <textarea name="remarks" class="form-control" rows="3">{{ device.remarks|default:'' }}</textarea>
-            </div>
-            
-            {% if device %}
-            <h6 class="border-bottom pb-2 mb-3 mt-4">附件信息</h6>
-            <div class="row mb-3">
-                <div class="col-md-4">
-                    <label class="form-label">二维码</label>
+            <div class="row g-2 g-md-3">
+                <!-- sort 26: qrcode (只读) -->
+                <div class="col-12 col-md-6 col-lg-4">
+                    <label class="form-label">二维码 <span class="text-muted small">(系统自动生成)</span></label>
                     {% if device.qrcode %}
                     <div class="mb-2">
                         <img src="{{ device.qrcode.url }}" class="photo-preview" alt="二维码">
                     </div>
                     {% endif %}
-                    <input type="file" name="qrcode" class="form-control" accept="image/*">
-                    <input type="checkbox" name="qrcode_clear" id="qrcode_clear" value="1">
-                    <label for="qrcode_clear">删除二维码</label>
                 </div>
-                <div class="col-md-4">
+                <!-- sort 27: photo -->
+                <div class="col-12 col-md-6 col-lg-4">
                     <label class="form-label">设备照片</label>
                     {% if device.photo %}
                     <div class="mb-2">
@@ -224,31 +312,43 @@
                     </div>
                     {% endif %}
                     <input type="file" name="photo" class="form-control" accept="image/*">
-                    <input type="checkbox" name="photo_clear" id="photo_clear" value="1">
-                    <label for="photo_clear">删除照片</label>
+                    <div class="form-check mt-1">
+                        <input class="form-check-input" type="checkbox" name="photo_clear" id="photo_clear" value="1">
+                        <label class="form-check-label" for="photo_clear">删除</label>
+                    </div>
                 </div>
             </div>
-            
-            <h6 class="border-bottom pb-2 mb-3 mt-4">系统信息</h6>
-            <div class="row mb-3">
-                <div class="col-md-4">
+        </div>
+
+        <!-- 系统信息 sort 28-29 -->
+        <div class="form-section">
+            <div class="form-section-title system">
+                <i class="fas fa-history"></i> 系统信息
+            </div>
+            <div class="row g-2 g-md-3">
+                <div class="col-12 col-md-6">
                     <label class="form-label">创建时间</label>
                     <input type="text" class="form-control" value="{{ device.created_at|default:'-' }}" readonly>
                 </div>
-                <div class="col-md-4">
+                <div class="col-12 col-md-6">
                     <label class="form-label">更新时间</label>
                     <input type="text" class="form-control" value="{{ device.updated_at|default:'-' }}" readonly>
                 </div>
             </div>
-            {% endif %}
-            
-            <div class="mt-4">
-                <button type="submit" class="btn btn-primary">保存</button>
-                <a href="{% url 'device_list' %}" class="btn btn-outline-secondary">返回</a>
-            </div>
-        </form>
+        </div>
+        {% endif %}
+        
+        <!-- 按钮区域 -->
+        <div class="d-flex flex-column flex-md-row gap-2 mt-4 pt-3 border-top">
+            <button type="submit" class="btn btn-primary order-2 order-md-1">
+                <i class="fas fa-save me-1"></i> 保存
+            </button>
+            <a href="{% url 'device_list' %}" class="btn btn-outline-secondary order-1 order-md-2">
+                <i class="fas fa-arrow-left me-1"></i> 返回
+            </a>
+        </div>
     </div>
-</div>
+</form>
 {% endblock %}
 
 {% block extra_js %}
@@ -262,42 +362,10 @@ const currentCategoryId = {% if device and device.category_id %}{{ device.catego
 const currentWorkstationId = {% if device and device.workstation_id %}{{ device.workstation_id }}{% else %}null{% endif %};
 const currentLocationId = {% if device and device.location_id %}{{ device.location_id }}{% else %}null{% endif %};
 
-function formatCategoryOption(option) {
-    if (!option.id) return option.text;
-    
-    const $option = $('<span></span>');
-    const level = $(option.element).data('level');
-    
-    switch(level) {
-        case 1:
-            $option.append($('<i class="fas fa-folder mr-1"></i>'));
-            $option.addClass('font-weight-bold');
-            break;
-        case 2:
-            $option.css('padding-left', '15px');
-            break;
-        case 3:
-            $option.css('padding-left', '30px');
-            break;
-        case 4:
-            $option.css('padding-left', '45px');
-            break;
-    }
-    
-    $option.append(option.text);
-    return $option;
-}
-
-function formatCategorySelection(option) {
-    if (!option.id) return option.text;
-    return option.text;
-}
-
 function loadCategories() {
     fetch('/assets/api/categories/')
         .then(r => r.json())
         .then(data => {
-            console.log('Categories API:', data);
             if (data.success) {
                 categoriesData = data.data;
                 const select = $('#category-select');
@@ -382,7 +450,7 @@ function loadWorkstations(locationId, selectedWorkstationId) {
                 data.workstations.forEach(ws => {
                     select.append($('<option>')
                         .val(ws.id)
-                        .text(ws.name + ' (' + ws.code + ')'));
+                        .text(ws.name + ' (' + ws.workstation_code + ')'));
                 });
             }
             
@@ -421,45 +489,27 @@ function generateAssetNumber(categoryId) {
     });
 }
 
-function parseAssetNumber() {
-    const assetNo = $('#asset_no').val();
-    if (!assetNo || !categoriesLoaded || categoriesData.length === 0) return;
-    
-    const parts = assetNo.trim().split('-').filter(p => p);
-    if (parts.length < 1) return;
-    
-    let currentLevel = 1;
-    let currentParentId = null;
-    let matchedCategory = null;
-    
-    for (let i = 0; i < parts.length; i++) {
-        const codePart = parts[i];
-        
-        const candidates = categoriesData.filter(c => {
-            if (c.level !== currentLevel) return false;
-            if (currentLevel === 1) {
-                return c.code === codePart;
-            } else {
-                return c.code.endsWith('-' + codePart) && String(c.parent_id) === String(currentParentId);
-            }
-        });
-        
-        if (candidates.length === 0) break;
-        
-        matchedCategory = candidates[0];
-        currentParentId = matchedCategory.id;
-        currentLevel++;
-    }
-    
-    if (matchedCategory && matchedCategory.level === 4) {
-        userTypingAssetNo = true;
-        $('#category-select').val(matchedCategory.id.toString()).trigger('change');
-        setTimeout(() => { userTypingAssetNo = false; }, 100);
-    }
+function getCategoryByAssetNo(assetNo) {
+    fetch('/assets/api/devices/get-category-by-asset-no/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({ asset_no: assetNo })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            userTypingAssetNo = true;
+            $('#category-select').val(data.category_id.toString()).trigger('change');
+            setTimeout(() => { userTypingAssetNo = false; }, 100);
+        }
+    })
+    .catch(err => {
+        console.error('获取分类失败:', err);
+    });
 }
-
-// 位置级联选择 - 单个下拉框，显示所有层级
-// currentLocationId 和 currentWorkstationId 已在上面声明
 
 function initLocationCascade() {
     const select = $('#location-select');
@@ -468,7 +518,6 @@ function initLocationCascade() {
     fetch('/assets/api/location-tree/')
         .then(r => r.json())
         .then(data => {
-            console.log('Location API:', data);
             const locations = data.data || data;
             select.empty();
             select.append($('<option>').val('').text('请选择位置'));
@@ -498,11 +547,10 @@ function initLocationCascade() {
         .catch(err => {
             console.error('加载位置失败:', err);
             select.empty();
-            select.append($('<option>').text('加载失败: ' + err.message));
+            select.append($('<option>').text('加载失败'));
         });
 }
 
-// 递归渲染位置选项
 function renderLocationOptions(locations, level) {
     const select = $('#location-select');
     
@@ -534,7 +582,6 @@ function onLocationChange() {
 
 function updateLocationPath() {
     const select = $('#location-select');
-    const selectedOption = select.find('option:selected');
     const selectedId = select.val();
     
     if (!selectedId) {
@@ -542,11 +589,8 @@ function updateLocationPath() {
         return;
     }
     
-    // 构建完整路径
     const path = [];
-    let currentId = selectedId;
     
-    // 获取完整树数据用于查找路径
     fetch('/assets/api/location-tree/')
         .then(r => r.json())
         .then(data => {
@@ -574,31 +618,21 @@ function findPath(locations, targetId, path) {
     return false;
 }
 
-// 编辑模式回显 - 简化为直接设置选中值
-function setSelectedLocation(locationId) {
-    // 直接设置选中值
-    const select = $('#location-select');
-    select.val(String(locationId));
-    
-    // 更新路径
-    updateLocationPath();
-}
-
 $(document).ready(function() {
     loadCategories();
     initLocationCascade();
     
-    // 位置选择变化
     $('#location-select').on('change', onLocationChange);
     
-    // 初始化工位（编辑时）
     if (currentLocationId) {
         loadWorkstations(currentLocationId, currentWorkstationId);
     }
     
-    // 绑定 input 事件
-    $('#asset_no').on('input', function() {
-        parseAssetNumber();
+    $('#asset_no').on('blur', function() {
+        const assetNo = $(this).val();
+        if (assetNo && !userTypingAssetNo) {
+            getCategoryByAssetNo(assetNo);
+        }
     });
 });
 </script>
