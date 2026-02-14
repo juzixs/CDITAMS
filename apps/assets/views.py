@@ -125,7 +125,7 @@ def device_create(request):
         img = qr.make_image(fill_color="black", back_color="white")
         buffer = BytesIO()
         img.save(buffer, 'PNG')
-        device.qrcode.save(f'{asset_no}.png', buffer)
+        device.qrcode.save(f'QR-{asset_no}.png', buffer)
         
         if request.FILES.get('photo'):
             save_photo_with_asset_no(device, request.FILES.get('photo'))
