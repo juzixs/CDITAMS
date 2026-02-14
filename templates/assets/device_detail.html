@@ -1,30 +1,65 @@
 {% extends 'base.html' %}
 {% block title %}设备详情{% endblock %}
 {% block content %}
-<h4 class="mb-4">设备详情</h4>
-<div class="card mb-3"><div class="card-header">基本信息</div><div class="card-body">
-<div class="row"><div class="col-md-6"><p><strong>资产编号：</strong>{{ device.asset_no }}</p></div>
-<div class="col-md-6"><p><strong>设备名称：</strong>{{ device.name }}</p></div>
-<div class="col-md-6"><p><strong>设备编号：</strong>{{ device.device_no|default:'-' }}</p></div>
-<div class="col-md-6"><p><strong>序列号：</strong>{{ device.serial_no|default:'-' }}</p></div>
-<div class="col-md-6"><p><strong>品牌：</strong>{{ device.brand|default:'-' }}</p></div>
-<div class="col-md-6"><p><strong>型号：</strong>{{ device.model|default:'-' }}</p></div>
-<div class="col-md-6"><p><strong>分类：</strong>{{ device.category.name }}</p></div>
-<div class="col-md-6"><p><strong>状态：</strong>{% if device.status == 'normal' %}<span class="badge bg-success">正常</span>{% elif device.status == 'fault' %}<span class="badge bg-danger">故障</span>{% else %}{{ device.get_status_display }}{% endif %}</p></div>
-</div></div></div>
-<div class="card mb-3"><div class="card-header">使用信息</div><div class="card-body">
-<div class="row"><div class="col-md-6"><p><strong>使用人：</strong>{{ device.user.realname|default:'-' }}</p></div>
-<div class="col-md-6"><p><strong>部门：</strong>{{ device.department.name|default:'-' }}</p></div>
-<div class="col-md-6"><p><strong>位置：</strong>{{ device.location.name|default:'-' }}</p></div>
-<div class="col-md-6"><p><strong>位置描述：</strong>{{ device.location_text|default:'-' }}</p></div>
-</div></div></div>
-<div class="card mb-3"><div class="card-header">网络信息</div><div class="card-body">
-<div class="row"><div class="col-md-6"><p><strong>MAC地址：</strong>{{ device.mac_address|default:'-' }}</p></div>
-<div class="col-md-6"><p><strong>IP地址：</strong>{{ device.ip_address|default:'-' }}</p></div>
-<div class="col-md-6"><p><strong>操作系统：</strong>{{ device.os_name|default:'-' }}</p></div>
-</div></div></div>
-<div class="card mb-3"><div class="card-header">操作记录</div><div class="card-body">
-<table class="table table-sm"><thead><tr><th>操作</th><th>字段</th><th>操作人</th><th>时间</th></tr></thead>
-<tbody>{% for log in logs %}<tr><td>{{ log.get_action_display }}</td><td>{{ log.field_name|default:'-' }}</td><td>{{ log.user.realname|default:'-' }}</td><td>{{ log.created_at|date:"Y-m-d H:i" }}</td></tr>{% empty %}<tr><td colspan="4" class="text-center">暂无记录</td></tr>{% endfor %}</tbody></table>
-</div></div>
-<div><a href="{% url 'device_list' %}" class="btn btn-outline-secondary">返回</a></div>{% endblock %}
+<div class="content-wrapper">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4><i class="fas fa-desktop"></i> 设备详情</h4>
+        <div>
+            <a href="{% url 'device_list' %}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left"></i> 返回</a>
+            <a href="{% url 'device_edit' device.id %}" class="btn btn-primary btn-sm"><i class="fas fa-edit"></i> 编辑</a>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-12 col-lg-8">
+            {% for field in all_fields %}{% if field.sort <= 7 %}
+            {% if forloop.first %}<div class="card border-primary mb-3">
+                <div class="card-header bg-primary text-white py-2"><i class="fas fa-cube me-2"></i>基本信息</div>
+                <div class="card-body p-0"><table class="table table-borderless table-sm mb-0">{% endif %}
+                <tr><td class="py-2 ps-3" style="width:140px;"><strong class="text-muted">{% if field.field_key == 'category' %}资产分类{% elif field.field_key == 'asset_no' %}资产编号{% elif field.field_key == 'device_no' %}设备编号{% elif field.field_key == 'name' %}设备名称{% elif field.field_key == 'model' %}型号{% elif field.field_key == 'serial_no' %}序列号{% elif field.field_key == 'secret_level' %}密级{% endif %}</strong></td><td class="py-2" style="font-size:15px;">{% if field.field_key == 'category' %}{{ device.category.name|default:'-' }}{% elif field.field_key == 'asset_no' %}<strong class="text-primary">{{ device.asset_no }}</strong>{% elif field.field_key == 'device_no' %}{{ device.device_no|default:'-' }}{% elif field.field_key == 'name' %}<strong>{{ device.name }}</strong>{% elif field.field_key == 'model' %}{{ device.model|default:'-' }}{% elif field.field_key == 'serial_no' %}<span class="font-monospace">{{ device.serial_no|default:'-' }}</span>{% elif field.field_key == 'secret_level' %}{% if device.secret_level == 'public' %}<span class="badge bg-success">公开</span>{% elif device.secret_level == 'internal' %}<span class="badge bg-info">内部</span>{% elif device.secret_level == 'confidential' %}<span class="badge bg-warning text-dark">机密</span>{% elif device.secret_level == 'secret' %}<span class="badge bg-danger">绝密</span>{% else %}-{% endif %}{% endif %}</td></tr>
+            {% if field.sort == 7 %}</table></div></div>{% endif %}{% endif %}{% if field.sort > 7 and field.sort <= 12 %}
+            {% if field.sort == 8 %}<div class="card border-info mb-3">
+                <div class="card-header bg-info text-white py-2"><i class="fas fa-user me-2"></i>使用信息</div>
+                <div class="card-body p-0"><table class="table table-borderless table-sm mb-0">{% endif %}
+                <tr><td class="py-2 ps-3" style="width:140px;"><strong class="text-muted">{% if field.field_key == 'department' %}所属部门{% elif field.field_key == 'user' %}使用人{% elif field.field_key == 'location' %}位置{% elif field.field_key == 'workstation' %}工位{% elif field.field_key == 'status' %}设备状态{% endif %}</strong></td><td class="py-2" style="font-size:15px;">{% if field.field_key == 'department' %}{{ device.department.name|default:'-' }}{% elif field.field_key == 'user' %}{{ device.user.realname|default:'-' }}{% elif field.field_key == 'location' %}<span class="text-truncate" title="{{ device.location.full_path|default:'-' }}">{{ device.location.full_path|default:'-' }}</span>{% elif field.field_key == 'workstation' %}{{ device.workstation.name|default:'-' }}{% elif field.field_key == 'status' %}{% if device.status == 'normal' %}<span class="badge bg-success">正常</span>{% elif device.status == 'fault' %}<span class="badge bg-danger">故障</span>{% elif device.status == 'repairing' %}<span class="badge bg-warning">维修中</span>{% elif device.status == 'scrapped' %}<span class="badge bg-secondary">已报废</span>{% else %}<span class="badge bg-info">闲置</span>{% endif %}{% endif %}</td></tr>
+            {% if field.sort == 12 %}</table></div></div>{% endif %}{% endif %}{% if field.sort > 12 and field.sort <= 14 %}
+            {% if field.sort == 13 %}<div class="card border-warning mb-3">
+                <div class="card-header bg-warning text-dark py-2"><i class="fas fa-network-wired me-2"></i>网络信息</div>
+                <div class="card-body p-0"><table class="table table-borderless table-sm mb-0">{% endif %}
+                <tr><td class="py-2 ps-3" style="width:140px;"><strong class="text-muted">{% if field.field_key == 'mac_address' %}MAC地址{% elif field.field_key == 'ip_address' %}IP地址{% endif %}</strong></td><td class="py-2" style="font-size:15px;"><span class="font-monospace">{% if field.field_key == 'mac_address' %}{{ device.mac_address|default:'-' }}{% elif field.field_key == 'ip_address' %}{{ device.ip_address|default:'-' }}{% endif %}</span></td></tr>
+            {% if field.sort == 14 %}</table></div></div>{% endif %}{% endif %}{% if field.sort > 14 and field.sort <= 19 %}
+            {% if field.sort == 15 %}<div class="card border-success mb-3">
+                <div class="card-header bg-success text-white py-2"><i class="fas fa-microchip me-2"></i>设备信息</div>
+                <div class="card-body p-0"><table class="table table-borderless table-sm mb-0">{% endif %}
+                <tr><td class="py-2 ps-3" style="width:140px;"><strong class="text-muted">{% if field.field_key == 'os_name' %}操作系统{% elif field.field_key == 'install_date' %}安装时间{% elif field.field_key == 'disk_serial' %}硬盘序列号{% elif field.field_key == 'purchase_date' %}购入日期{% elif field.field_key == 'enable_date' %}启用时间{% endif %}</strong></td><td class="py-2" style="font-size:15px;">{% if field.field_key == 'os_name' %}{{ device.os_name|default:'-' }}{% elif field.field_key == 'install_date' %}{{ device.install_date|default:'-' }}{% elif field.field_key == 'disk_serial' %}<span class="font-monospace">{{ device.disk_serial|default:'-' }}</span>{% elif field.field_key == 'purchase_date' %}{{ device.purchase_date|default:'-' }}{% elif field.field_key == 'enable_date' %}{{ device.enable_date|default:'-' }}{% endif %}</td></tr>
+            {% if field.sort == 19 %}</table></div></div>{% endif %}{% endif %}{% if field.sort > 19 %}
+            {% if field.sort == 20 %}<div class="card border-secondary mb-3">
+                <div class="card-header bg-secondary text-white py-2"><i class="fas fa-cog me-2"></i>其他信息</div>
+                <div class="card-body p-0"><table class="table table-borderless table-sm mb-0">{% endif %}
+                <tr><td class="py-2 ps-3" style="width:140px;"><strong class="text-muted">{% if field.field_key == 'purpose' %}用途{% elif field.field_key == 'remarks' %}备注{% elif field.field_key == 'is_fixed' %}固资在账{% elif field.field_key == 'asset_card_no' %}卡片编号{% elif field.field_key == 'is_secret' %}保密台账{% elif field.field_key == 'secret_category' %}台账分类{% elif field.field_key == 'qrcode' %}二维码{% elif field.field_key == 'photo' %}设备照片{% elif field.field_key == 'created_at' %}创建时间{% elif field.field_key == 'updated_at' %}更新时间{% endif %}</strong></td><td class="py-2" style="font-size:15px;">{% if field.field_key == 'purpose' %}{{ device.purpose|default:'-' }}{% elif field.field_key == 'remarks' %}{{ device.remarks|default:'-' }}{% elif field.field_key == 'is_fixed' %}{% if device.is_fixed %}<span class="badge bg-success">是</span>{% else %}<span class="badge bg-secondary">否</span>{% endif %}{% elif field.field_key == 'asset_card_no' %}{{ device.asset_card_no|default:'-' }}{% elif field.field_key == 'is_secret' %}{% if device.is_secret %}<span class="badge bg-danger">是</span>{% else %}<span class="badge bg-secondary">否</span>{% endif %}{% elif field.field_key == 'secret_category' %}{{ device.secret_category|default:'-' }}{% elif field.field_key == 'qrcode' %}{% if device.qrcode %}<img src="{{ device.qrcode.url }}" class="img-thumbnail" style="max-width:50px;max-height:50px;">{% else %}-{% endif %}{% elif field.field_key == 'photo' %}{% if device.photo %}<img src="{{ device.photo.url }}" class="img-thumbnail" style="max-width:50px;max-height:50px;">{% else %}-{% endif %}{% elif field.field_key == 'created_at' %}{{ device.created_at|default:'-' }}{% elif field.field_key == 'updated_at' %}{{ device.updated_at|default:'-' }}{% endif %}</td></tr>
+            {% if forloop.last %}</table></div></div>{% endif %}{% endif %}{% endfor %}
+        </div>
+
+        <div class="col-12 col-lg-4">
+            <div class="card border-dark">
+                <div class="card-header bg-dark text-white py-2"><i class="fas fa-history me-2"></i>操作记录</div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        {% for log in logs %}
+                        <div class="list-group-item py-2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span>{{ log.get_action_display }}</span>
+                                <small class="text-muted">{{ log.created_at|date:"m-d H:i" }}</small>
+                            </div>
+                            <small class="text-muted">{{ log.field_name|default:'-' }} · {{ log.user.realname|default:'-' }}</small>
+                        </div>
+                        {% empty %}
+                        <div class="list-group-item text-center text-muted py-3">暂无记录</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

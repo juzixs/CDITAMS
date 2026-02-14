@@ -17,6 +17,7 @@
     .category-level-2 { padding-left: 15px; }
     .category-level-3 { padding-left: 30px; }
     .category-level-4 { padding-left: 45px; }
+    .photo-preview { max-width: 200px; max-height: 200px; border: 1px solid #ddd; border-radius: 4px; }
 </style>
 {% endblock %}
 
@@ -55,19 +56,24 @@
                     <input type="text" name="device_no" class="form-control" value="{{ device.device_no|default:'' }}">
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label">序列号</label>
-                    <input type="text" name="serial_no" class="form-control" value="{{ device.serial_no|default:'' }}">
+                    <label class="form-label">型号</label>
+                    <input type="text" name="model" class="form-control" value="{{ device.model|default:'' }}">
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label">品牌</label>
-                    <input type="text" name="brand" class="form-control" value="{{ device.brand|default:'' }}">
+                    <label class="form-label">序列号</label>
+                    <input type="text" name="serial_no" class="form-control" value="{{ device.serial_no|default:'' }}">
                 </div>
             </div>
             
             <div class="row mb-3">
                 <div class="col-md-4">
-                    <label class="form-label">型号</label>
-                    <input type="text" name="model" class="form-control" value="{{ device.model|default:'' }}">
+                    <label class="form-label">密级</label>
+                    <select name="secret_level" class="form-select">
+                        <option value="public" {% if device.secret_level == 'public' or not device %}selected{% endif %}>公开</option>
+                        <option value="internal" {% if device.secret_level == 'internal' %}selected{% endif %}>内部</option>
+                        <option value="confidential" {% if device.secret_level == 'confidential' %}selected{% endif %}>机密</option>
+                        <option value="secret" {% if device.secret_level == 'secret' %}selected{% endif %}>绝密</option>
+                    </select>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">设备状态</label>
@@ -79,28 +85,10 @@
                         <option value="unused" {% if device.status == 'unused' %}selected{% endif %}>闲置</option>
                     </select>
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label">密级</label>
-                    <select name="secret_level" class="form-select">
-                        <option value="public" {% if device.secret_level == 'public' or not device %}selected{% endif %}>公开</option>
-                        <option value="internal" {% if device.secret_level == 'internal' %}selected{% endif %}>内部</option>
-                        <option value="confidential" {% if device.secret_level == 'confidential' %}selected{% endif %}>机密</option>
-                        <option value="secret" {% if device.secret_level == 'secret' %}selected{% endif %}>绝密</option>
-                    </select>
-                </div>
             </div>
             
             <h6 class="border-bottom pb-2 mb-3 mt-4">使用信息</h6>
             <div class="row mb-3">
-                <div class="col-md-4">
-                    <label class="form-label">使用人</label>
-                    <select name="user" class="form-select">
-                        <option value="">未分配</option>
-                        {% for u in users %}
-                        <option value="{{ u.id }}" {% if device.user_id == u.id %}selected{% endif %}>{{ u.realname }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
                 <div class="col-md-4">
                     <label class="form-label">所属部门</label>
                     <select name="department" class="form-select">
@@ -111,17 +99,32 @@
                     </select>
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label">所在位置</label>
-                    <select name="location" class="form-select">
-                        <option value="">请选择</option>
-                        {% for loc in locations %}
-                        <option value="{{ loc.id }}" {% if device.location_id == loc.id %}selected{% endif %}>{{ loc.name }}</option>
+                    <label class="form-label">使用人</label>
+                    <select name="user" class="form-select">
+                        <option value="">未分配</option>
+                        {% for u in users %}
+                        <option value="{{ u.id }}" {% if device.user_id == u.id %}selected{% endif %}>{{ u.realname }}</option>
                         {% endfor %}
                     </select>
                 </div>
+                <div class="col-md-6">
+                    <label class="form-label">位置</label>
+                    <select id="location-select" class="form-select">
+                        <option value="">请选择位置</option>
+                    </select>
+                    <small class="text-muted d-block location-path" id="location-path"></small>
+                    <input type="hidden" name="location" id="location-input" value="{{ device.location_id|default:'' }}">
+                </div>
             </div>
             
-            <h6 class="border-bottom pb-2 mb-3 mt-4">网络信息</h6>
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label class="form-label">工位</label>
+                    <select name="workstation" id="workstation-select" class="form-select">
+                        <option value="">请先选择位置</option>
+                    </select>
+                </div>
+            </div>
             <div class="row mb-3">
                 <div class="col-md-4">
                     <label class="form-label">MAC地址</label>
@@ -137,15 +140,27 @@
                 </div>
             </div>
             
-            <h6 class="border-bottom pb-2 mb-3 mt-4">其他信息</h6>
+            <h6 class="border-bottom pb-2 mb-3 mt-4">计算机信息</h6>
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label class="form-label">安装时间</label>
+                    <input type="date" name="install_date" class="form-control" value="{{ device.install_date|default:'' }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">硬盘序列号</label>
+                    <input type="text" name="disk_serial" class="form-control" value="{{ device.disk_serial|default:'' }}">
+                </div>
+            </div>
+            
+            <h6 class="border-bottom pb-2 mb-3 mt-4">日期信息</h6>
             <div class="row mb-3">
                 <div class="col-md-4">
                     <label class="form-label">购入日期</label>
                     <input type="date" name="purchase_date" class="form-control" value="{{ device.purchase_date|default:'' }}">
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label">硬盘序列号</label>
-                    <input type="text" name="disk_serial" class="form-control" value="{{ device.disk_serial|default:'' }}">
+                    <label class="form-label">启用时间</label>
+                    <input type="date" name="enable_date" class="form-control" value="{{ device.enable_date|default:'' }}">
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">用途</label>
@@ -153,15 +168,20 @@
                 </div>
             </div>
             
+            <h6 class="border-bottom pb-2 mb-3 mt-4">财务与保密</h6>
             <div class="row mb-3">
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <label class="form-label">固资在账</label>
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" name="is_fixed" id="is_fixed" {% if device.is_fixed %}checked{% endif %}>
                         <label class="form-check-label" for="is_fixed">是</label>
                     </div>
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-4">
+                    <label class="form-label">卡片编号</label>
+                    <input type="text" name="asset_card_no" class="form-control" value="{{ device.asset_card_no|default:'' }}">
+                </div>
+                <div class="col-md-4">
                     <label class="form-label">保密台账</label>
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" name="is_secret" id="is_secret" {% if device.is_secret %}checked{% endif %}>
@@ -170,10 +190,57 @@
                 </div>
             </div>
             
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label class="form-label">台账分类</label>
+                    <input type="text" name="secret_category" class="form-control" value="{{ device.secret_category|default:'' }}">
+                </div>
+            </div>
+            
             <div class="mb-3">
                 <label class="form-label">备注</label>
                 <textarea name="remarks" class="form-control" rows="3">{{ device.remarks|default:'' }}</textarea>
             </div>
+            
+            {% if device %}
+            <h6 class="border-bottom pb-2 mb-3 mt-4">附件信息</h6>
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label class="form-label">二维码</label>
+                    {% if device.qrcode %}
+                    <div class="mb-2">
+                        <img src="{{ device.qrcode.url }}" class="photo-preview" alt="二维码">
+                    </div>
+                    {% endif %}
+                    <input type="file" name="qrcode" class="form-control" accept="image/*">
+                    <input type="checkbox" name="qrcode_clear" id="qrcode_clear" value="1">
+                    <label for="qrcode_clear">删除二维码</label>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">设备照片</label>
+                    {% if device.photo %}
+                    <div class="mb-2">
+                        <img src="{{ device.photo.url }}" class="photo-preview" alt="设备照片">
+                    </div>
+                    {% endif %}
+                    <input type="file" name="photo" class="form-control" accept="image/*">
+                    <input type="checkbox" name="photo_clear" id="photo_clear" value="1">
+                    <label for="photo_clear">删除照片</label>
+                </div>
+            </div>
+            
+            <h6 class="border-bottom pb-2 mb-3 mt-4">系统信息</h6>
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label class="form-label">创建时间</label>
+                    <input type="text" class="form-control" value="{{ device.created_at|default:'-' }}" readonly>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">更新时间</label>
+                    <input type="text" class="form-control" value="{{ device.updated_at|default:'-' }}" readonly>
+                </div>
+            </div>
+            {% endif %}
             
             <div class="mt-4">
                 <button type="submit" class="btn btn-primary">保存</button>
@@ -191,7 +258,9 @@
 let categoriesData = [];
 let categoriesLoaded = false;
 let userTypingAssetNo = false;
-const currentCategoryId = {{ device.category_id|default:'null' }};
+const currentCategoryId = {% if device and device.category_id %}{{ device.category_id }}{% else %}null{% endif %};
+const currentWorkstationId = {% if device and device.workstation_id %}{{ device.workstation_id }}{% else %}null{% endif %};
+const currentLocationId = {% if device and device.location_id %}{{ device.location_id }}{% else %}null{% endif %};
 
 function formatCategoryOption(option) {
     if (!option.id) return option.text;
@@ -228,34 +297,31 @@ function loadCategories() {
     fetch('/assets/api/categories/')
         .then(r => r.json())
         .then(data => {
+            console.log('Categories API:', data);
             if (data.success) {
                 categoriesData = data.data;
                 const select = $('#category-select');
                 
-                // 按层级递归添加选项
                 function addCategoryOptions(parentId, level) {
                     const children = categoriesData.filter(c => {
-                        if (parentId === null) return c.parent_id === null || c.parent_id === undefined || c.parent_id === '';
+                        if (parentId === null) return !c.parent_id || c.parent_id === '';
                         return String(c.parent_id) === String(parentId);
                     });
                     children.forEach(cat => {
                         const opt = $('<option></option>');
                         opt.val(cat.id);
-                        
-                        // 只添加缩进
                         const indent = '\u00A0\u00A0'.repeat(level - 1);
                         opt.text(indent + cat.name + ' [' + cat.code + ']');
-                        
                         opt.attr('data-level', cat.level);
-                        opt.prop('disabled', cat.level < 4);
+                        opt.attr('data-display', cat.name + ' [' + cat.code + ']');
+                        if (cat.level < 4) opt.prop('disabled', true);
                         select.append(opt);
-                        
-                        // 递归添加子分类
                         addCategoryOptions(cat.id, level + 1);
                     });
                 }
                 
-                // 从顶级分类开始添加（parent_id为null的分类）
+                select.empty();
+                select.append($('<option>').val('').text('请选择分类'));
                 addCategoryOptions(null, 1);
                 
                 select.select2({
@@ -264,8 +330,16 @@ function loadCategories() {
                     width: '100%',
                     language: 'zh-CN',
                     escapeMarkup: function(markup) { return markup; },
-                    templateResult: formatCategoryOption,
-                    templateSelection: formatCategorySelection
+                    templateResult: function(option) {
+                        if (!option.id) return option.text;
+                        const level = $(option.element).data('level') || 1;
+                        const indent = '\u00A0\u00A0'.repeat(level - 1);
+                        return $('<span>').css('padding-left', (level - 1) * 15 + 'px').text(option.text);
+                    },
+                    templateSelection: function(option) {
+                        if (!option.id) return option.text;
+                        return $(option.element).data('display') || option.text;
+                    }
                 });
                 
                 select.on('change', function() {
@@ -279,9 +353,46 @@ function loadCategories() {
                     select.val(currentCategoryId).trigger('change');
                 }
                 
-                // 标记分类已加载完成
                 categoriesLoaded = true;
             }
+        })
+        .catch(err => {
+            console.error('加载分类失败:', err);
+        });
+}
+
+function loadWorkstations(locationId, selectedWorkstationId) {
+    const select = $('#workstation-select');
+    select.empty();
+    
+    if (!locationId) {
+        select.append($('<option>').text('请先选择位置'));
+        return;
+    }
+    
+    select.append($('<option>').text('加载中...'));
+    
+    fetch('/assets/api/location/' + locationId + '/workstations/')
+        .then(r => r.json())
+        .then(data => {
+            select.empty();
+            select.append($('<option>').val('').text('请选择工位'));
+            
+            if (data.workstations) {
+                data.workstations.forEach(ws => {
+                    select.append($('<option>')
+                        .val(ws.id)
+                        .text(ws.name + ' (' + ws.code + ')'));
+                });
+            }
+            
+            if (selectedWorkstationId) {
+                select.val(selectedWorkstationId);
+            }
+        })
+        .catch(() => {
+            select.empty();
+            select.append($('<option>').text('加载失败'));
         });
 }
 
@@ -317,7 +428,6 @@ function parseAssetNumber() {
     const parts = assetNo.trim().split('-').filter(p => p);
     if (parts.length < 1) return;
     
-    // 分段匹配：逐级查找
     let currentLevel = 1;
     let currentParentId = null;
     let matchedCategory = null;
@@ -325,7 +435,6 @@ function parseAssetNumber() {
     for (let i = 0; i < parts.length; i++) {
         const codePart = parts[i];
         
-        // 查找当前层级的分类
         const candidates = categoriesData.filter(c => {
             if (c.level !== currentLevel) return false;
             if (currentLevel === 1) {
@@ -342,17 +451,150 @@ function parseAssetNumber() {
         currentLevel++;
     }
     
-    // 如果找到了分类且是末级(4级)，则选中
     if (matchedCategory && matchedCategory.level === 4) {
         userTypingAssetNo = true;
         $('#category-select').val(matchedCategory.id.toString()).trigger('change');
-        // 延迟重置标志，让change事件先执行
         setTimeout(() => { userTypingAssetNo = false; }, 100);
     }
 }
 
+// 位置级联选择 - 单个下拉框，显示所有层级
+// currentLocationId 和 currentWorkstationId 已在上面声明
+
+function initLocationCascade() {
+    const select = $('#location-select');
+    select.append($('<option>').text('加载中...'));
+    
+    fetch('/assets/api/location-tree/')
+        .then(r => r.json())
+        .then(data => {
+            console.log('Location API:', data);
+            const locations = data.data || data;
+            select.empty();
+            select.append($('<option>').val('').text('请选择位置'));
+            renderLocationOptions(locations, 0);
+            
+            select.select2({
+                placeholder: '请选择位置',
+                allowClear: true,
+                width: '100%',
+                language: 'zh-CN',
+                escapeMarkup: function(markup) { return markup; },
+                templateResult: function(option) {
+                    if (!option.id) return option.text;
+                    const level = $(option.element).data('level') || 1;
+                    return $('<span>').css('padding-left', (level - 1) * 15 + 'px').text(option.text);
+                },
+                templateSelection: function(option) {
+                    if (!option.id) return option.text;
+                    return option.text;
+                }
+            });
+            
+            if (currentLocationId) {
+                select.val(currentLocationId).trigger('change');
+            }
+        })
+        .catch(err => {
+            console.error('加载位置失败:', err);
+            select.empty();
+            select.append($('<option>').text('加载失败: ' + err.message));
+        });
+}
+
+// 递归渲染位置选项
+function renderLocationOptions(locations, level) {
+    const select = $('#location-select');
+    
+    locations.forEach(loc => {
+        select.append($('<option>')
+            .val(loc.id)
+            .attr('data-level', loc.level)
+            .text(loc.name));
+        
+        if (loc.children && loc.children.length > 0) {
+            renderLocationOptions(loc.children, level + 1);
+        }
+    });
+}
+
+function onLocationChange() {
+    const select = $('#location-select');
+    const selectedId = select.val();
+    
+    if (selectedId) {
+        $('#location-input').val(selectedId);
+        updateLocationPath();
+        loadWorkstations(selectedId, currentWorkstationId);
+    } else {
+        $('#location-input').val('');
+        $('#location-path').text('');
+    }
+}
+
+function updateLocationPath() {
+    const select = $('#location-select');
+    const selectedOption = select.find('option:selected');
+    const selectedId = select.val();
+    
+    if (!selectedId) {
+        $('#location-path').text('');
+        return;
+    }
+    
+    // 构建完整路径
+    const path = [];
+    let currentId = selectedId;
+    
+    // 获取完整树数据用于查找路径
+    fetch('/assets/api/location-tree/')
+        .then(r => r.json())
+        .then(data => {
+            const locations = data.data || data;
+            findPath(locations, selectedId, path);
+            if (path.length > 0) {
+                $('#location-path').text('已选择: ' + path.join(' - '));
+            }
+        });
+}
+
+function findPath(locations, targetId, path) {
+    for (let loc of locations) {
+        if (String(loc.id) === String(targetId)) {
+            path.unshift(loc.name);
+            return true;
+        }
+        if (loc.children && loc.children.length > 0) {
+            if (findPath(loc.children, targetId, path)) {
+                path.unshift(loc.name);
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+// 编辑模式回显 - 简化为直接设置选中值
+function setSelectedLocation(locationId) {
+    // 直接设置选中值
+    const select = $('#location-select');
+    select.val(String(locationId));
+    
+    // 更新路径
+    updateLocationPath();
+}
+
 $(document).ready(function() {
     loadCategories();
+    initLocationCascade();
+    
+    // 位置选择变化
+    $('#location-select').on('change', onLocationChange);
+    
+    // 初始化工位（编辑时）
+    if (currentLocationId) {
+        loadWorkstations(currentLocationId, currentWorkstationId);
+    }
     
     // 绑定 input 事件
     $('#asset_no').on('input', function() {

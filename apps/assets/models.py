@@ -63,6 +63,10 @@ class AssetLocation(models.Model):
     def __str__(self):
         return self.name
 
+    @property
+    def full_path(self):
+        return self.get_full_path()
+
     def get_full_path(self):
         paths = []
         current = self

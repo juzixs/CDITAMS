@@ -6,9 +6,11 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h4>设备管理</h4>
-    <div>
-        <a href="{% url 'field_list' %}" class="btn btn-outline-secondary me-2"><i class="fas fa-cog"></i> 字段管理</a>
-        <a href="{% url 'device_create' %}" class="btn btn-primary"><i class="fas fa-plus"></i> 新增设备</a>
+    <div class="btn-group">
+        <a href="{% url 'category_list' %}" class="btn btn-outline-secondary" title="分类管理"><i class="fas fa-tags"></i> 分类管理</a>
+        <a href="{% url 'location_list' %}" class="btn btn-outline-secondary" title="位置管理"><i class="fas fa-map-marker-alt"></i> 位置管理</a>
+        <a href="{% url 'device_map' %}" class="btn btn-outline-secondary" title="设备地图"><i class="fas fa-map"></i> 设备地图</a>
+        <a href="{% url 'field_list' %}" class="btn btn-outline-secondary" title="字段管理"><i class="fas fa-cog"></i> 字段管理</a>
     </div>
 </div>
 
@@ -57,6 +59,7 @@
         <form method="post" id="batchForm">
             {% csrf_token %}
             <div class="mb-3">
+                <a href="{% url 'device_create' %}" class="btn btn-sm btn-primary"><i class="fas fa-plus"></i> 新增设备</a>
                 <button type="button" class="btn btn-sm btn-danger" onclick="batchDelete()"><i class="fas fa-trash"></i> 批量删除</button>
                 <button type="button" class="btn btn-sm btn-success" onclick="showAssignModal()"><i class="fas fa-user-plus"></i> 批量分配</button>
                 <button type="button" class="btn btn-sm btn-warning" onclick="batchFault()"><i class="fas fa-exclamation-triangle"></i> 批量报障</button>

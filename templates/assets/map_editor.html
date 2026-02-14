@@ -57,6 +57,8 @@
                 </div>
                 <div class="btn-group btn-group-sm">
                     <button class="btn btn-outline-secondary" onclick="editor.toggleSnap()" id="btnSnap" title="吸附 (S)"><i class="fas fa-magnet"></i></button>
+                    <button class="btn btn-outline-secondary" onclick="document.getElementById('bgUploadModal').style.display='block'" title="上传底图"><i class="fas fa-image"></i></button>
+                    <button class="btn btn-outline-secondary" onclick="editor.clearBackground()" title="清除底图"><i class="fas fa-trash-alt"></i></button>
                 </div>
             </div>
             <div class="element-props" id="elementProps">
@@ -157,6 +159,38 @@
         </div>
     </div>
 </div>
+
+<div id="bgUploadModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;">
+    <div class="modal-dialog" style="margin:100px auto;max-width:400px;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">上传底图</h5>
+                <button type="button" class="btn-close" onclick="document.getElementById('bgUploadModal').style.display='none'"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">选择图片文件</label>
+                    <input type="file" class="form-control" id="bgFile" accept="image/*">
+                </div>
+                <div class="row mb-3">
+                    <div class="col-6">
+                        <label class="form-label">缩放比例</label>
+                        <input type="number" class="form-control" id="bgScale" value="1.0" step="0.1" min="0.1">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label">透明度</label>
+                        <input type="range" class="form-range" id="bgOpacity" min="0" max="1" step="0.1" value="1" oninput="document.getElementById('bgOpacityVal').textContent=this.value">
+                        <small id="bgOpacityVal">1</small>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('bgUploadModal').style.display='none'">取消</button>
+                <button type="button" class="btn btn-primary" onclick="editor.uploadBackground()">上传</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 {% block extra_js %}
 <script>
@@ -170,6 +204,7 @@ const locationSettings = {
     grid_size: {{ location.grid_size|default:50 }},
     snap_enabled: {{ location.default_snap_enabled|yesno:'true,false' }}
 };
+let backgroundData = null;
 
 class MapEditor {
     constructor(canvasId) {
@@ -194,6 +229,8 @@ class MapEditor {
         this.snapEnabled = locationSettings.snap_enabled;
         this.snapThreshold = locationSettings.default_snap_threshold;
         this.snapIndicator = document.getElementById('snapIndicator');
+        this.backgroundImage = null;
+        this.backgroundOpacity = 1;
         
         this.init();
     }
@@ -689,6 +726,13 @@ class MapEditor {
         
         ctx.clearRect(0, 0, w, h);
         
+        if (this.backgroundImage) {
+            ctx.save();
+            ctx.globalAlpha = this.backgroundOpacity;
+            ctx.drawImage(this.backgroundImage, 0, 0, w, h);
+            ctx.restore();
+        }
+        
         ctx.save();
         ctx.translate(this.offsetX, this.offsetY);
         ctx.scale(this.scale, this.scale);
@@ -901,11 +945,88 @@ class MapEditor {
             alert('保存失败: ' + err);
         });
     }
+    
+    uploadBackground() {
+        const fileInput = document.getElementById('bgFile');
+        const file = fileInput.files[0];
+        if (!file) {
+            alert('请选择图片文件');
+            return;
+        }
+        
+        const scale = parseFloat(document.getElementById('bgScale').value) || 1.0;
+        const opacity = parseFloat(document.getElementById('bgOpacity').value) || 1.0;
+        
+        const formData = new FormData();
+        formData.append('bg_type', 'image');
+        formData.append('file', file);
+        formData.append('scale', scale);
+        formData.append('opacity', opacity);
+        
+        fetch(`/locations/${locationId}/background/upload/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+            body: formData
+        })
+        .then(r => r.json())
+        .then(result => {
+            if (result.success) {
+                alert('底图上传成功');
+                document.getElementById('bgUploadModal').style.display = 'none';
+                this.backgroundOpacity = opacity;
+                this.loadBackground();
+            } else {
+                alert('上传失败: ' + result.message);
+            }
+        })
+        .catch(err => {
+            alert('上传失败: ' + err);
+        });
+    }
+    
+    loadBackground() {
+        fetch(`/api/map-data/${locationId}/`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.background && data.background.file_data) {
+                    const img = new Image();
+                    img.onload = () => {
+                        this.backgroundImage = img;
+                        this.render();
+                    };
+                    img.src = 'data:image/png;base64,' + btoa(String.fromCharCode.apply(null, new Uint8Array(data.background.file_data)));
+                    this.backgroundOpacity = data.background.opacity || 1;
+                }
+            });
+    }
+    
+    clearBackground() {
+        if (!confirm('确定要清除底图吗？')) return;
+        
+        fetch(`/locations/${locationId}/background/upload/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+            body: new URLSearchParams({
+                location_id: locationId,
+                bg_type: 'image',
+                scale: 1,
+                opacity: 0
+            })
+        })
+        .then(r => r.json())
+        .then(result => {
+            if (result.success) {
+                this.backgroundImage = null;
+                this.render();
+            }
+        });
+    }
 }
 
 let editor;
 document.addEventListener('DOMContentLoaded', function() {
     editor = new MapEditor('editorCanvas');
+    editor.loadBackground();
 });
 </script>
 {% endblock %}

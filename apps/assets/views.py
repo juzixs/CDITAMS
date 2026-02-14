@@ -23,6 +23,22 @@ from .models import (
 from apps.accounts.models import User, Department
 
 
+def build_location_tree(location):
+    children = location.children.all().order_by('sort', 'code')
+    return {
+        'id': location.id,
+        'name': location.name,
+        'code': location.code,
+        'level': location.level,
+        'children': [build_location_tree(child) for child in children]
+    }
+
+
+def get_location_tree_data():
+    roots = AssetLocation.objects.filter(parent__isnull=True).order_by('sort', 'code')
+    return [build_location_tree(loc) for loc in roots]
+
+
 @login_required
 def device_list(request):
     search = request.GET.get('search', '')
@@ -77,14 +93,16 @@ def device_create(request):
             serial_no=request.POST.get('serial_no'),
             name=request.POST.get('name'),
             model=request.POST.get('model'),
-            brand=request.POST.get('brand'),
             category=category,
             status=request.POST.get('status', 'normal'),
             secret_level=request.POST.get('secret_level', 'public'),
             user_id=request.POST.get('user') or None,
             department_id=request.POST.get('department') or None,
             location_id=request.POST.get('location') or None,
+            workstation_id=request.POST.get('workstation') or None,
             purchase_date=request.POST.get('purchase_date') or None,
+            enable_date=request.POST.get('enable_date') or None,
+            install_date=request.POST.get('install_date') or None,
             mac_address=request.POST.get('mac_address'),
             ip_address=request.POST.get('ip_address'),
             os_name=request.POST.get('os_name'),
@@ -94,6 +112,7 @@ def device_create(request):
             is_fixed=request.POST.get('is_fixed') == 'on',
             asset_card_no=request.POST.get('asset_card_no'),
             is_secret=request.POST.get('is_secret') == 'on',
+            secret_category=request.POST.get('secret_category'),
             created_by=request.user,
         )
         
@@ -117,7 +136,7 @@ def device_create(request):
         return redirect('device_list')
     
     categories = AssetCategory.objects.filter(parent__isnull=True).prefetch_related('children')
-    locations = AssetLocation.objects.filter(parent__isnull=True).prefetch_related('children')
+    locations = AssetLocation.objects.all()
     users = User.objects.all()
     departments = Department.objects.all()
     return render(request, 'assets/device_form.html', {
@@ -125,6 +144,7 @@ def device_create(request):
         'locations': locations,
         'users': users,
         'departments': departments,
+        'device': None,
     })
 
 
@@ -145,14 +165,16 @@ def device_edit(request, pk):
         device.device_no = request.POST.get('device_no')
         device.serial_no = request.POST.get('serial_no')
         device.model = request.POST.get('model')
-        device.brand = request.POST.get('brand')
         device.category_id = request.POST.get('category')
         device.status = request.POST.get('status', 'normal')
         device.secret_level = request.POST.get('secret_level', 'public')
         device.user_id = request.POST.get('user') or None
         device.department_id = request.POST.get('department') or None
         device.location_id = request.POST.get('location') or None
+        device.workstation_id = request.POST.get('workstation') or None
         device.purchase_date = request.POST.get('purchase_date') or None
+        device.enable_date = request.POST.get('enable_date') or None
+        device.install_date = request.POST.get('install_date') or None
         device.mac_address = request.POST.get('mac_address')
         device.ip_address = request.POST.get('ip_address')
         device.os_name = request.POST.get('os_name')
@@ -162,6 +184,21 @@ def device_edit(request, pk):
         device.is_fixed = request.POST.get('is_fixed') == 'on'
         device.asset_card_no = request.POST.get('asset_card_no')
         device.is_secret = request.POST.get('is_secret') == 'on'
+        device.secret_category = request.POST.get('secret_category')
+        
+        # Handle file uploads
+        if request.FILES.get('qrcode'):
+            device.qrcode = request.FILES.get('qrcode')
+        elif request.POST.get('qrcode_clear') == '1':
+            device.qrcode.delete(save=False)
+            device.qrcode = ''
+        
+        if request.FILES.get('photo'):
+            device.photo = request.FILES.get('photo')
+        elif request.POST.get('photo_clear') == '1':
+            device.photo.delete(save=False)
+            device.photo = ''
+        
         device.save()
         
         for field, old_val in old_values.items():
@@ -180,7 +217,7 @@ def device_edit(request, pk):
         return redirect('device_list')
     
     categories = AssetCategory.objects.filter(parent__isnull=True).prefetch_related('children')
-    locations = AssetLocation.objects.filter(parent__isnull=True).prefetch_related('children')
+    locations = AssetLocation.objects.all()
     users = User.objects.all()
     departments = Department.objects.all()
     return render(request, 'assets/device_form.html', {
@@ -196,7 +233,8 @@ def device_edit(request, pk):
 def device_detail(request, pk):
     device = get_object_or_404(Device.objects.select_related('category', 'location', 'user', 'department', 'workstation'), pk=pk)
     logs = device.logs.all()[:20]
-    return render(request, 'assets/device_detail.html', {'device': device, 'logs': logs})
+    all_fields = DeviceField.objects.all().order_by('sort')
+    return render(request, 'assets/device_detail.html', {'device': device, 'logs': logs, 'all_fields': all_fields})
 
 
 @login_required
@@ -1038,6 +1076,14 @@ def map_data(request, pk):
         'elements': list(elements),
         'workstations': workstation_list,
         'devices': list(device_list),
+        'area_bindings': [{
+            'id': b.id,
+            'location_id': b.location_id,
+            'location_name': b.location.name,
+            'area_name': b.area_name,
+            'area_points': b.area_points,
+            'area_color': b.area_color,
+        } for b in LocationAreaBinding.objects.filter(parent_location=location)],
     })
 
 
@@ -1190,6 +1236,16 @@ def workstation_list(request, location_id):
     return render(request, 'assets/workstation_list.html', {
         'location': location,
         'workstations': workstations,
+    })
+
+
+@login_required
+def api_workstations_by_location(request, location_id):
+    location = get_object_or_404(AssetLocation, pk=location_id)
+    workstations = Workstation.objects.filter(location=location).values('id', 'name', 'workstation_code')
+    return JsonResponse({
+        'success': True,
+        'workstations': list(workstations)
     })
 
 

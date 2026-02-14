@@ -82,6 +82,9 @@ const mapData = {
     workstations: [
         {% for ws in workstations %}{id:{{ ws.id }},code:'{{ ws.workstation_code }}',name:'{{ ws.name }}',x:{{ ws.x }},y:{{ ws.y }},width:{{ ws.width }},height:{{ ws.height }},status:'{{ ws.status }}',devices:[{% for d in ws.devices.all %}{id:{{ d.id }},asset_no:'{{ d.asset_no }}',name:'{{ d.name }}',status:'{{ d.status }}',user:'{{ d.user.realname|default:'' }}'},{% endfor %}]},{% endfor %}
     ],
+    devices: [
+        {% for d in devices %}{% if not d.workstation %}{id:{{ d.id }},asset_no:'{{ d.asset_no }}',name:'{{ d.name }}',status:'{{ d.status }}',category:'{{ d.category.name|default:'' }}',x:{{ d.x|default:100 }},y:{{ d.y|default:100 }}},{% endif %}{% endfor %}
+    ],
     areaBindings: [
         {% for binding in area_bindings %}{id:{{ binding.id }},location_id:{{ binding.location_id }},location_name:'{{ binding.location.name }}',area_name:'{{ binding.area_name }}',area_points:{{ binding.area_points|safe }},area_color:'{{ binding.area_color }}'},{% endfor %}
     ],
@@ -99,6 +102,7 @@ class MapViewer {
         this.workstations = mapData.workstations || [];
         this.elements = mapData.elements || [];
         this.areaBindings = mapData.areaBindings || [];
+        this.devices = mapData.devices || [];
         this.popup = document.getElementById('workstationPopup');
         this.gridSize = 50;
         this.init();
@@ -203,8 +207,41 @@ class MapViewer {
         if (ws) {
             this.showWorkstationPopup(ws, e.clientX, e.clientY);
         } else {
-            this.popup.style.display = 'none';
+            const device = this.getDeviceAt(pos.x, pos.y);
+            if (device) {
+                this.showDevicePopup(device, e.clientX, e.clientY);
+            } else {
+                const area = this.getAreaAt(pos.x, pos.y);
+                if (area) {
+                    window.location.href = `/assets/locations/${area.location_id}/`;
+                } else {
+                    this.popup.style.display = 'none';
+                }
+            }
         }
+    }
+    
+    getAreaAt(x, y) {
+        for (const area of this.areaBindings) {
+            if (!area.area_points || area.area_points.length < 3) continue;
+            if (this.isPointInPolygon({x, y}, area.area_points)) {
+                return area;
+            }
+        }
+        return null;
+    }
+    
+    isPointInPolygon(point, polygon) {
+        let inside = false;
+        for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+            const xi = polygon[i].x, yi = polygon[i].y;
+            const xj = polygon[j].x, yj = polygon[j].y;
+            if (((yi > point.y) !== (yj > point.y)) &&
+                (point.x < (xj - xi) * (point.y - yi) / (yj - yi) + xi)) {
+                inside = !inside;
+            }
+        }
+        return inside;
     }
     
     getWorkstationAt(x, y) {
@@ -225,7 +262,7 @@ class MapViewer {
             html += '<ul class="list-unstyled mb-0">';
             ws.devices.forEach(d => {
                 const statusColor = d.status === 'normal' ? '#28a745' : d.status === 'fault' ? '#dc3545' : d.status === 'repairing' ? '#ffc107' : '#6c757d';
-                html += `<li class="mb-1"><span class="status-dot" style="background:${statusColor}"></span>${d.asset_no} - ${d.name}</li>`;
+                html += `<li class="mb-1"><span class="status-dot" style="background:${statusColor}"></span><a href="/assets/${d.id}/" target="_blank">${d.asset_no}</a> - ${d.name}</li>`;
             });
             html += '</ul>';
         } else {
@@ -285,6 +322,10 @@ class MapViewer {
         
         this.workstations.forEach(ws => {
             this.drawWorkstation(ctx, ws);
+        });
+        
+        this.devices.forEach(d => {
+            this.drawDevice(ctx, d);
         });
         
         ctx.restore();
@@ -417,12 +458,69 @@ class MapViewer {
         ctx.fillText(ws.code.split('-').pop(), ws.x + ws.width/2, ws.y + ws.height/2 + 3);
     }
     
+    drawDevice(ctx, d) {
+        let statusColor;
+        switch(d.status) {
+            case 'normal': statusColor = '#28a745'; break;
+            case 'fault': statusColor = '#dc3545'; break;
+            case 'repairing': statusColor = '#ffc107'; break;
+            case 'scrapped': statusColor = '#6c757d'; break;
+            default: statusColor = '#6c757d';
+        }
+        
+        const x = d.x || 100;
+        const y = d.y || 100;
+        
+        ctx.beginPath();
+        ctx.arc(x, y, 8, 0, Math.PI * 2);
+        ctx.fillStyle = statusColor;
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        ctx.fillStyle = '#212529';
+        ctx.font = '9px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(d.asset_no.split('-').pop(), x, y + 18);
+    }
+    
+    getDeviceAt(x, y) {
+        for (const d of this.devices) {
+            const dx = d.x || 100;
+            const dy = d.y || 100;
+            const dist = Math.sqrt((x - dx) ** 2 + (y - dy) ** 2);
+            if (dist <= 10) return d;
+        }
+        return null;
+    }
+    
+    showDevicePopup(d, clientX, clientY) {
+        const mapContainer = document.getElementById('mapContainer');
+        const rect = mapContainer.getBoundingClientRect();
+        
+        let statusColor = d.status === 'normal' ? '#28a745' : d.status === 'fault' ? '#dc3545' : d.status === 'repairing' ? '#ffc107' : '#6c757d';
+        
+        let html = `<h6>设备详情</h6>
+            <p class="mb-1"><strong>编号：</strong><a href="/assets/${d.id}/" target="_blank">${d.asset_no}</a></p>
+            <p class="mb-1"><strong>名称：</strong>${d.name}</p>
+            <p class="mb-1"><strong>分类：</strong>${d.category || '-'}</p>
+            <p class="mb-0"><span class="status-dot" style="background:${statusColor}"></span>${d.status === 'normal' ? '正常' : d.status === 'fault' ? '故障' : d.status === 'repairing' ? '维修中' : '闲置'}</p>`;
+        
+        this.popup.innerHTML = html;
+        this.popup.style.left = (clientX - rect.left + 10) + 'px';
+        this.popup.style.top = (clientY - rect.top + 10) + 'px';
+        this.popup.style.display = 'block';
+    }
+    
     loadMapData(locationId) {
         fetch(`/api/map-data/${locationId}/`)
             .then(r => r.json())
             .then(data => {
                 this.workstations = data.workstations || [];
                 this.elements = data.elements || [];
+                this.devices = data.devices || [];
+                this.areaBindings = data.area_bindings || [];
                 document.getElementById('workstationCount').textContent = this.workstations.length;
                 document.getElementById('deviceCount').textContent = data.devices ? data.devices.length : 0;
                 this.render();

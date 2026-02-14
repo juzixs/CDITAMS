@@ -38,6 +38,7 @@ urlpatterns = [
     path('api/map-data/<int:pk>/', views.map_data, name='api_map_data'),
     
     path('locations/<int:pk>/workstations/', views.workstation_list, name='workstation_list'),
+    path('api/location/<int:location_id>/workstations/', views.api_workstations_by_location, name='api_workstations_by_location'),
     path('workstations/create/', views.workstation_create, name='workstation_create'),
     path('workstations/<int:pk>/edit/', views.workstation_edit, name='workstation_edit'),
     path('workstations/<int:pk>/delete/', views.workstation_delete, name='workstation_delete'),
