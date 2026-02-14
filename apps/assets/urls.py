@@ -21,6 +21,7 @@ urlpatterns = [
     path('api/categories/save/', views.api_category_save, name='api_category_save'),
     path('api/categories/<int:id>/', views.api_category_delete, name='api_category_delete'),
     path('api/devices/generate-asset-number/', views.api_generate_asset_number, name='api_generate_asset_number'),
+    path('api/devices/get-category-by-asset-no/', views.api_get_category_by_asset_no, name='api_get_category_by_asset_no'),
     
     path('categories/', views.category_list, name='category_list'),
     path('categories/create/', views.category_create, name='category_create'),

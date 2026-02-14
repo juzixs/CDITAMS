@@ -4,7 +4,7 @@ from django.conf import settings
 
 class AssetCategory(models.Model):
     name = models.CharField(max_length=64, verbose_name='分类名称')
-    code = models.CharField(max_length=32, unique=True, verbose_name='分类编码')
+    code = models.CharField(max_length=32, verbose_name='分类编码')
     parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='children', verbose_name='上级分类')
     level = models.IntegerField(default=1, choices=[(i, f'{i}级') for i in range(1, 5)], verbose_name='分类级别')
     description = models.TextField(blank=True, verbose_name='分类描述')
@@ -28,6 +28,28 @@ class AssetCategory(models.Model):
             codes.insert(0, current.code)
             current = current.parent
         return '-'.join(codes)
+
+    @classmethod
+    def find_by_asset_prefix(cls, asset_prefix):
+        parts = asset_prefix.split('-')
+        if len(parts) < 1 or not parts[0]:
+            return None
+        
+        current_level = 1
+        current_category = None
+        
+        for i, part in enumerate(parts):
+            if current_level == 1:
+                current_category = cls.objects.filter(code=part, level=1).first()
+            else:
+                if current_category:
+                    current_category = cls.objects.filter(code=part, parent=current_category, level=current_level).first()
+            
+            if not current_category:
+                break
+            current_level += 1
+        
+        return current_category
 
 
 class AssetLocation(models.Model):

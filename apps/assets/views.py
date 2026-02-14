@@ -9,6 +9,8 @@ from django.utils import timezone
 from django.conf import settings
 import json
 import qrcode
+import os
+import uuid
 from io import BytesIO
 import random
 from datetime import datetime
@@ -124,6 +126,9 @@ def device_create(request):
         img.save(buffer, 'PNG')
         device.qrcode.save(f'{asset_no}.png', buffer)
         
+        if request.FILES.get('photo'):
+            save_photo_with_asset_no(device, request.FILES.get('photo'))
+        
         AssetLog.objects.create(
             device=device,
             user=request.user,
@@ -194,7 +199,9 @@ def device_edit(request, pk):
             device.qrcode = ''
         
         if request.FILES.get('photo'):
-            device.photo = request.FILES.get('photo')
+            if device.photo:
+                device.photo.delete(save=False)
+            save_photo_with_asset_no(device, request.FILES.get('photo'))
         elif request.POST.get('photo_clear') == '1':
             device.photo.delete(save=False)
             device.photo = ''
@@ -352,6 +359,15 @@ def generate_asset_no(category):
         new_num = 1
     
     return f"{prefix}-{new_num:03d}"
+
+
+def save_photo_with_asset_no(device, photo_file):
+    if not photo_file:
+        return
+    
+    ext = os.path.splitext(photo_file.name)[1].lower()
+    filename = f"{device.asset_no}{ext}"
+    device.photo.save(filename, photo_file, save=True)
 
 
 @login_required
@@ -946,12 +962,12 @@ def api_generate_asset_number(request):
     try:
         category = AssetCategory.objects.get(pk=category_id)
         
-        # 分类的code已经是完整的层级编码（如 XACD-Z-001-001）
-        asset_number_prefix = category.code
+        # 使用 get_full_code() 获取完整的前缀（如 XACD-Z-001-001）
+        asset_number_prefix = category.get_full_code()
         
         max_device = Device.objects.filter(
             asset_no__startswith=f"{asset_number_prefix}-"
-        ).order_by('asset_no').last()
+        ).order_by('-asset_no').first()
         
         if max_device:
             last_part = max_device.asset_no.split('-')[-1]
@@ -973,6 +989,37 @@ def api_generate_asset_number(request):
         return JsonResponse({'success': False, 'message': '分类不存在'}, status=404)
     except Exception as e:
         return JsonResponse({'success': False, 'message': f'生成资产编号失败: {str(e)}'}, status=500)
+
+
+@login_required
+def api_get_category_by_asset_no(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': '无效请求'}, status=400)
+    
+    data = json.loads(request.body)
+    asset_no = data.get('asset_no', '').strip()
+    
+    if not asset_no:
+        return JsonResponse({'success': False, 'message': '请输入资产编号'}, status=400)
+    
+    parts = asset_no.split('-')
+    if len(parts) < 2:
+        return JsonResponse({'success': False, 'message': '资产编号格式不正确'}, status=400)
+    
+    prefix = '-'.join(parts[:-1])
+    
+    category = AssetCategory.find_by_asset_prefix(prefix)
+    
+    if not category:
+        return JsonResponse({'success': False, 'message': '未找到匹配的分类'}, status=404)
+    
+    return JsonResponse({
+        'success': True,
+        'category_id': category.id,
+        'category_name': category.name,
+        'category_level': category.level,
+        'full_code': category.get_full_code()
+    })
 
 
 @login_required
