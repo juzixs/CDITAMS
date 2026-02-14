@@ -7,8 +7,9 @@ django.setup()
 
 from django.contrib.auth import get_user_model
 from apps.accounts.models import Department, Role, Permission
-from apps.assets.models import AssetCategory, AssetLocation, ServiceType, DeviceField
+from apps.assets.models import AssetCategory, AssetLocation, ServiceType, DeviceField, Device
 from apps.settings.models import SystemConfig, Organization
+
 
 def init_permissions():
     print("初始化权限...")
@@ -45,6 +46,7 @@ def init_permissions():
     
     return created
 
+
 def init_roles():
     print("初始化角色...")
     permissions = Permission.objects.all()
@@ -59,6 +61,7 @@ def init_roles():
     role.permissions.set(permissions)
     return role
 
+
 def init_departments():
     print("初始化部门...")
     depts = [
@@ -71,95 +74,146 @@ def init_departments():
     for d in depts:
         Department.objects.get_or_create(code=d['code'], defaults=d)
 
+
 def init_categories():
     print("初始化资产分类...")
+    Device.objects.all().delete()
     AssetCategory.objects.all().delete()
     
-    xcd, _ = AssetCategory.objects.get_or_create(
+    xcd = AssetCategory.objects.create(
         code='XACD',
-        defaults={'name': '西安驰达', 'level': 1, 'description': '西安驰达飞机零部件制造股份有限公司', 'sort': 1}
+        name='西安驰达',
+        level=1,
+        description='西安驰达飞机零部件制造股份有限公司',
+        sort=1
     )
-    xays, _ = AssetCategory.objects.get_or_create(
+    xays = AssetCategory.objects.create(
         code='XAYS',
-        defaults={'name': '西安优盛', 'level': 1, 'description': '西安优盛航空科技有限公司', 'sort': 2}
+        name='西安优盛',
+        level=1,
+        description='西安优盛航空科技有限公司',
+        sort=2
     )
     
-    z_xcd, _ = AssetCategory.objects.get_or_create(
+    z_xcd = AssetCategory.objects.create(
         code='Z',
-        defaults={'name': '总经办', 'parent': xcd, 'level': 2, 'sort': 1}
+        name='总经办',
+        parent=xcd,
+        level=2,
+        sort=1
     )
-    z_xays, _ = AssetCategory.objects.get_or_create(
+    z_xays = AssetCategory.objects.create(
         code='Y',
-        defaults={'name': '总经办', 'parent': xays, 'level': 2, 'sort': 1}
+        name='总经办',
+        parent=xays,
+        level=2,
+        sort=1
     )
     
-    jsj_xcd, _ = AssetCategory.objects.get_or_create(
+    jsj_xcd = AssetCategory.objects.create(
         code='001',
-        defaults={'name': '计算机', 'parent': z_xcd, 'level': 3, 'sort': 1}
+        name='计算机',
+        parent=z_xcd,
+        level=3,
+        sort=1
     )
-    bgs_xcd, _ = AssetCategory.objects.get_or_create(
+    bgs_xcd = AssetCategory.objects.create(
         code='002',
-        defaults={'name': '办公设备', 'parent': z_xcd, 'level': 3, 'sort': 2}
+        name='办公设备',
+        parent=z_xcd,
+        level=3,
+        sort=2
     )
-    xx_xcd, _ = AssetCategory.objects.get_or_create(
+    xx_xcd = AssetCategory.objects.create(
         code='003',
-        defaults={'name': '信息设备', 'parent': z_xcd, 'level': 3, 'sort': 3}
+        name='信息设备',
+        parent=z_xcd,
+        level=3,
+        sort=3
     )
     
-    jsj_xays, _ = AssetCategory.objects.get_or_create(
+    jsj_xays = AssetCategory.objects.create(
         code='001',
-        defaults={'name': '计算机', 'parent': z_xays, 'level': 3, 'sort': 1}
+        name='计算机',
+        parent=z_xays,
+        level=3,
+        sort=1
     )
-    bgs_xays, _ = AssetCategory.objects.get_or_create(
+    bgs_xays = AssetCategory.objects.create(
         code='002',
-        defaults={'name': '办公设备', 'parent': z_xays, 'level': 3, 'sort': 2}
+        name='办公设备',
+        parent=z_xays,
+        level=3,
+        sort=2
     )
-    xx_xays, _ = AssetCategory.objects.get_or_create(
+    xx_xays = AssetCategory.objects.create(
         code='003',
-        defaults={'name': '信息设备', 'parent': z_xays, 'level': 3, 'sort': 3}
+        name='信息设备',
+        parent=z_xays,
+        level=3,
+        sort=3
     )
     
     computer_children = [
-        ('台式机', '001'), ('笔记本', '002'), ('显示器', '003'), ('其他', '004')
+        ('台式机', '001', 1), ('笔记本', '002', 2), ('显示器', '003', 3), ('其他', '004', 4)
     ]
-    for name, code in computer_children:
-        AssetCategory.objects.get_or_create(
+    for name, code, sort in computer_children:
+        AssetCategory.objects.create(
             code=code,
-            defaults={'name': name, 'parent': jsj_xcd, 'level': 4, 'sort': int(code)}
+            name=name,
+            parent=jsj_xcd,
+            level=4,
+            sort=sort
         )
-        AssetCategory.objects.get_or_create(
+        AssetCategory.objects.create(
             code=code,
-            defaults={'name': name, 'parent': jsj_xays, 'level': 4, 'sort': int(code)}
+            name=name,
+            parent=jsj_xays,
+            level=4,
+            sort=sort
         )
     
     office_children = [
-        ('空调', '001'), ('打印机', '002'), ('扫描仪', '003'), ('传真机', '004'), 
-        ('投影仪', '005'), ('交换机', '006'), ('平板一体机', '007'), ('照相机', '008'), ('其他', '009')
+        ('空调', '001', 1), ('打印机', '002', 2), ('扫描仪', '003', 3), ('传真机', '004', 4), 
+        ('投影仪', '005', 5), ('交换机', '006', 6), ('平板一体机', '007', 7), ('照相机', '008', 8), ('其他', '009', 9)
     ]
-    for name, code in office_children:
-        AssetCategory.objects.get_or_create(
+    for name, code, sort in office_children:
+        AssetCategory.objects.create(
             code=code,
-            defaults={'name': name, 'parent': bgs_xcd, 'level': 4, 'sort': int(code)}
+            name=name,
+            parent=bgs_xcd,
+            level=4,
+            sort=sort
         )
-        AssetCategory.objects.get_or_create(
+        AssetCategory.objects.create(
             code=code,
-            defaults={'name': name, 'parent': bgs_xays, 'level': 4, 'sort': int(code)}
+            name=name,
+            parent=bgs_xays,
+            level=4,
+            sort=sort
         )
     
     info_children = [
-        ('服务器', '001'), ('存储器', '002'), ('监控设备', '003'), ('监控系统', '004'), ('其他', '005')
+        ('服务器', '001', 1), ('存储器', '002', 2), ('监控设备', '003', 3), ('监控系统', '004', 4), ('其他', '005', 5)
     ]
-    for name, code in info_children:
-        AssetCategory.objects.get_or_create(
+    for name, code, sort in info_children:
+        AssetCategory.objects.create(
             code=code,
-            defaults={'name': name, 'parent': xx_xcd, 'level': 4, 'sort': int(code)}
+            name=name,
+            parent=xx_xcd,
+            level=4,
+            sort=sort
         )
-        AssetCategory.objects.get_or_create(
+        AssetCategory.objects.create(
             code=code,
-            defaults={'name': name, 'parent': xx_xays, 'level': 4, 'sort': int(code)}
+            name=name,
+            parent=xx_xays,
+            level=4,
+            sort=sort
         )
     
     print(f"已初始化 {AssetCategory.objects.count()} 条分类数据")
+
 
 def init_locations():
     print("初始化位置...")
@@ -172,33 +226,58 @@ def init_locations():
     
     oa, _ = AssetLocation.objects.get_or_create(
         code='CYOA',
-        defaults={'name': '办公楼', 'level': 2, 'park_code': 'CY', 'building_code': 'OA', 'floor_count': 5, 'basement_count': 1, 'has_rooftop': True, 'sort': 1}
+        defaults={'name': '办公楼', 'level': 2, 'park_code': 'CY', 'building_code': 'OA', 'sort': 1}
     )
     oa.parent = cy
     oa.save()
     
-    basement_floors = [
-        ('B1层', 'B1', 'B1', 1),
+    floors = [
+        ('B1层', 'CYOAB1', 'B1', 1),
+        ('1楼', 'CYOA01', '01', 2),
+        ('2楼', 'CYOA02', '02', 3),
+        ('3楼', 'CYOA03', '03', 4),
+        ('4楼', 'CYOA04', '04', 5),
+        ('5楼', 'CYOA05', '05', 6),
+        ('天台', 'CYOAC1', 'C1', 7),
     ]
-    for name, floor_code, code_suffix, sort in basement_floors:
-        AssetLocation.objects.create(
-            name=name, code=f'CYOA{code_suffix}', level=3, parent=oa,
-            park_code='CY', building_code='OA', floor_code=floor_code, sort=sort
-        )
     
-    floor_count = 5
-    for i in range(1, floor_count + 1):
-        AssetLocation.objects.create(
-            name=f'{i}楼', code=f'CYOA{i:02d}', level=3, parent=oa,
-            park_code='CY', building_code='OA', floor_code=f'{i:02d}', sort=i + 1
+    floor_objs = {}
+    for name, code, floor_code, sort in floors:
+        floor, _ = AssetLocation.objects.get_or_create(
+            code=code,
+            defaults={
+                'name': name,
+                'level': 3,
+                'parent': oa,
+                'park_code': 'CY',
+                'building_code': 'OA',
+                'floor_code': floor_code,
+                'sort': sort
+            }
         )
+        floor_objs[code] = floor
     
-    AssetLocation.objects.create(
-        name='天台', code='CYOAC1', level=3, parent=oa,
-        park_code='CY', building_code='OA', floor_code='C1', sort=floor_count + 2
-    )
+    rooms = [
+        ('CYOA02-A201', '2楼', 'A201'),
+        ('CYOA02-B1', '2楼', '办公区B1'),
+    ]
+    
+    for parent_code, floor_name, room_name in rooms:
+        parent = floor_objs.get(parent_code)
+        if parent:
+            AssetLocation.objects.get_or_create(
+                code=f"{parent_code}-{room_name}",
+                defaults={
+                    'name': room_name,
+                    'level': 4,
+                    'parent': parent,
+                    'park_code': parent_code,
+                    'sort': 0
+                }
+            )
     
     print(f"已初始化 {AssetLocation.objects.count()} 条位置数据")
+
 
 def init_service_types():
     print("初始化服务类型...")
@@ -212,6 +291,7 @@ def init_service_types():
     for t in types:
         ServiceType.objects.get_or_create(name=t['name'], defaults=t)
 
+
 def init_system_config():
     print("初始化系统配置...")
     configs = [
@@ -223,6 +303,7 @@ def init_system_config():
     for c in configs:
         SystemConfig.objects.get_or_create(config_key=c['config_key'], defaults=c)
 
+
 def init_org():
     print("初始化企业信息...")
     Organization.objects.get_or_create(
@@ -233,6 +314,7 @@ def init_org():
             'description': '驰达IT资产管理系统'
         }
     )
+
 
 def create_superuser():
     print("创建超级管理员...")
@@ -251,6 +333,7 @@ def create_superuser():
             user.role = role
             user.save()
         print("超级管理员创建成功: 86000001 / password")
+
 
 def init_device_fields():
     print("初始化设备系统字段...")
@@ -295,6 +378,42 @@ def init_device_fields():
         )
     print(f"已初始化 {len(system_fields)} 个系统字段")
 
+
+def init_demo_device():
+    print("初始化演示设备...")
+    
+    if Device.objects.filter(asset_no='XACD-Z-001-001-001').exists():
+        print("演示设备已存在，跳过")
+        return
+    
+    parent_cat = AssetCategory.objects.filter(code='001', level=3, name='计算机').first()
+    category = AssetCategory.objects.filter(code='001', level=4, parent=parent_cat).first()
+    location = AssetLocation.objects.filter(code='CYOA02').first()
+    
+    if category and location:
+        Device.objects.create(
+            asset_no='XACD-Z-001-001-001',
+            name='台式电脑',
+            category=category,
+            device_no='/',
+            model='组装机',
+            serial_no='/',
+            secret_level='internal',
+            status='normal',
+            location=location,
+            mac_address='74-D4-35-B3-32-1E',
+            ip_address='172.29.3.1',
+            os_name='Win7',
+            purpose='办公',
+            is_fixed=True,
+            is_secret=True,
+            secret_category='信息系统'
+        )
+        print("演示设备创建成功")
+    else:
+        print(f"无法创建演示设备：分类={category}, 位置={location}")
+
+
 def run():
     print("开始初始化数据...")
     
@@ -308,8 +427,10 @@ def run():
     init_org()
     init_device_fields()
     create_superuser()
+    init_demo_device()
     
     print("数据初始化完成!")
+
 
 if __name__ == '__main__':
     run()
