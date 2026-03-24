@@ -294,7 +294,11 @@ class MapElement(models.Model):
         ('wall', '墙'),
         ('door', '门'),
         ('window', '窗'),
+        ('rect', '矩形'),
         ('desk', '工位'),
+        ('workstation', '工位'),
+        ('region', '区域'),
+        ('text', '文字'),
         ('equipment', '设备'),
     ]
     DOOR_DIRECTIONS = [
