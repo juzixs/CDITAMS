@@ -46,6 +46,10 @@
     <div class="sp"></div>
     <button class="tb" id="btnSnap"><i class="fas fa-magnet"></i></button>
     <button class="tb" id="btnGrid"><i class="fas fa-border-all"></i></button>
+    <button class="tb" id="btnBg" title="上传底图"><i class="fas fa-image"></i></button>
+    <button class="tb" id="btnBgSelect" title="选中底图" style="display:none;"><i class="fas fa-hand-pointer"></i></button>
+    <button class="tb" id="btnBgDel" title="清除底图" style="display:none;"><i class="fas fa-times"></i></button>
+    <input type="file" id="bgFileInput" accept="image/*" style="display:none;">
     <span id="coord">X:0 Y:0</span>
 </div>
 <div id="editorWrap">
@@ -105,11 +109,15 @@ var tr = new Konva.Transformer({ nodes: [], borderStroke: '#0d6efd', anchorStrok
 uiL.add(tr);
 
 function drawGrid() {
-    bgL.destroyChildren();
+    // Remove only grid lines, keep background image
+    bgL.getChildren().forEach(function(n) {
+        if (n !== bgImageNode) n.destroy();
+    });
     if (gOn) {
         for (var x = 0; x <= MW; x += gSize) bgL.add(new Konva.Line({ points: [x, 0, x, MH], stroke: '#e0e0e0', strokeWidth: 0.5 }));
         for (var y = 0; y <= MH; y += gSize) bgL.add(new Konva.Line({ points: [0, y, MW, y], stroke: '#e0e0e0', strokeWidth: 0.5 }));
     }
+    if (bgImageNode) bgImageNode.moveToBottom();
     bgL.draw();
 }
 drawGrid();
@@ -227,6 +235,7 @@ for (var ti = 0; ti < toolNames.length; ti++) {
             stage.container().style.cursor = tname === 'select' ? 'default' : 'crosshair';
             polyP = [];
             if (tmpN) { tmpN.destroy(); tmpN = null; uiL.draw(); }
+            setBgSelected(false);
         });
     })(toolNames[ti]);
 }
@@ -383,6 +392,79 @@ document.getElementById('btnSave').addEventListener('click', function() {
     .then(function(r) { return r.json(); })
     .then(function(r) { alert(r.success ? '保存成功！' : '失败: ' + r.message); })
     .catch(function(e) { alert('失败: ' + e); });
+});
+
+// ========== BACKGROUND IMAGE (reference only, not saved) ==========
+var bgImageNode = null;
+var bgSelected = false;
+var bgTr = new Konva.Transformer({
+    nodes: [],
+    borderStroke: '#28a745',
+    anchorStroke: '#28a745',
+    anchorFill: '#fff',
+    anchorSize: 8,
+    rotateEnabled: true,
+    enabledAnchors: ['top-left','top-right','bottom-left','bottom-right']
+});
+uiL.add(bgTr);
+
+function setBgSelected(sel) {
+    bgSelected = sel;
+    if (!bgImageNode) return;
+    bgImageNode.listening(sel);
+    bgImageNode.draggable(sel);
+    if (sel) {
+        bgTr.nodes([bgImageNode]);
+        document.getElementById('btnBgSelect').classList.add('on');
+    } else {
+        bgTr.nodes([]);
+        document.getElementById('btnBgSelect').classList.remove('on');
+    }
+    uiL.draw();
+}
+
+document.getElementById('btnBg').addEventListener('click', function() {
+    document.getElementById('bgFileInput').click();
+});
+
+document.getElementById('btnBgSelect').addEventListener('click', function() {
+    if (bgImageNode) setBgSelected(!bgSelected);
+});
+
+document.getElementById('bgFileInput').addEventListener('change', function(e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+        var img = new Image();
+        img.onload = function() {
+            if (bgImageNode) bgImageNode.destroy();
+            bgImageNode = new Konva.Image({
+                image: img,
+                x: 0, y: 0,
+                width: MW, height: MH,
+                opacity: 0.4,
+                draggable: false,
+                listening: false
+            });
+            bgL.add(bgImageNode);
+            bgImageNode.moveToBottom();
+            bgL.draw();
+            document.getElementById('btnBgDel').style.display = 'inline-flex';
+            document.getElementById('btnBgSelect').style.display = 'inline-flex';
+            setBgSelected(true);
+        };
+        img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+    this.value = '';
+});
+
+document.getElementById('btnBgDel').addEventListener('click', function() {
+    setBgSelected(false);
+    if (bgImageNode) { bgImageNode.destroy(); bgImageNode = null; bgL.draw(); }
+    this.style.display = 'none';
+    document.getElementById('btnBgSelect').style.display = 'none';
 });
 
 }); // end DOMContentLoaded
