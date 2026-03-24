@@ -2,8 +2,8 @@
 {% block title %}设备地图 - 驰达IT资产管理系统{% endblock %}
 {% block extra_css %}
 <style>
-#mapContainer { position: relative; width: 100%; height: 700px; border: 1px solid #ddd; background: #f0f0f0; overflow: hidden; border-radius: 4px; }
-#mapCanvas { width: 100%; height: 100%; }
+#mapContainer { position: relative; width: 100%; height: calc(100vh - 180px); border: 1px solid #ddd; background: #f0f0f0; overflow: hidden; border-radius: 4px; }
+#mapCanvas { }
 #sidePanel { width: 300px; background: #fff; border-left: 1px solid #ddd; overflow-y: auto; display: none; padding: 0; }
 #sidePanel.show { display: block; }
 .panel-header { padding: 12px 15px; background: #f8f9fa; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
@@ -85,9 +85,6 @@
 const LOCATION_ID = {{ location.id }};
 const MAP_W = {{ location.map_width|default:1200 }};
 const MAP_H = {{ location.map_height|default:800 }};
-const CSRF = '{{ csrf_token }}';
-let showGrid = false;
-let selectedWS = null;
 
 const stage = new Konva.Stage({ container: 'mapCanvas', width: MAP_W, height: MAP_H });
 const bgLayer = new Konva.Layer();
@@ -95,6 +92,8 @@ const elementLayer = new Konva.Layer();
 const objLayer = new Konva.Layer();
 const uiLayer = new Konva.Layer();
 stage.add(bgLayer, elementLayer, objLayer, uiLayer);
+var showGrid = false;
+var selectedWS = null;
 
 // Zoom
 function zoomIn() { stage.scale({ x: stage.scaleX() * 1.2, y: stage.scaleY() * 1.2 }); stage.batchDraw(); }
@@ -166,7 +165,7 @@ function renderMap(data) {
             elementLayer.add(new Konva.Line({ points: [el.x, el.y, el.x2 || el.x + el.width, el.y2 || el.y], stroke: el.color || '#000', strokeWidth: el.thickness || 3, lineCap: 'round' }));
         } else if (el.element_type === 'door') {
             const dw = el.door_width || 60;
-            const group = new Konva.Group({ x: el.x, y: el.y });
+            const group = new Konva.Group({ x: el.x, y: el.y, rotation: el.rotation || 0 });
             group.add(new Konva.Line({ points: [0, 0, dw, 0], stroke: el.color || '#333', strokeWidth: 2 }));
             if (el.door_direction !== 'sliding') {
                 const ang = (el.door_open_angle || 90) * Math.PI / 180;

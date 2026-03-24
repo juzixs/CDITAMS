@@ -1515,6 +1515,7 @@ def location_map_edit(request, pk):
             'da': el.door_open_angle or 90,
             'pt': el.points or '',
             'label': el.label or '',
+            'angle': el.rotation or 0,
         })
     elements_json = json.dumps(elements_list)
     

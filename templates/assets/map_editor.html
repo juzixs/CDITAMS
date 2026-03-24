@@ -3,14 +3,14 @@
 {% block extra_css %}
 <style>
 #editorWrap{display:flex}
-#editorContainer{flex:1;height:700px;border:1px solid #ddd;background:#f0f0f0;border-radius:4px 0 0 4px}
-#sideP{width:220px;background:#fff;border:1px solid #ddd;border-left:none;border-radius:0 4px 4px 0;padding:10px;overflow-y:auto;max-height:700px}
+#editorContainer{flex:1;height:calc(100vh - 200px);border:1px solid #ddd;background:#f0f0f0;border-radius:4px 0 0 4px}
+#sideP{width:220px;background:#fff;border:1px solid #ddd;border-left:none;border-radius:0 4px 4px 0;padding:10px;overflow-y:auto;height:calc(100vh - 200px)}
 #sideP h6{margin:0 0 8px;font-size:13px;border-bottom:1px solid #eee;padding-bottom:6px}
 .li{display:flex;align-items:center;padding:3px 6px;border-radius:4px;font-size:12px}
 .li:hover{background:#f0f0f0}
 .li input{margin-right:6px}
 #tb{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:8px}
-.tb{width:36px;height:36px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:6px;font-size:14px;cursor:pointer;border:1px solid #ccc;background:#fff}
+.tb{height:36px;padding:0 8px;display:inline-flex;align-items:center;justify-content:center;border-radius:6px;font-size:13px;cursor:pointer;border:1px solid #ccc;background:#fff;gap:4px;white-space:nowrap}
 .tb:hover{background:#e8e8e8}
 .tb.on{background:#0d6efd;color:#fff;border-color:#0d6efd}
 .sp{width:1px;height:28px;background:#ddd;margin:0 4px}
@@ -28,27 +28,27 @@
     </div>
 </div>
 <div id="tb">
-    <button class="tb on" id="t-select"><i class="fas fa-mouse-pointer"></i></button>
-    <button class="tb" id="t-wall"><i class="fas fa-minus"></i></button>
-    <button class="tb" id="t-door"><i class="fas fa-door-open"></i></button>
-    <button class="tb" id="t-window"><i class="fas fa-window-maximize"></i></button>
-    <button class="tb" id="t-workstation"><i class="fas fa-th"></i></button>
-    <button class="tb" id="t-region"><i class="fas fa-draw-polygon"></i></button>
-    <button class="tb" id="t-text"><i class="fas fa-font"></i></button>
+    <button class="tb on" id="t-select" title="选择工具 - 选中、移动元素 (V)"><i class="fas fa-mouse-pointer"></i> 选择</button>
+    <button class="tb" id="t-wall" title="画线工具 - 绘制直线 (W)"><i class="fas fa-minus"></i> 画线</button>
+    <button class="tb" id="t-window" title="虚线工具 - 绘制虚线 (N)"><i class="fas fa-grip-lines"></i> 虚线</button>
+    <button class="tb" id="t-door" title="画门工具 - 绘制门，支持左开/右开/推拉 (D)"><i class="fas fa-door-open"></i> 画门</button>
+    <button class="tb" id="t-workstation" title="画工位工具 - 绘制工位矩形并输入编号 (B)"><i class="fas fa-th"></i> 工位</button>
+    <button class="tb" id="t-region" title="画区域工具 - 点击绘制多边形顶点，双击完成 (P)"><i class="fas fa-draw-polygon"></i> 区域</button>
+    <button class="tb" id="t-text" title="文字标注 - 在画布上添加文字 (T)"><i class="fas fa-font"></i> 文字</button>
     <div class="sp"></div>
-    <button class="tb" id="btnZI"><i class="fas fa-search-plus"></i></button>
-    <button class="tb" id="btnZO"><i class="fas fa-search-minus"></i></button>
-    <button class="tb" id="btnZR"><i class="fas fa-compress-arrows-alt"></i></button>
+    <button class="tb" id="btnZI" title="放大视图 (+)"><i class="fas fa-search-plus"></i> 放大</button>
+    <button class="tb" id="btnZO" title="缩小视图 (-)"><i class="fas fa-search-minus"></i> 缩小</button>
+    <button class="tb" id="btnZR" title="重置视图 - 恢复默认缩放和位置"><i class="fas fa-compress-arrows-alt"></i> 重置</button>
     <div class="sp"></div>
-    <button class="tb" id="btnU" disabled><i class="fas fa-undo"></i></button>
-    <button class="tb" id="btnR" disabled><i class="fas fa-redo"></i></button>
-    <button class="tb" style="color:#dc3545" id="btnDel"><i class="fas fa-trash"></i></button>
+    <button class="tb" id="btnU" disabled title="撤销操作 (Ctrl+Z)"><i class="fas fa-undo"></i> 撤销</button>
+    <button class="tb" id="btnR" disabled title="重做操作 (Ctrl+Y)"><i class="fas fa-redo"></i> 重做</button>
+    <button class="tb" style="color:#dc3545" id="btnDel" title="删除选中元素 (Delete)"><i class="fas fa-trash"></i> 删除</button>
     <div class="sp"></div>
-    <button class="tb" id="btnSnap"><i class="fas fa-magnet"></i></button>
-    <button class="tb" id="btnGrid"><i class="fas fa-border-all"></i></button>
-    <button class="tb" id="btnBg" title="上传底图"><i class="fas fa-image"></i></button>
-    <button class="tb" id="btnBgSelect" title="选中底图" style="display:none;"><i class="fas fa-hand-pointer"></i></button>
-    <button class="tb" id="btnBgDel" title="清除底图" style="display:none;"><i class="fas fa-times"></i></button>
+    <button class="tb" id="btnSnap" title="吸附对齐 - 绘制时自动对齐网格 (S)"><i class="fas fa-magnet"></i> 吸附</button>
+    <button class="tb" id="btnGrid" title="显示/隐藏网格 (G)"><i class="fas fa-border-all"></i> 网格</button>
+    <button class="tb" id="btnBg" title="上传底图 - 作为绘制参考，不保存"><i class="fas fa-image"></i> 底图</button>
+    <button class="tb" id="btnBgSelect" title="选中底图 - 可拖拽、缩放、旋转底图" style="display:none;"><i class="fas fa-hand-pointer"></i> 选中</button>
+    <button class="tb" id="btnBgDel" title="清除底图 - 移除已上传的底图" style="display:none;"><i class="fas fa-times"></i></button>
     <input type="file" id="bgFileInput" accept="image/*" style="display:none;">
     <span id="coord">X:0 Y:0</span>
 </div>
@@ -102,7 +102,8 @@ var hist = [], hIdx = -1, spcDown = false, pSt = null;
 var initE = JSON.parse('{{ elements_json|escapejs }}');
 
 // Konva stage - 4 layers (bg, elements, workstations+regions+labels, ui)
-var stage = new Konva.Stage({ container: 'editorContainer', width: MW, height: MH });
+var ec = document.getElementById('editorContainer');
+var stage = new Konva.Stage({ container: 'editorContainer', width: ec.clientWidth, height: ec.clientHeight });
 var bgL = new Konva.Layer(), elL = new Konva.Layer(), objL = new Konva.Layer(), uiL = new Konva.Layer();
 stage.add(bgL, elL, objL, uiL);
 var tr = new Konva.Transformer({ nodes: [], borderStroke: '#0d6efd', anchorStroke: '#0d6efd', anchorFill: '#fff', anchorSize: 7, rotateEnabled: false });
@@ -113,9 +114,10 @@ function drawGrid() {
     bgL.getChildren().forEach(function(n) {
         if (n !== bgImageNode) n.destroy();
     });
+    var sw = stage.width(), sh = stage.height();
     if (gOn) {
-        for (var x = 0; x <= MW; x += gSize) bgL.add(new Konva.Line({ points: [x, 0, x, MH], stroke: '#e0e0e0', strokeWidth: 0.5 }));
-        for (var y = 0; y <= MH; y += gSize) bgL.add(new Konva.Line({ points: [0, y, MW, y], stroke: '#e0e0e0', strokeWidth: 0.5 }));
+        for (var x = 0; x <= sw; x += gSize) bgL.add(new Konva.Line({ points: [x, 0, x, sh], stroke: '#e0e0e0', strokeWidth: 0.5 }));
+        for (var y = 0; y <= sh; y += gSize) bgL.add(new Konva.Line({ points: [0, y, sw, y], stroke: '#e0e0e0', strokeWidth: 0.5 }));
     }
     if (bgImageNode) bgImageNode.moveToBottom();
     bgL.draw();
@@ -145,7 +147,7 @@ function mkS(d) {
         n = new Konva.Line({ points: [d.x, d.y, d.x2 != null ? d.x2 : d.x + d.w, d.y2 != null ? d.y2 : d.y], stroke: d.c || '#000', strokeWidth: d.th || 3, lineCap: 'round', draggable: true });
         elL.add(n);
     } else if (d.t === 'door') {
-        var g = new Konva.Group({ x: d.x, y: d.y, draggable: true });
+        var g = new Konva.Group({ x: d.x, y: d.y, draggable: true, rotation: d.angle || 0 });
         g.add(new Konva.Line({ points: [0, 0, d.dw || 60, 0], stroke: d.c || '#333', strokeWidth: 2 }));
         if (d.dd !== 'sliding') { var a = (d.da || 90) * Math.PI / 180; g.add(new Konva.Arc({ innerRadius: 0, outerRadius: d.dw || 60, angle: a, rotation: d.dd === 'left' ? -a * 180 / Math.PI : 0, stroke: d.c || '#333', strokeWidth: 1 })); }
         elL.add(g); n = g;
@@ -271,7 +273,12 @@ stage.on('mousemove touchmove', function(e) {
     if (tmpN) { tmpN.destroy(); tmpN = null; }
 
     if (tool === 'wall') tmpN = new Konva.Line({ points: [sx, sy, x, y], stroke: '#000', strokeWidth: 3, dash: [5, 5] });
-    else if (tool === 'door') tmpN = new Konva.Rect({ x: Math.min(sx, x), y: sy, width: Math.abs(x - sx) || 60, height: 20, stroke: '#333', strokeWidth: 2, dash: [5, 5] });
+    else if (tool === 'door') {
+        var dx = x - sx, dy = y - sy;
+        var dw = Math.sqrt(dx*dx + dy*dy) || 60;
+        var ang = Math.atan2(dy, dx);
+        tmpN = new Konva.Line({ points: [sx, sy, x, y], stroke: '#333', strokeWidth: 2, dash: [5, 5] });
+    }
     else if (tool === 'window') tmpN = new Konva.Line({ points: [sx, sy, sx + (Math.abs(x - sx) || 60), sy], stroke: '#2196F3', strokeWidth: 3, dash: [5, 5] });
     else if (tool === 'workstation') tmpN = new Konva.Rect({ x: Math.min(sx, x), y: Math.min(sy, y), width: Math.abs(x - sx) || 60, height: Math.abs(y - sy) || 40, fill: '#e3f2fd80', stroke: '#1976D2', strokeWidth: 1, dash: [5, 5] });
     else if (tool === 'region' && polyP.length > 0) { var p2 = []; for (var i = 0; i < polyP.length; i++) p2.push(polyP[i].x, polyP[i].y); p2.push(x, y); tmpN = new Konva.Line({ points: p2, stroke: '#3498db', strokeWidth: 2, dash: [5, 5] }); }
@@ -290,7 +297,7 @@ stage.on('mouseup touchend', function(e) {
 
     var d = null;
     if (tool === 'wall') d = { t: 'wall', x: sx, y: sy, x2: x, y2: y, c: '#000', th: 3 };
-    else if (tool === 'door') { var w1 = Math.abs(x - sx) || 60; d = { t: 'door', x: sx, y: sy, w: w1, h: 20, c: '#333', th: 2, dd: 'right', dw: w1, da: 90 }; }
+    else if (tool === 'door') { var dx = x-sx, dy = y-sy; var w1 = Math.sqrt(dx*dx+dy*dy) || 60; var ang = Math.atan2(dy,dx)*180/Math.PI; d = { t: 'door', x: sx, y: sy, w: w1, h: 20, c: '#333', th: 2, dd: 'right', dw: w1, da: 90, angle: ang }; }
     else if (tool === 'window') d = { t: 'window', x: sx, y: sy, w: Math.abs(x - sx) || 60, h: 0, c: '#2196F3', th: 3 };
     else if (tool === 'workstation') { var w2 = Math.abs(x - sx) || 60, h2 = Math.abs(y - sy) || 40; var code = prompt('工位编号:', LOC_CODE + '-' + String(objL.getChildren().length + 1).padStart(3, '0')); if (code) d = { t: 'workstation', x: Math.min(sx, x), y: Math.min(sy, y), w: w2, h: h2, c: '#e3f2fd', label: code }; }
 
@@ -386,7 +393,7 @@ document.getElementById('btnSave').addEventListener('click', function() {
     var fd = new FormData();
     fd.append('location_id', LOC);
     fd.append('elements', JSON.stringify(all.map(function(d) {
-        return { id: d.i || null, type: d.t, x: d.x || 0, y: d.y || 0, x2: d.x2 || null, y2: d.y2 || null, width: d.w || 0, height: d.h || 0, color: d.c || '#000', thickness: d.th || 2, points: d.pt || '', label: d.label || '', door_direction: d.dd || 'right', door_width: d.dw || 60, door_open_angle: d.da || 90, doorstop_width: 15, auto_doorstop: true, snap_enabled: true, snap_threshold: sTh };
+        return { id: d.i || null, type: d.t, x: d.x || 0, y: d.y || 0, x2: d.x2 || null, y2: d.y2 || null, width: d.w || 0, height: d.h || 0, rotation: d.angle || 0, color: d.c || '#000', thickness: d.th || 2, points: d.pt || '', label: d.label || '', door_direction: d.dd || 'right', door_width: d.dw || 60, door_open_angle: d.da || 90, doorstop_width: 15, auto_doorstop: true, snap_enabled: true, snap_threshold: sTh };
     })));
     fetch('/assets/locations/elements/save/', { method: 'POST', headers: { 'X-CSRFToken': getCsrf() }, body: fd })
     .then(function(r) { return r.json(); })
@@ -442,7 +449,7 @@ document.getElementById('bgFileInput').addEventListener('change', function(e) {
             bgImageNode = new Konva.Image({
                 image: img,
                 x: 0, y: 0,
-                width: MW, height: MH,
+                width: stage.width(), height: stage.height(),
                 opacity: 0.4,
                 draggable: false,
                 listening: false
