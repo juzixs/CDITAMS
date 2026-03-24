@@ -26,39 +26,47 @@
 - 盘点报表
 
 ### 系统功能
-- 设备地图可视化
-  - 地图编辑器（画墙、门、窗、工位）
+- 设备地图可视化（基于 Konva.js）
+  - 7 层图层架构（底图/墙门窗/工位/区域/设备/文字/标尺）
+  - 地图编辑器（画墙、门、窗、工位、区域、文字标注）
   - 门方向设置（左开/右开/推拉）
-  - 自动门垛生成
   - 吸附对齐功能
-  - 标尺坐标显示
-  - 撤销/重做
+  - 撤销/重做（最多 50 步）
+  - 缩放/平移/网格
+  - 图层独立显示/隐藏
 - 工位管理
-  - 手动创建
-  - 批量生成
-  - 设备绑定工位
+  - 手动创建 / 批量生成
+  - 在地图上直接绘制工位
+  - 右侧详情面板绑定/解绑设备
+- 设备详情页
+  - 位置信息下方显示平面图缩略图
+  - 所绑定工位在缩略图中红色高亮
 
 ## 技术栈
 
-- **后端**: Django 5.0+
-- **前端**: HTML5, CSS3, JavaScript
+- **后端**: Django 5.2+
+- **前端**: HTML5, CSS3, JavaScript, Konva.js 9.x
 - **数据库**: SQLite（默认）/ MySQL/PostgreSQL
-- **图表**: Canvas API
+- **图形渲染**: Konva.js（Canvas 封装库）
 
 ## 项目结构
 
 ```
 CDITAMS/
 ├── apps/
-│   └── assets/          # 资产管理应用
-├── templates/           # HTML模板
-├── static/             # 静态文件
-├── media/              # 上传文件
-├── cditams/            # Django项目配置
-├── db.sqlite3          # 数据库文件
-├── manage.py           # Django管理脚本
-├── init_data.py        # 数据初始化脚本
-└── requirements.txt    # Python依赖
+│   ├── accounts/        # 用户认证、部门、角色
+│   ├── assets/          # 资产管理（设备、位置、工位、地图、软件、耗材、服务）
+│   ├── inventory/       # 盘点管理
+│   ├── logs/            # 操作日志
+│   ├── settings/        # 系统设置
+│   └── todos/           # 待办事项
+├── templates/           # HTML 模板
+├── cditams/             # Django 项目配置
+├── db.sqlite3           # 数据库文件
+├── db.sqlite3.bak       # 数据库备份（含默认数据）
+├── manage.py            # Django 管理脚本
+├── init_data.py         # 数据初始化脚本
+└── requirements.txt     # Python 依赖
 ```
 
 ## 快速开始
@@ -66,33 +74,33 @@ CDITAMS/
 ### 1. 环境要求
 
 - Python 3.8+
-- Django 5.0+
+- Django 5.2+
 
 ### 2. 安装依赖
 
 ```bash
-cd CDITAMS
 pip install -r requirements.txt
 ```
 
 ### 3. 数据库初始化
 
 ```bash
-# 创建数据库表
-python3 manage.py migrate
+# 应用数据库迁移
+python manage.py migrate
 
-# 初始化默认数据（可选）
-python3 init_data.py
+# 使用备份数据库（含默认数据和超级管理员）
+# 将 db.sqlite3.bak 复制为 db.sqlite3，或运行：
+cp db.sqlite3.bak db.sqlite3
+python manage.py migrate
 
-# 创建超级管理员
-python3 manage.py createsuperuser
+# 初始化默认数据（仅空数据库需要）
+python init_data.py
 ```
 
 ### 4. 启动服务
 
 ```bash
-# 开发模式启动
-python3 manage.py runserver 0.0.0.0:8000
+python manage.py runserver 0.0.0.0:8000
 ```
 
 ### 5. 访问系统
@@ -136,33 +144,37 @@ python3 manage.py runserver 0.0.0.0:8000
 ### 步骤3：编辑平面图
 
 1. 点击"编辑地图"按钮
-2. 使用工具栏绘制：
+2. 使用左侧工具栏绘制：
    - **选择 (V)** - 选中/移动元素
-   - **画墙 (W)** - 绘制墙体
+   - **画墙 (W)** - 绘制直线墙体
    - **画门 (D)** - 绘制门（支持左开/右开/推拉）
    - **画窗 (N)** - 绘制窗户
-   - **画工位 (B)** - 绘制工位
-3. 快捷键：
+   - **画工位 (B)** - 绘制工位矩形
+   - **画区域 (P)** - 绘制多边形区域（双击结束）
+   - **文字标注 (T)** - 添加文字标签
+3. 使用右侧图层面板控制各图层显示/隐藏
+4. 快捷键：
    - **G** - 切换网格显示
    - **S** - 切换吸附功能
    - **Ctrl+Z** - 撤销
    - **Ctrl+Y** - 重做
    - **Delete** - 删除选中
-4. 点击"保存"
+   - **+/-** - 缩放
+5. 点击"保存"
 
-### 步骤4：工位管理
+### 步骤4：查看地图 & 绑定设备
 
-1. 点击"工位管理"
-2. 可选择：
-   - 手动添加工位
-   - 批量创建工位（设置行列数和间距）
+1. 点击"查看地图"进入地图查看页面
+2. 点击工位，右侧弹出详情面板
+3. 在搜索框输入设备编号或名称，点击"绑定"按钮
+4. 已绑定设备可点击"解绑"按钮移除
 
-### 步骤5：查看地图
+### 步骤5：设备详情查看地图
 
-1. 点击"查看地图"或从"设备地图"入口进入
-2. 查看设备分布（工位和设备标记）
-3. 点击工位查看详情，点击设备标记查看设备信息
-4. 点击区域可跳转到对应房间
+1. 进入设备详情页
+2. 如果设备绑定了工位，右侧会显示平面图缩略图
+3. 缩略图中绑定的工位以红色高亮显示
+4. 点击"查看完整地图"可跳转到完整地图页面
 
 ## 地图编辑器功能说明
 
@@ -173,6 +185,8 @@ python3 manage.py runserver 0.0.0.0:8000
 | 画门 | 绘制门（支持方向设置） | D |
 | 画窗 | 绘制窗户 | N |
 | 画工位 | 绘制工位矩形 | B |
+| 画区域 | 绘制多边形区域 | P |
+| 文字标注 | 添加文字标签 | T |
 | 放大 | 放大视图 | + |
 | 缩小 | 缩小视图 | - |
 | 网格 | 显示/隐藏网格 | G |
@@ -180,65 +194,50 @@ python3 manage.py runserver 0.0.0.0:8000
 | 撤销 | 撤销上一步操作 | Ctrl+Z |
 | 重做 | 重做操作 | Ctrl+Y |
 | 删除 | 删除选中元素 | Delete |
-| 上传底图 | 上传图片作为地图背景 | - |
-| 清除底图 | 清除背景图片 | - |
 
-## 配置说明
+### 图层架构（7 层）
 
-### 地图配置
+| 图层 | 内容 | 说明 |
+|------|------|------|
+| Background Layer | 底图、网格 | 最底层 |
+| Element Layer | 墙、门、窗 | 建筑结构 |
+| Workstation Layer | 工位矩形 | 工位标记 |
+| Region Layer | 区域多边形 | 房间区域 |
+| Device Layer | 设备标记 | 未绑定工位的设备 |
+| Label Layer | 文字标注 | 自定义文字 |
+| Ruler Layer | 标尺 | 坐标标尺 |
 
-在位置编辑页面可配置：
+每层可在右侧图层面板中独立控制显示/隐藏。
 
-- **地图宽度/高度**: 画布大小
-- **网格大小**: 网格间距（默认50px）
-- **默认门垛宽度**: 自动生成门垛宽度（默认15px）
-- **默认吸附阈值**: 吸附灵敏度（默认10px）
-- **默认启用吸附**: 新元素默认吸附开关
+## RESTful API
 
-### 门设置
-
-选中门元素后可配置：
-
-- **门开方向**: 右开/左开/推拉
-- **门宽**: 门宽度（默认60px）
-- **打开角度**: 门打开角度（45°-180°）
-- **自动生成门垛**: 是否自动生成门垛
-- **门垛宽度**: 门垛宽度
-
-## 常见问题
-
-### Q: 如何进入设备地图？
-A: 
-- 方式1：资产管理 → 位置管理 → 选择3级楼层 → 点击地图图标
-- 方式2：资产管理 → 设备地图（侧边栏入口）
-
-### Q: 为什么看不到平面图编辑按钮？
-A: 只有3级位置（楼层）才能启用平面图功能。请先创建完整的位置层级（园区→设施→楼层）。
-
-### Q: 2级设施创建时如何自动生成楼层？
-A: 在创建2级设施时，设置"楼层数"字段（如：6），系统会自动创建6个3级楼层位置。
-
-### Q: 如何绑定设备到工位？
-A: 在工位管理页面，点击工位旁的"绑定设备"按钮，选择设备进行绑定。
+| 方法 | 路径 | 功能 |
+|------|------|------|
+| GET | `/assets/api/map-data/<location_id>/` | 获取地图数据 |
+| POST | `/assets/locations/<location_id>/elements/save/` | 保存地图元素 |
+| GET | `/assets/api/devices/search/?q=<query>` | 搜索设备 |
+| POST | `/assets/api/workstations/<ws_id>/bind-device/` | 绑定设备到工位 |
+| POST | `/assets/api/workstations/<ws_id>/unbind-device/` | 解绑设备 |
+| GET | `/assets/api/location-tree/` | 获取位置树 |
 
 ## 开发相关
 
 ### 创建新的数据库迁移
 
 ```bash
-python3 manage.py makemigrations
+python manage.py makemigrations
 ```
 
 ### 应用数据库迁移
 
 ```bash
-python3 manage.py migrate
+python manage.py migrate
 ```
 
 ### 收集静态文件
 
 ```bash
-python3 manage.py collectstatic
+python manage.py collectstatic
 ```
 
 ## 许可证

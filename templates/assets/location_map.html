@@ -2,563 +2,385 @@
 {% block title %}设备地图 - 驰达IT资产管理系统{% endblock %}
 {% block extra_css %}
 <style>
-#mapContainer { position: relative; width: 100%; height: 650px; border: 1px solid #ddd; background: #f5f5f5; overflow: hidden; }
-#mapCanvas { cursor: grab; }
-#mapCanvas:active { cursor: grabbing; }
-.ruler-h { position: absolute; top: 0; left: 30px; height: 24px; background: #fff; border-bottom: 1px solid #ccc; overflow: hidden; z-index: 5; }
-.ruler-v { position: absolute; top: 0; left: 0; width: 24px; background: #fff; border-right: 1px solid #ccc; overflow: hidden; z-index: 5; }
-.ruler-h canvas, .ruler-v canvas { display: block; }
-.coord-tip { position: absolute; background: rgba(0,0,0,0.7); color: #fff; padding: 2px 6px; font-size: 11px; border-radius: 3px; pointer-events: none; display: none; z-index: 20; }
-.location-tree { max-height: 400px; overflow-y: auto; }
-.tree-item { padding: 8px 12px; cursor: pointer; border-radius: 4px; }
+#mapContainer { position: relative; width: 100%; height: 700px; border: 1px solid #ddd; background: #f0f0f0; overflow: hidden; border-radius: 4px; }
+#mapCanvas { width: 100%; height: 100%; }
+#sidePanel { width: 300px; background: #fff; border-left: 1px solid #ddd; overflow-y: auto; display: none; padding: 0; }
+#sidePanel.show { display: block; }
+.panel-header { padding: 12px 15px; background: #f8f9fa; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+.panel-header h6 { margin: 0; font-size: 14px; }
+.panel-body { padding: 15px; }
+.device-item { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f0f0f0; }
+.device-item:last-child { border-bottom: none; }
+.search-results { max-height: 200px; overflow-y: auto; border: 1px solid #eee; border-radius: 4px; }
+.search-result-item { padding: 6px 10px; cursor: pointer; font-size: 12px; border-bottom: 1px solid #f5f5f5; }
+.search-result-item:hover { background: #e3f2fd; }
+.status-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; }
+.toolbar { position: absolute; top: 10px; right: 310px; z-index: 20; background: #fff; padding: 8px; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,0.15); display: flex; gap: 4px; }
+.toolbar.show-panel .toolbar { right: 310px; }
+.coord-display { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 20; background: rgba(0,0,0,0.7); color: #fff; padding: 4px 12px; border-radius: 20px; font-size: 12px; }
+.location-tree { max-height: 300px; overflow-y: auto; }
+.tree-item { padding: 6px 10px; cursor: pointer; border-radius: 4px; font-size: 13px; }
 .tree-item:hover { background: #f0f0f0; }
 .tree-item.active { background: #e3f2fd; }
-.toolbar { position: absolute; top: 30px; right: 10px; z-index: 10; background: #fff; padding: 10px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
-.toolbar button { margin: 2px; }
-.status-legend { position: absolute; bottom: 10px; left: 10px; z-index: 10; background: #fff; padding: 10px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
-.status-dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 5px; }
-.workstation-popup { position: absolute; background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 100; display: none; min-width: 200px; }
-.workstation-popup h6 { margin: 0 0 10px 0; border-bottom: 1px solid #eee; padding-bottom: 8px; }
+.legend { position: absolute; bottom: 10px; left: 10px; z-index: 20; background: #fff; padding: 8px 12px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); font-size: 12px; }
 </style>
 {% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex justify-content-between align-items-center mb-3">
     <h4><i class="fas fa-map-marked-alt"></i> 设备地图</h4>
     <div>
-        <a href="{% url 'device_list' %}" class="btn btn-outline-secondary me-2"><i class="fas fa-arrow-left"></i> 返回</a>
-        <a href="{% url 'location_area_binding' location.id %}" class="btn btn-warning"><i class="fas fa-draw-polygon"></i> 绑定房间区域</a>
         <a href="{% url 'location_map_edit' location.id %}" class="btn btn-primary"><i class="fas fa-edit"></i> 编辑地图</a>
-        <a href="{% url 'workstation_list' location.id %}" class="btn btn-outline-secondary"><i class="fas fa-th"></i> 工位管理</a>
-        <a href="{% url 'location_list' %}" class="btn btn-outline-secondary">返回位置</a>
+        <a href="{% url 'workstation_list' location.id %}" class="btn btn-outline-secondary ms-1"><i class="fas fa-th"></i> 工位管理</a>
+        <a href="{% url 'device_map' %}" class="btn btn-outline-secondary ms-1"><i class="fas fa-map"></i> 设备地图</a>
+        <a href="{% url 'location_list' %}" class="btn btn-outline-secondary ms-1">返回位置</a>
     </div>
 </div>
 <div class="row">
-    <div class="col-md-3">
+    <div class="col-md-2">
         <div class="card mb-3">
             <div class="card-header"><i class="fas fa-sitemap"></i> 位置导航</div>
             <div class="card-body location-tree" id="locationTree"></div>
         </div>
         <div class="card">
             <div class="card-header"><i class="fas fa-info-circle"></i> 当前信息</div>
-            <div class="card-body">
-                <p><strong>位置：</strong>{{ location.name }}</p>
-                <p><strong>编码：</strong>{{ location.code }}</p>
-                <p><strong>级别：</strong>{{ location.get_level_display }}</p>
-                <p><strong>工位数：</strong><span id="workstationCount">{{ workstations.count }}</span></p>
-                <p><strong>设备数：</strong><span id="deviceCount">0</span></p>
+            <div class="card-body" style="font-size:13px;">
+                <p class="mb-1"><strong>位置：</strong>{{ location.name }}</p>
+                <p class="mb-1"><strong>编码：</strong>{{ location.code }}</p>
+                <p class="mb-1"><strong>工位数：</strong><span id="wsCount">{{ workstations.count }}</span></p>
+                <p class="mb-0"><strong>设备数：</strong><span id="devCount">0</span></p>
             </div>
         </div>
     </div>
-    <div class="col-md-9">
-        <div id="mapContainer">
-            <div class="ruler-h" id="rulerH"><canvas id="rulerHCvs"></canvas></div>
-            <div class="ruler-v" id="rulerV"><canvas id="rulerVCvs"></canvas></div>
-            <canvas id="mapCanvas" width="{{ location.map_width }}" height="{{ location.map_height }}"></canvas>
-            <div class="coord-tip" id="coordTip"></div>
-            <div class="toolbar">
-                <button class="btn btn-sm btn-outline-secondary" onclick="mapViewer.zoomIn()" title="放大"><i class="fas fa-search-plus"></i></button>
-                <button class="btn btn-sm btn-outline-secondary" onclick="mapViewer.zoomOut()" title="缩小"><i class="fas fa-search-minus"></i></button>
-                <button class="btn btn-sm btn-outline-secondary" onclick="mapViewer.resetView()" title="适应画布"><i class="fas fa-compress-arrows-alt"></i></button>
-                <button class="btn btn-sm btn-outline-secondary" onclick="mapViewer.toggleGrid()" title="网格"><i class="fas fa-border-all"></i></button>
+    <div class="col-md-10">
+        <div id="mapContainer" style="position:relative;">
+            <div class="coord-display" id="coordDisplay" style="position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:20;background:rgba(0,0,0,.7);color:#fff;padding:4px 12px;border-radius:20px;font-size:12px;">X: 0, Y: 0</div>
+            <div class="toolbar" id="toolbar" style="position:absolute;top:10px;right:10px;z-index:20;background:#fff;padding:8px;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,.15);">
+                <button class="btn btn-sm btn-outline-secondary" onclick="zoomIn()" title="放大"><i class="fas fa-search-plus"></i></button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="zoomOut()" title="缩小"><i class="fas fa-search-minus"></i></button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="resetView()" title="适应"><i class="fas fa-compress-arrows-alt"></i></button>
+                <button class="btn btn-sm btn-outline-secondary" id="btnGrid" onclick="toggleGrid()" title="网格"><i class="fas fa-border-all"></i></button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="togglePanel()" title="面板"><i class="fas fa-columns"></i></button>
             </div>
-            <div class="status-legend">
-                <div class="mb-1"><span class="status-dot" style="background:#28a745;"></span>正常</div>
-                <div class="mb-1"><span class="status-dot" style="background:#ffc107;"></span>维修中</div>
-                <div class="mb-1"><span class="status-dot" style="background:#dc3545;"></span>故障</div>
-                <div><span class="status-dot" style="background:#6c757d;"></span>闲置</div>
+            <div class="legend" style="position:absolute;bottom:10px;left:10px;z-index:20;background:#fff;padding:8px 12px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1);font-size:12px;">
+                <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#28a745;"></span> 正常
+                <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#dc3545;margin-left:8px;"></span> 故障
+                <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#ffc107;margin-left:8px;"></span> 维修
+                <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#6c757d;margin-left:8px;"></span> 闲置
             </div>
-            <div class="workstation-popup" id="workstationPopup"></div>
+            <div id="mapCanvas"></div>
+            <div id="sidePanel" style="position:absolute;top:0;right:0;width:300px;height:100%;background:#fff;border-left:1px solid #ddd;overflow-y:auto;display:none;">
+                <div style="padding:12px 15px;background:#f8f9fa;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;">
+                    <h6 id="panelTitle" style="margin:0;font-size:14px;">工位详情</h6>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="closePanel()"><i class="fas fa-times"></i></button>
+                </div>
+                <div id="panelBody" style="padding:15px;"></div>
+            </div>
         </div>
     </div>
 </div>
 {% endblock %}
 {% block extra_js %}
+<script src="https://unpkg.com/konva@9/konva.min.js"></script>
 <script>
-const locationData = {{ location_tree|safe }};
-const currentLocationId = {{ location.id }};
-const mapData = {
-    elements: [
-        {% for el in elements %}{id:{{ el.id }},type:'{{ el.element_type }}',x:{{ el.x }},y:{{ el.y }},x2:{{ el.x2|default:'null' }},y2:{{ el.y2|default:'null' }},width:{{ el.width }},height:{{ el.height }},color:'{{ el.color }}',thickness:{{ el.thickness }},door_direction:'{{ el.door_direction|default:'right' }}',door_width:{{ el.door_width|default:60 }},door_open_angle:{{ el.door_open_angle|default:90 }}},{% endfor %}
-    ],
-    workstations: [
-        {% for ws in workstations %}{id:{{ ws.id }},code:'{{ ws.workstation_code }}',name:'{{ ws.name }}',x:{{ ws.x }},y:{{ ws.y }},width:{{ ws.width }},height:{{ ws.height }},status:'{{ ws.status }}',devices:[{% for d in ws.devices.all %}{id:{{ d.id }},asset_no:'{{ d.asset_no }}',name:'{{ d.name }}',status:'{{ d.status }}',user:'{{ d.user.realname|default:'' }}'},{% endfor %}]},{% endfor %}
-    ],
-    devices: [
-        {% for d in devices %}{% if not d.workstation %}{id:{{ d.id }},asset_no:'{{ d.asset_no }}',name:'{{ d.name }}',status:'{{ d.status }}',category:'{{ d.category.name|default:'' }}',x:{{ d.x|default:100 }},y:{{ d.y|default:100 }}},{% endif %}{% endfor %}
-    ],
-    areaBindings: [
-        {% for binding in area_bindings %}{id:{{ binding.id }},location_id:{{ binding.location_id }},location_name:'{{ binding.location.name }}',area_name:'{{ binding.area_name }}',area_points:{{ binding.area_points|safe }},area_color:'{{ binding.area_color }}'},{% endfor %}
-    ],
-    background: {{ background|yesno:'true,false' }}
-};
+const LOCATION_ID = {{ location.id }};
+const MAP_W = {{ location.map_width|default:1200 }};
+const MAP_H = {{ location.map_height|default:800 }};
+const CSRF = '{{ csrf_token }}';
+let showGrid = false;
+let selectedWS = null;
 
-class MapViewer {
-    constructor(canvasId) {
-        this.canvas = document.getElementById(canvasId);
-        this.ctx = this.canvas.getContext('2d');
-        this.scale = 1;
-        this.offsetX = 0;
-        this.offsetY = 0;
-        this.showGrid = false;
-        this.workstations = mapData.workstations || [];
-        this.elements = mapData.elements || [];
-        this.areaBindings = mapData.areaBindings || [];
-        this.devices = mapData.devices || [];
-        this.popup = document.getElementById('workstationPopup');
-        this.gridSize = 50;
-        this.init();
-    }
-    
-    init() {
-        this.initRulers();
-        
-        this.canvas.addEventListener('mousedown', (e) => this.onMouseDown(e));
-        this.canvas.addEventListener('mousemove', (e) => this.onMouseMove(e));
-        this.canvas.addEventListener('mouseup', (e) => this.onMouseUp(e));
-        this.canvas.addEventListener('click', (e) => this.onClick(e));
-        this.canvas.addEventListener('mouseleave', () => {
-            document.getElementById('coordTip').style.display = 'none';
+const stage = new Konva.Stage({ container: 'mapCanvas', width: MAP_W, height: MAP_H });
+const bgLayer = new Konva.Layer();
+const elementLayer = new Konva.Layer();
+const objLayer = new Konva.Layer();
+const uiLayer = new Konva.Layer();
+stage.add(bgLayer, elementLayer, objLayer, uiLayer);
+
+// Zoom
+function zoomIn() { stage.scale({ x: stage.scaleX() * 1.2, y: stage.scaleY() * 1.2 }); stage.batchDraw(); }
+function zoomOut() { stage.scale({ x: stage.scaleX() / 1.2, y: stage.scaleY() / 1.2 }); stage.batchDraw(); }
+function resetView() { stage.scale({ x: 1, y: 1 }); stage.position({ x: 0, y: 0 }); stage.batchDraw(); }
+function toggleGrid() { showGrid = !showGrid; loadMapData(LOCATION_ID); }
+stage.draggable(true);
+
+stage.on('mousemove', function(e) {
+    const pos = stage.getPointerPosition();
+    if (!pos) return;
+    const x = (pos.x - stage.x()) / stage.scaleX();
+    const y = (pos.y - stage.y()) / stage.scaleY();
+    document.getElementById('coordDisplay').textContent = `X: ${Math.round(x)}, Y: ${Math.round(y)}`;
+});
+
+// Load map data
+function loadMapData(locationId) {
+    fetch(`/assets/api/map-data/${locationId}/`)
+        .then(r => r.json())
+        .then(data => {
+            renderMap(data);
+            document.getElementById('wsCount').textContent = (data.workstations || []).length;
+            let devCount = 0;
+            (data.workstations || []).forEach(w => devCount += (w.devices || []).length);
+            devCount += (data.devices || []).length;
+            document.getElementById('devCount').textContent = devCount;
         });
-        
-        this.render();
-    }
-    
-    initRulers() {
-        const rulerH = document.getElementById('rulerHCvs');
-        const rulerV = document.getElementById('rulerVCvs');
-        const w = this.canvas.width;
-        const h = this.canvas.height;
-        
-        rulerH.width = w;
-        rulerH.height = 24;
-        rulerV.width = 24;
-        rulerV.height = h;
-        
-        this.drawRuler(rulerH.getContext('2d'), w, 24, true);
-        this.drawRuler(rulerV.getContext('2d'), h, 24, false);
-    }
-    
-    drawRuler(ctx, len, size, horizontal) {
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(0, 0, len, size);
-        ctx.strokeStyle = '#999';
-        ctx.lineWidth = 1;
-        ctx.font = '9px Arial';
-        ctx.fillStyle = '#666';
-        
-        for (let i = 0; i <= len; i += 10) {
-            const isMajor = i % 50 === 0;
-            const tickH = isMajor ? size : size / 2;
-            ctx.beginPath();
-            if (horizontal) {
-                ctx.moveTo(i, size - tickH);
-                ctx.lineTo(i, size);
-                if (isMajor) ctx.fillText(i, i + 2, 10);
-            } else {
-                ctx.moveTo(size - tickH, i);
-                ctx.lineTo(size, i);
-                if (isMajor) ctx.fillText(i, 4, i + 3);
-            }
-            ctx.stroke();
-        }
-    }
-    
-    getMousePos(e) {
-        const rect = this.canvas.getBoundingClientRect();
-        const x = (e.clientX - rect.left - this.offsetX) / this.scale;
-        const y = (e.clientY - rect.top - this.offsetY) / this.scale;
-        
-        const tip = document.getElementById('coordTip');
-        tip.textContent = `X: ${Math.round(x)}, Y: ${Math.round(y)}`;
-        tip.style.left = (e.clientX - rect.left + 15) + 'px';
-        tip.style.top = (e.clientY - rect.top - 20) + 'px';
-        tip.style.display = 'block';
-        
-        return { x, y };
-    }
-    
-    onMouseDown(e) {
-        this.isDragging = true;
-        this.lastX = e.clientX;
-        this.lastY = e.clientY;
-    }
-    
-    onMouseMove(e) {
-        const pos = this.getMousePos(e);
-        
-        if (this.isDragging) {
-            this.offsetX += e.clientX - this.lastX;
-            this.offsetY += e.clientY - this.lastY;
-            this.lastX = e.clientX;
-            this.lastY = e.clientY;
-            this.render();
-        }
-        
-        const ws = this.getWorkstationAt(pos.x, pos.y);
-        this.canvas.style.cursor = ws ? 'pointer' : 'grab';
-    }
-    
-    onMouseUp() {
-        this.isDragging = false;
-    }
-    
-    onClick(e) {
-        const pos = this.getMousePos(e);
-        const ws = this.getWorkstationAt(pos.x, pos.y);
-        if (ws) {
-            this.showWorkstationPopup(ws, e.clientX, e.clientY);
-        } else {
-            const device = this.getDeviceAt(pos.x, pos.y);
-            if (device) {
-                this.showDevicePopup(device, e.clientX, e.clientY);
-            } else {
-                const area = this.getAreaAt(pos.x, pos.y);
-                if (area) {
-                    window.location.href = `/assets/locations/${area.location_id}/`;
-                } else {
-                    this.popup.style.display = 'none';
-                }
-            }
-        }
-    }
-    
-    getAreaAt(x, y) {
-        for (const area of this.areaBindings) {
-            if (!area.area_points || area.area_points.length < 3) continue;
-            if (this.isPointInPolygon({x, y}, area.area_points)) {
-                return area;
-            }
-        }
-        return null;
-    }
-    
-    isPointInPolygon(point, polygon) {
-        let inside = false;
-        for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-            const xi = polygon[i].x, yi = polygon[i].y;
-            const xj = polygon[j].x, yj = polygon[j].y;
-            if (((yi > point.y) !== (yj > point.y)) &&
-                (point.x < (xj - xi) * (point.y - yi) / (yj - yi) + xi)) {
-                inside = !inside;
-            }
-        }
-        return inside;
-    }
-    
-    getWorkstationAt(x, y) {
-        for (const ws of this.workstations) {
-            if (x >= ws.x && x <= ws.x + ws.width && y >= ws.y && y <= ws.y + ws.height) {
-                return ws;
-            }
-        }
-        return null;
-    }
-    
-    showWorkstationPopup(ws, clientX, clientY) {
-        const mapContainer = document.getElementById('mapContainer');
-        const rect = mapContainer.getBoundingClientRect();
-        
-        let html = `<h6>工位: ${ws.code}</h6>`;
-        if (ws.devices && ws.devices.length > 0) {
-            html += '<ul class="list-unstyled mb-0">';
-            ws.devices.forEach(d => {
-                const statusColor = d.status === 'normal' ? '#28a745' : d.status === 'fault' ? '#dc3545' : d.status === 'repairing' ? '#ffc107' : '#6c757d';
-                html += `<li class="mb-1"><span class="status-dot" style="background:${statusColor}"></span><a href="/assets/${d.id}/" target="_blank">${d.asset_no}</a> - ${d.name}</li>`;
-            });
-            html += '</ul>';
-        } else {
-            html += '<p class="text-muted mb-0">暂无设备</p>';
-        }
-        
-        this.popup.innerHTML = html;
-        this.popup.style.left = (clientX - rect.left + 10) + 'px';
-        this.popup.style.top = (clientY - rect.top + 10) + 'px';
-        this.popup.style.display = 'block';
-    }
-    
-    zoomIn() {
-        this.scale *= 1.2;
-        this.render();
-    }
-    
-    zoomOut() {
-        this.scale /= 1.2;
-        this.render();
-    }
-    
-    resetView() {
-        this.scale = 1;
-        this.offsetX = 0;
-        this.offsetY = 0;
-        this.render();
-    }
-    
-    toggleGrid() {
-        this.showGrid = !this.showGrid;
-        this.render();
-    }
-    
-    render() {
-        const ctx = this.ctx;
-        const w = this.canvas.width;
-        const h = this.canvas.height;
-        
-        ctx.clearRect(0, 0, w, h);
-        
-        ctx.save();
-        ctx.translate(this.offsetX, this.offsetY);
-        ctx.scale(this.scale, this.scale);
-        
-        if (this.showGrid) {
-            this.drawGrid(ctx, w, h);
-        }
-        
-        this.areaBindings.forEach(area => {
-            this.drawAreaBinding(ctx, area);
-        });
-        
-        this.elements.forEach(el => {
-            this.drawElement(ctx, el);
-        });
-        
-        this.workstations.forEach(ws => {
-            this.drawWorkstation(ctx, ws);
-        });
-        
-        this.devices.forEach(d => {
-            this.drawDevice(ctx, d);
-        });
-        
-        ctx.restore();
-    }
-    
-    drawAreaBinding(ctx, area) {
-        if (!area.area_points || area.area_points.length < 3) return;
-        
-        ctx.fillStyle = area.area_color + '60';
-        ctx.strokeStyle = area.area_color;
-        ctx.lineWidth = 2;
-        
-        ctx.beginPath();
-        ctx.moveTo(area.area_points[0].x, area.area_points[0].y);
-        for (let i = 1; i < area.area_points.length; i++) {
-            ctx.lineTo(area.area_points[i].x, area.area_points[i].y);
-        }
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-        
-        const cx = area.area_points.reduce((s, p) => s + p.x, 0) / area.area_points.length;
-        const cy = area.area_points.reduce((s, p) => s + p.y, 0) / area.area_points.length;
-        ctx.fillStyle = '#000';
-        ctx.font = 'bold 12px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText(area.area_name || area.location_name, cx, cy);
-    }
-    
-    drawGrid(ctx, w, h) {
-        ctx.strokeStyle = '#e0e0e0';
-        ctx.lineWidth = 0.5;
-        const gridSize = 50;
-        
-        for (let x = 0; x <= w; x += gridSize) {
-            ctx.beginPath();
-            ctx.moveTo(x, 0);
-            ctx.lineTo(x, h);
-            ctx.stroke();
-        }
-        for (let y = 0; y <= h; y += gridSize) {
-            ctx.beginPath();
-            ctx.moveTo(0, y);
-            ctx.lineTo(w, y);
-            ctx.stroke();
-        }
-    }
-    
-    drawElement(ctx, el) {
-        ctx.strokeStyle = el.color || '#000';
-        ctx.lineWidth = el.thickness || 2;
-        
-        if (el.type === 'wall') {
-            ctx.beginPath();
-            ctx.moveTo(el.x, el.y);
-            if (el.x2 !== null && el.y2 !== null) {
-                ctx.lineTo(el.x2, el.y2);
-            }
-            ctx.stroke();
-        } else if (el.type === 'door') {
-            this.drawDoor(ctx, el);
-        } else if (el.type === 'window') {
-            ctx.beginPath();
-            ctx.moveTo(el.x, el.y);
-            ctx.lineTo(el.x + el.width, el.y + el.height);
-            ctx.stroke();
-        } else if (el.type === 'desk' || el.type === 'equipment') {
-            ctx.fillStyle = el.color || '#ddd';
-            ctx.fillRect(el.x, el.y, el.width, el.height);
-            ctx.strokeRect(el.x, el.y, el.width, el.height);
-        }
-    }
-    
-    drawDoor(ctx, el) {
-        const angle = (el.door_open_angle || 90) * Math.PI / 180;
-        const doorWidth = el.door_width || 60;
-        
-        ctx.strokeStyle = el.color || '#333';
-        ctx.lineWidth = el.thickness || 2;
-        
-        ctx.beginPath();
-        
-        if (el.door_direction === 'sliding') {
-            ctx.moveTo(el.x, el.y);
-            ctx.lineTo(el.x + doorWidth, el.y);
-            ctx.stroke();
-            
-            ctx.setLineDash([3, 3]);
-            ctx.moveTo(el.x, el.y + 5);
-            ctx.lineTo(el.x + doorWidth, el.y + 5);
-            ctx.stroke();
-            ctx.setLineDash([]);
-        } else {
-            ctx.moveTo(el.x, el.y);
-            ctx.lineTo(el.x + doorWidth, el.y);
-            ctx.stroke();
-            
-            const swingDir = el.door_direction === 'left' ? -1 : 1;
-            
-            ctx.beginPath();
-            ctx.arc(el.x, el.y, doorWidth, 0, angle * swingDir, swingDir < 0);
-            ctx.stroke();
-            
-            ctx.setLineDash([3, 3]);
-            ctx.beginPath();
-            ctx.moveTo(el.x, el.y);
-            ctx.lineTo(el.x + Math.cos(angle * swingDir) * doorWidth, el.y + Math.sin(angle * swingDir) * doorWidth);
-            ctx.stroke();
-            ctx.setLineDash([]);
-        }
-    }
-    
-    drawWorkstation(ctx, ws) {
-        let bgColor;
-        switch(ws.status) {
-            case 'occupied': bgColor = '#d4edda'; break;
-            case 'maintenance': bgColor = '#fff3cd'; break;
-            default: bgColor = '#e2e3e5';
-        }
-        
-        ctx.fillStyle = bgColor;
-        ctx.fillRect(ws.x, ws.y, ws.width, ws.height);
-        ctx.strokeStyle = '#495057';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(ws.x, ws.y, ws.width, ws.height);
-        
-        ctx.fillStyle = '#212529';
-        ctx.font = '10px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText(ws.code.split('-').pop(), ws.x + ws.width/2, ws.y + ws.height/2 + 3);
-    }
-    
-    drawDevice(ctx, d) {
-        let statusColor;
-        switch(d.status) {
-            case 'normal': statusColor = '#28a745'; break;
-            case 'fault': statusColor = '#dc3545'; break;
-            case 'repairing': statusColor = '#ffc107'; break;
-            case 'scrapped': statusColor = '#6c757d'; break;
-            default: statusColor = '#6c757d';
-        }
-        
-        const x = d.x || 100;
-        const y = d.y || 100;
-        
-        ctx.beginPath();
-        ctx.arc(x, y, 8, 0, Math.PI * 2);
-        ctx.fillStyle = statusColor;
-        ctx.fill();
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        
-        ctx.fillStyle = '#212529';
-        ctx.font = '9px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText(d.asset_no.split('-').pop(), x, y + 18);
-    }
-    
-    getDeviceAt(x, y) {
-        for (const d of this.devices) {
-            const dx = d.x || 100;
-            const dy = d.y || 100;
-            const dist = Math.sqrt((x - dx) ** 2 + (y - dy) ** 2);
-            if (dist <= 10) return d;
-        }
-        return null;
-    }
-    
-    showDevicePopup(d, clientX, clientY) {
-        const mapContainer = document.getElementById('mapContainer');
-        const rect = mapContainer.getBoundingClientRect();
-        
-        let statusColor = d.status === 'normal' ? '#28a745' : d.status === 'fault' ? '#dc3545' : d.status === 'repairing' ? '#ffc107' : '#6c757d';
-        
-        let html = `<h6>设备详情</h6>
-            <p class="mb-1"><strong>编号：</strong><a href="/assets/${d.id}/" target="_blank">${d.asset_no}</a></p>
-            <p class="mb-1"><strong>名称：</strong>${d.name}</p>
-            <p class="mb-1"><strong>分类：</strong>${d.category || '-'}</p>
-            <p class="mb-0"><span class="status-dot" style="background:${statusColor}"></span>${d.status === 'normal' ? '正常' : d.status === 'fault' ? '故障' : d.status === 'repairing' ? '维修中' : '闲置'}</p>`;
-        
-        this.popup.innerHTML = html;
-        this.popup.style.left = (clientX - rect.left + 10) + 'px';
-        this.popup.style.top = (clientY - rect.top + 10) + 'px';
-        this.popup.style.display = 'block';
-    }
-    
-    loadMapData(locationId) {
-        fetch(`/api/map-data/${locationId}/`)
-            .then(r => r.json())
-            .then(data => {
-                this.workstations = data.workstations || [];
-                this.elements = data.elements || [];
-                this.devices = data.devices || [];
-                this.areaBindings = data.area_bindings || [];
-                document.getElementById('workstationCount').textContent = this.workstations.length;
-                document.getElementById('deviceCount').textContent = data.devices ? data.devices.length : 0;
-                this.render();
-            });
-    }
 }
 
+function renderMap(data) {
+    bgLayer.destroyChildren();
+    elementLayer.destroyChildren();
+    objLayer.destroyChildren();
+
+    // Grid
+    if (showGrid) {
+        const gridSize = {{ location.grid_size|default:50 }};
+        for (let x = 0; x <= MAP_W; x += gridSize)
+            bgLayer.add(new Konva.Line({ points: [x, 0, x, MAP_H], stroke: '#e0e0e0', strokeWidth: 0.5 }));
+        for (let y = 0; y <= MAP_H; y += gridSize)
+            bgLayer.add(new Konva.Line({ points: [0, y, MAP_W, y], stroke: '#e0e0e0', strokeWidth: 0.5 }));
+    }
+
+    // Background
+    if (data.background && data.background.file_path) {
+        const img = new Image();
+        img.onload = function() {
+            bgLayer.add(new Konva.Image({ image: img, width: MAP_W, height: MAP_H, opacity: data.background.opacity || 0.5 }));
+            bgLayer.draw();
+        };
+        img.src = data.background.file_path;
+    }
+
+    // Area bindings / regions
+    (data.area_bindings || []).forEach(area => {
+        if (!area.area_points || area.area_points.length < 3) return;
+        const pts = JSON.parse(typeof area.area_points === 'string' ? area.area_points : JSON.stringify(area.area_points));
+        const flat = pts.reduce((a, p) => [...a, p.x, p.y], []);
+        objLayer.add(new Konva.Line({ points: flat, closed: true, fill: area.area_color + '40', stroke: area.area_color, strokeWidth: 2 }));
+        const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
+        const cy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
+        objLayer.add(new Konva.Text({ x: cx - 30, y: cy - 7, text: area.area_name || area.location_name || '', fontSize: 12, fill: '#333' }));
+    });
+
+    // Elements
+    (data.elements || []).forEach(el => {
+        if (el.element_type === 'wall') {
+            elementLayer.add(new Konva.Line({ points: [el.x, el.y, el.x2 || el.x + el.width, el.y2 || el.y], stroke: el.color || '#000', strokeWidth: el.thickness || 3, lineCap: 'round' }));
+        } else if (el.element_type === 'door') {
+            const dw = el.door_width || 60;
+            const group = new Konva.Group({ x: el.x, y: el.y });
+            group.add(new Konva.Line({ points: [0, 0, dw, 0], stroke: el.color || '#333', strokeWidth: 2 }));
+            if (el.door_direction !== 'sliding') {
+                const ang = (el.door_open_angle || 90) * Math.PI / 180;
+                group.add(new Konva.Arc({ innerRadius: 0, outerRadius: dw, angle: ang, rotation: el.door_direction === 'left' ? -ang * 180 / Math.PI : 0, stroke: el.color || '#333', strokeWidth: 1 }));
+            }
+            elementLayer.add(group);
+        } else if (el.element_type === 'window') {
+            elementLayer.add(new Konva.Line({ points: [el.x, el.y, el.x + (el.width || 60), el.y], stroke: el.color || '#2196F3', strokeWidth: 3, dash: [10, 5] }));
+        } else if (el.element_type === 'desk') {
+            elementLayer.add(new Konva.Rect({ x: el.x, y: el.y, width: el.width || 30, height: el.height || 20, fill: el.color || '#ddd', stroke: '#999', strokeWidth: 1 }));
+        } else if (el.element_type === 'workstation') {
+            const w = el.width || 60, h = el.height || 40;
+            const g = new Konva.Group({ x: el.x, y: el.y });
+            g.add(new Konva.Rect({ width: w, height: h, fill: el.color || '#e3f2fd', stroke: '#1976D2', strokeWidth: 1, cornerRadius: 3 }));
+            g.add(new Konva.Text({ text: el.label || '', fontSize: 11, fill: '#333', width: w, height: h, align: 'center', verticalAlign: 'middle' }));
+            objLayer.add(g);
+        } else if (el.element_type === 'region') {
+            try {
+                const pts = JSON.parse(el.points || '[]');
+                if (pts.length >= 2) {
+                    const flat = [];
+                    for (let i = 0; i < pts.length; i++) flat.push(pts[i].x, pts[i].y);
+                    const g = new Konva.Group();
+                    g.add(new Konva.Line({ points: flat, closed: true, fill: (el.color || '#3498db') + '40', stroke: el.color || '#3498db', strokeWidth: 2 }));
+                    let cx = 0, cy = 0;
+                    for (let j = 0; j < pts.length; j++) { cx += pts[j].x; cy += pts[j].y; }
+                    cx /= pts.length; cy /= pts.length;
+                    g.add(new Konva.Text({ x: cx - 30, y: cy - 7, text: el.label || '', fontSize: 12, fill: '#333', width: 60, align: 'center' }));
+                    objLayer.add(g);
+                }
+            } catch(e) {}
+        } else if (el.element_type === 'text') {
+            objLayer.add(new Konva.Text({ x: el.x, y: el.y, text: el.label || '', fontSize: 14, fill: el.color || '#333' }));
+        }
+    });
+
+    // Workstations
+    (data.workstations || []).forEach(ws => {
+        const w = ws.width || 60; const h = ws.height || 40;
+        let bgColor = ws.status === 'occupied' ? '#d4edda' : ws.status === 'maintenance' ? '#fff3cd' : '#e2e3e5';
+        let borderColor = ws.status === 'occupied' ? '#28a745' : ws.status === 'maintenance' ? '#ffc107' : '#6c757d';
+        const devCount = (ws.devices || []).length;
+
+        const group = new Konva.Group({ x: ws.x, y: ws.y, _wsData: ws });
+        group.add(new Konva.Rect({ width: w, height: h, fill: bgColor, stroke: borderColor, strokeWidth: 2, cornerRadius: 3, shadowColor: '#000', shadowBlur: 2, shadowOpacity: 0.1 }));
+        group.add(new Konva.Text({ text: ws.workstation_code || ws.code || '', fontSize: 11, fill: '#333', width: w, height: h - 14, align: 'center', verticalAlign: 'middle' }));
+        if (devCount > 0) {
+            group.add(new Konva.Text({ text: devCount + '台设备', fontSize: 9, fill: '#666', width: w, y: h - 14, height: 14, align: 'center' }));
+        }
+
+        group.on('click tap', function() { showWSPanel(ws); });
+
+        // Device dots on workstation
+        (ws.devices || []).forEach((d, i) => {
+            let sc = d.status === 'normal' ? '#28a745' : d.status === 'fault' ? '#dc3545' : d.status === 'repairing' ? '#ffc107' : '#6c757d';
+            const dx = w + 5 + (i % 3) * 16;
+            const dy = 5 + Math.floor(i / 3) * 16;
+            group.add(new Konva.Circle({ x: dx, y: dy + 8, radius: 6, fill: sc, stroke: '#fff', strokeWidth: 1.5 }));
+            group.add(new Konva.Text({ x: dx - 20, y: dy + 16, text: d.asset_no ? d.asset_no.split('-').pop() : '', fontSize: 8, fill: '#333', width: 40, align: 'center' }));
+        });
+
+        objLayer.add(group);
+    });
+
+    // Unbound devices
+    (data.devices || []).forEach(d => {
+        if (d.workstation) return;
+        let sc = d.status === 'normal' ? '#28a745' : d.status === 'fault' ? '#dc3545' : d.status === 'repairing' ? '#ffc107' : '#6c757d';
+        const dx = d.x || 100; const dy = d.y || 100;
+        objLayer.add(new Konva.Circle({ x: dx, y: dy, radius: 8, fill: sc, stroke: '#fff', strokeWidth: 2 }));
+        objLayer.add(new Konva.Text({ x: dx - 25, y: dy + 12, text: d.asset_no ? d.asset_no.split('-').pop() : '', fontSize: 9, fill: '#333', width: 50, align: 'center' }));
+    });
+
+    [bgLayer, elementLayer, objLayer, objLayer, objLayer, objLayer].forEach(l => l.draw());
+}
+
+// Right panel
+function togglePanel() {
+    const panel = document.getElementById('sidePanel');
+    const isOpen = panel.style.display !== 'none';
+    panel.style.display = isOpen ? 'none' : 'block';
+    stage.width(isOpen ? MAP_W : MAP_W - 300);
+    stage.batchDraw();
+}
+function closePanel() {
+    document.getElementById('sidePanel').style.display = 'none';
+    stage.width(MAP_W);
+    stage.batchDraw();
+    selectedWS = null;
+}
+
+function showWSPanel(ws) {
+    selectedWS = ws;
+    document.getElementById('sidePanel').style.display = 'block';
+    stage.width(MAP_W - 300);
+    stage.batchDraw();
+
+    document.getElementById('panelTitle').textContent = '工位: ' + (ws.workstation_code || ws.code);
+
+    let html = `
+        <div class="mb-3">
+            <p class="mb-1"><strong>编号：</strong>${ws.workstation_code || ws.code}</p>
+            <p class="mb-1"><strong>名称：</strong>${ws.name || '-'}</p>
+            <p class="mb-0"><strong>状态：</strong>
+                <span class="badge ${ws.status === 'occupied' ? 'bg-primary' : ws.status === 'maintenance' ? 'bg-warning' : 'bg-secondary'}">
+                    ${ws.status === 'occupied' ? '已占用' : ws.status === 'maintenance' ? '维修中' : '可用'}
+                </span>
+            </p>
+        </div>
+        <hr>
+        <h6 style="font-size:13px;">已绑定设备 (${(ws.devices || []).length})</h6>
+        <div id="boundDevices">`;
+
+    (ws.devices || []).forEach(d => {
+        const sc = d.status === 'normal' ? '#28a745' : d.status === 'fault' ? '#dc3545' : d.status === 'repairing' ? '#ffc107' : '#6c757d';
+        html += `<div class="device-item">
+            <div><span class="status-dot" style="background:${sc}"></span>
+                <a href="/assets/${d.id}/" target="_blank">${d.asset_no}</a> ${d.name || ''}
+            </div>
+            <button class="btn btn-sm btn-outline-danger" onclick="unbindDevice(${ws.id}, ${d.id})">解绑</button>
+        </div>`;
+    });
+    if (!(ws.devices || []).length) html += '<p class="text-muted" style="font-size:12px;">暂无设备</p>';
+    html += `</div>
+        <hr>
+        <h6 style="font-size:13px;">绑定新设备</h6>
+        <div class="input-group input-group-sm mb-2">
+            <input type="text" class="form-control" id="deviceSearchInput" placeholder="输入设备编号或名称" oninput="searchDevices(${ws.id})">
+        </div>
+        <div class="search-results" id="searchResults" style="display:none;"></div>`;
+
+    document.getElementById('panelBody').innerHTML = html;
+}
+
+function searchDevices(wsId) {
+    const q = document.getElementById('deviceSearchInput').value.trim();
+    if (q.length < 1) { document.getElementById('searchResults').style.display = 'none'; return; }
+    fetch(`/assets/api/devices/search/?q=${encodeURIComponent(q)}`)
+        .then(r => r.json())
+        .then(data => {
+            const container = document.getElementById('searchResults');
+            if (!data.devices || !data.devices.length) { container.style.display = 'none'; return; }
+            container.style.display = 'block';
+            container.innerHTML = data.devices.map(d =>
+                `<div class="search-result-item" onclick="bindDevice(${wsId}, ${d.id})">
+                    <strong>${d.asset_no}</strong> - ${d.name} <span class="text-muted">(${d.status_display || d.status})</span>
+                </div>`
+            ).join('');
+        });
+}
+
+function bindDevice(wsId, deviceId) {
+    if (!confirm('确定绑定此设备到当前工位？')) return;
+    fetch(`/assets/api/workstations/${wsId}/bind-device/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': CSRF, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ device_id: deviceId })
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.success) {
+            loadMapData(LOCATION_ID);
+            // Re-fetch ws data and refresh panel
+            fetch(`/assets/api/map-data/${LOCATION_ID}/`).then(r => r.json()).then(data => {
+                const ws = (data.workstations || []).find(w => w.id === wsId);
+                if (ws) showWSPanel(ws);
+            });
+        } else { alert('绑定失败: ' + res.message); }
+    });
+}
+
+function unbindDevice(wsId, deviceId) {
+    if (!confirm('确定解绑此设备？')) return;
+    fetch(`/assets/api/workstations/${wsId}/unbind-device/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': CSRF, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ device_id: deviceId })
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.success) {
+            loadMapData(LOCATION_ID);
+            fetch(`/assets/api/map-data/${LOCATION_ID}/`).then(r => r.json()).then(data => {
+                const ws = (data.workstations || []).find(w => w.id === wsId);
+                if (ws) showWSPanel(ws); else closePanel();
+            });
+        } else { alert('解绑失败: ' + res.message); }
+    });
+}
+
+// Location tree
 function buildTreeHtml(nodes, activeId) {
     let html = '';
     nodes.forEach(node => {
         const hasChildren = node.children && node.children.length > 0;
         const isActive = node.id === activeId;
-        const hasMapIcon = node.has_map ? '<i class="fas fa-map text-primary ms-1"></i>' : '';
-        
-        html += `<div class="tree-item ${isActive ? 'active' : ''}" data-id="${node.id}" onclick="selectLocation(${node.id}, '${node.name}')">
-            <i class="fas ${hasChildren ? 'fa-folder' : 'fa-map-marker'} me-1"></i>${node.name}${hasMapIcon}
+        const icon = node.has_map ? '<i class="fas fa-map text-primary ms-1" style="font-size:11px;"></i>' : '';
+        html += `<div class="tree-item ${isActive ? 'active' : ''}" data-id="${node.id}" onclick="selectLocation(${node.id})">
+            <i class="fas ${hasChildren ? 'fa-folder' : 'fa-map-marker'} me-1"></i>${node.name}${icon}
         </div>`;
-        if (hasChildren) {
-            html += `<div class="ms-3">${buildTreeHtml(node.children, activeId)}</div>`;
-        }
+        if (hasChildren) html += `<div class="ms-2">${buildTreeHtml(node.children, activeId)}</div>`;
     });
     return html;
 }
-
-function selectLocation(id, name) {
+function selectLocation(id) {
     document.querySelectorAll('.tree-item').forEach(el => el.classList.remove('active'));
-    document.querySelector(`[data-id="${id}"]`).classList.add('active');
-    mapViewer.loadMapData(id);
+    document.querySelector(`[data-id="${id}"]`)?.classList.add('active');
+    closePanel();
+    loadMapData(id);
 }
 
-let mapViewer;
-document.addEventListener('DOMContentLoaded', function() {
-    const treeHtml = buildTreeHtml(locationData, currentLocationId);
-    document.getElementById('locationTree').innerHTML = treeHtml || '<p class="text-muted p-2">暂无位置数据</p>';
-    
-    mapViewer = new MapViewer('mapCanvas');
-    mapViewer.loadMapData(currentLocationId);
-});
+// Init
+const locationData = JSON.parse('{{ location_tree_json|escapejs }}');
+document.getElementById('locationTree').innerHTML = buildTreeHtml(locationData, {{ location.id }}) || '<p class="text-muted p-2">暂无数据</p>';
+loadMapData({{ location.id }});
 </script>
 {% endblock %}

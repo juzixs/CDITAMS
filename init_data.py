@@ -80,97 +80,49 @@ def init_categories():
     Device.objects.all().delete()
     AssetCategory.objects.all().delete()
     
-    xcd = AssetCategory.objects.create(
-        code='XACD',
-        name='西安驰达',
-        level=1,
-        description='西安驰达飞机零部件制造股份有限公司',
-        sort=1
+    xcd, _ = AssetCategory.objects.get_or_create(
+        code='XACD', defaults=dict(name='西安驰达', level=1, description='西安驰达飞机零部件制造股份有限公司', sort=1)
     )
-    xays = AssetCategory.objects.create(
-        code='XAYS',
-        name='西安优盛',
-        level=1,
-        description='西安优盛航空科技有限公司',
-        sort=2
+    xays, _ = AssetCategory.objects.get_or_create(
+        code='XAYS', defaults=dict(name='西安优盛', level=1, description='西安优盛航空科技有限公司', sort=2)
     )
     
-    z_xcd = AssetCategory.objects.create(
-        code='Z',
-        name='总经办',
-        parent=xcd,
-        level=2,
-        sort=1
+    z_xcd, _ = AssetCategory.objects.get_or_create(
+        code='Z', defaults=dict(name='总经办', parent=xcd, level=2, sort=1)
     )
-    z_xays = AssetCategory.objects.create(
-        code='Y',
-        name='总经办',
-        parent=xays,
-        level=2,
-        sort=1
+    z_xays, _ = AssetCategory.objects.get_or_create(
+        code='Y', defaults=dict(name='总经办', parent=xays, level=2, sort=1)
     )
     
-    jsj_xcd = AssetCategory.objects.create(
-        code='001',
-        name='计算机',
-        parent=z_xcd,
-        level=3,
-        sort=1
+    jsj_xcd, _ = AssetCategory.objects.get_or_create(
+        code='001', parent=z_xcd, defaults=dict(name='计算机', level=3, sort=1)
     )
-    bgs_xcd = AssetCategory.objects.create(
-        code='002',
-        name='办公设备',
-        parent=z_xcd,
-        level=3,
-        sort=2
+    bgs_xcd, _ = AssetCategory.objects.get_or_create(
+        code='002', parent=z_xcd, defaults=dict(name='办公设备', level=3, sort=2)
     )
-    xx_xcd = AssetCategory.objects.create(
-        code='003',
-        name='信息设备',
-        parent=z_xcd,
-        level=3,
-        sort=3
+    xx_xcd, _ = AssetCategory.objects.get_or_create(
+        code='003', parent=z_xcd, defaults=dict(name='信息设备', level=3, sort=3)
     )
     
-    jsj_xays = AssetCategory.objects.create(
-        code='001',
-        name='计算机',
-        parent=z_xays,
-        level=3,
-        sort=1
+    jsj_xays, _ = AssetCategory.objects.get_or_create(
+        code='001', parent=z_xays, defaults=dict(name='计算机', level=3, sort=1)
     )
-    bgs_xays = AssetCategory.objects.create(
-        code='002',
-        name='办公设备',
-        parent=z_xays,
-        level=3,
-        sort=2
+    bgs_xays, _ = AssetCategory.objects.get_or_create(
+        code='002', parent=z_xays, defaults=dict(name='办公设备', level=3, sort=2)
     )
-    xx_xays = AssetCategory.objects.create(
-        code='003',
-        name='信息设备',
-        parent=z_xays,
-        level=3,
-        sort=3
+    xx_xays, _ = AssetCategory.objects.get_or_create(
+        code='003', parent=z_xays, defaults=dict(name='信息设备', level=3, sort=3)
     )
     
     computer_children = [
         ('台式机', '001', 1), ('笔记本', '002', 2), ('显示器', '003', 3), ('其他', '004', 4)
     ]
     for name, code, sort in computer_children:
-        AssetCategory.objects.create(
-            code=code,
-            name=name,
-            parent=jsj_xcd,
-            level=4,
-            sort=sort
+        AssetCategory.objects.get_or_create(
+            code=code, parent=jsj_xcd, defaults=dict(name=name, level=4, sort=sort)
         )
-        AssetCategory.objects.create(
-            code=code,
-            name=name,
-            parent=jsj_xays,
-            level=4,
-            sort=sort
+        AssetCategory.objects.get_or_create(
+            code=code, parent=jsj_xays, defaults=dict(name=name, level=4, sort=sort)
         )
     
     office_children = [
@@ -178,38 +130,22 @@ def init_categories():
         ('投影仪', '005', 5), ('交换机', '006', 6), ('平板一体机', '007', 7), ('照相机', '008', 8), ('其他', '009', 9)
     ]
     for name, code, sort in office_children:
-        AssetCategory.objects.create(
-            code=code,
-            name=name,
-            parent=bgs_xcd,
-            level=4,
-            sort=sort
+        AssetCategory.objects.get_or_create(
+            code=code, parent=bgs_xcd, defaults=dict(name=name, level=4, sort=sort)
         )
-        AssetCategory.objects.create(
-            code=code,
-            name=name,
-            parent=bgs_xays,
-            level=4,
-            sort=sort
+        AssetCategory.objects.get_or_create(
+            code=code, parent=bgs_xays, defaults=dict(name=name, level=4, sort=sort)
         )
     
     info_children = [
         ('服务器', '001', 1), ('存储器', '002', 2), ('监控设备', '003', 3), ('监控系统', '004', 4), ('其他', '005', 5)
     ]
     for name, code, sort in info_children:
-        AssetCategory.objects.create(
-            code=code,
-            name=name,
-            parent=xx_xcd,
-            level=4,
-            sort=sort
+        AssetCategory.objects.get_or_create(
+            code=code, parent=xx_xcd, defaults=dict(name=name, level=4, sort=sort)
         )
-        AssetCategory.objects.create(
-            code=code,
-            name=name,
-            parent=xx_xays,
-            level=4,
-            sort=sort
+        AssetCategory.objects.get_or_create(
+            code=code, parent=xx_xays, defaults=dict(name=name, level=4, sort=sort)
         )
     
     print(f"已初始化 {AssetCategory.objects.count()} 条分类数据")

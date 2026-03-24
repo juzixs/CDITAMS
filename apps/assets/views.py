@@ -4,6 +4,7 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_http_methods
+from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from django.conf import settings
@@ -243,7 +244,17 @@ def device_detail(request, pk):
     device = get_object_or_404(Device.objects.select_related('category', 'location', 'user', 'department', 'workstation'), pk=pk)
     logs = device.logs.all()[:20]
     all_fields = DeviceField.objects.all().order_by('sort')
-    return render(request, 'assets/device_detail.html', {'device': device, 'logs': logs, 'all_fields': all_fields})
+    
+    ws_location_id = None
+    ws_id = None
+    if device.workstation_id:
+        ws_id = device.workstation_id
+        ws_location_id = device.workstation.location_id
+    
+    return render(request, 'assets/device_detail.html', {
+        'device': device, 'logs': logs, 'all_fields': all_fields,
+        'ws_location_id': ws_location_id, 'ws_id': ws_id,
+    })
 
 
 @login_required
@@ -677,27 +688,6 @@ def device_map(request):
     
     return render(request, 'assets/device_map.html', {
         'locations': location_list,
-    })
-
-
-@login_required
-def location_map(request, pk):
-    location = get_object_or_404(AssetLocation, pk=pk)
-    elements = location.map_elements.all()
-    workstation = location.workstations.all()
-    area_bindings = LocationAreaBinding.objects.filter(parent_location=location)
-    
-    try:
-        background = location.background
-    except MapBackground.DoesNotExist:
-        background = None
-    
-    return render(request, 'assets/location_map.html', {
-        'location': location,
-        'elements': elements,
-        'workstations': workstation,
-        'background': background,
-        'area_bindings': area_bindings,
     })
 
 
@@ -1136,6 +1126,7 @@ def map_data(request, pk):
     })
 
 
+@csrf_exempt
 @login_required
 def map_element_save(request):
     if request.method == 'POST':
@@ -1166,6 +1157,7 @@ def map_element_save(request):
                     'thickness': int(el_data.get('thickness', 2)),
                     'points': el_data.get('points', ''),
                     'properties': el_data.get('properties', ''),
+                    'label': el_data.get('label', ''),
                     'sort_order': int(el_data.get('sort_order', 0)),
                     'door_direction': el_data.get('door_direction', 'right'),
                     'door_width': float(el_data.get('door_width', 60)),
@@ -1488,13 +1480,14 @@ def location_map(request, pk):
     
     roots = AssetLocation.objects.filter(parent__isnull=True)
     location_tree = [build_tree(loc) for loc in roots]
+    location_tree_json = json.dumps(location_tree)
     
     return render(request, 'assets/location_map.html', {
         'location': location,
         'elements': elements,
         'workstations': workstations,
         'background': background,
-        'location_tree': location_tree,
+        'location_tree_json': location_tree_json,
         'all_locations': all_locations,
     })
 
@@ -1502,11 +1495,32 @@ def location_map(request, pk):
 @login_required
 def location_map_edit(request, pk):
     location = get_object_or_404(AssetLocation, pk=pk)
-    elements = location.map_elements.all()
+    
+    elements_qs = location.map_elements.all()
+    elements_list = []
+    for el in elements_qs:
+        elements_list.append({
+            'i': el.id,
+            't': el.element_type,
+            'x': el.x,
+            'y': el.y,
+            'x2': el.x2,
+            'y2': el.y2,
+            'w': el.width,
+            'h': el.height,
+            'c': el.color or '#000',
+            'th': el.thickness,
+            'dd': el.door_direction or 'right',
+            'dw': el.door_width or 60,
+            'da': el.door_open_angle or 90,
+            'pt': el.points or '',
+            'label': el.label or '',
+        })
+    elements_json = json.dumps(elements_list)
     
     return render(request, 'assets/map_editor.html', {
         'location': location,
-        'elements': elements,
+        'elements_json': elements_json,
     })
 
 
@@ -1571,3 +1585,78 @@ def api_location_area_bindings(request, pk):
     } for b in bindings]
     
     return JsonResponse({'success': True, 'bindings': data})
+
+
+@login_required
+def api_devices_search(request):
+    q = request.GET.get('q', '').strip()
+    if not q:
+        return JsonResponse({'success': True, 'devices': []})
+    devices = Device.objects.filter(
+        Q(asset_no__icontains=q) | Q(name__icontains=q) | Q(serial_no__icontains=q)
+    ).select_related('category', 'user', 'workstation')[:20]
+    data = [{
+        'id': d.id,
+        'asset_no': d.asset_no,
+        'name': d.name,
+        'status': d.status,
+        'status_display': d.get_status_display(),
+        'category': d.category.name if d.category else '',
+        'user': d.user.realname if d.user else '',
+        'workstation_id': d.workstation_id,
+    } for d in devices]
+    return JsonResponse({'success': True, 'devices': data})
+
+
+@csrf_exempt
+@login_required
+@require_http_methods(["POST"])
+def api_workstation_bind_device(request, pk):
+    try:
+        workstation = get_object_or_404(Workstation, pk=pk)
+        body = json.loads(request.body) if request.content_type == 'application/json' else request.POST
+        device_id = body.get('device_id')
+        device = get_object_or_404(Device, pk=device_id)
+        device.workstation = workstation
+        device.location = workstation.location
+        parts = []
+        loc = workstation.location
+        while loc:
+            parts.insert(0, loc.name)
+            loc = loc.parent
+        parts.append(workstation.workstation_code)
+        device.location_text = '-'.join(parts)
+        device.save()
+        workstation.status = 'occupied'
+        workstation.save()
+        AssetLog.objects.create(
+            device=device, user=request.user, action='assign',
+            field_name='workstation', old_value='', new_value=str(workstation),
+        )
+        return JsonResponse({'success': True, 'message': '绑定成功'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+
+@csrf_exempt
+@login_required
+@require_http_methods(["POST"])
+def api_workstation_unbind_device(request, pk):
+    try:
+        workstation = get_object_or_404(Workstation, pk=pk)
+        body = json.loads(request.body) if request.content_type == 'application/json' else request.POST
+        device_id = body.get('device_id')
+        device = get_object_or_404(Device, pk=device_id)
+        old_ws = str(device.workstation) if device.workstation else ''
+        device.workstation = None
+        device.save()
+        if not workstation.devices.exists():
+            workstation.status = 'available'
+            workstation.save()
+        AssetLog.objects.create(
+            device=device, user=request.user, action='transfer',
+            field_name='workstation', old_value=old_ws, new_value='未绑定',
+        )
+        return JsonResponse({'success': True, 'message': '解绑成功'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})

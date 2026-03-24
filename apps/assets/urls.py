@@ -22,6 +22,7 @@ urlpatterns = [
     path('api/categories/<int:id>/', views.api_category_delete, name='api_category_delete'),
     path('api/devices/generate-asset-number/', views.api_generate_asset_number, name='api_generate_asset_number'),
     path('api/devices/get-category-by-asset-no/', views.api_get_category_by_asset_no, name='api_get_category_by_asset_no'),
+    path('api/devices/search/', views.api_devices_search, name='api_devices_search'),
     
     path('categories/', views.category_list, name='category_list'),
     path('categories/create/', views.category_create, name='category_create'),
@@ -34,7 +35,7 @@ urlpatterns = [
     path('locations/<int:pk>/delete/', views.location_delete, name='location_delete'),
     path('map/', views.device_map, name='device_map'),
     path('locations/<int:pk>/map/', views.location_map, name='location_map'),
-    path('locations/<int:pk>/map/edit/', views.location_map, name='location_map_edit'),
+    path('locations/<int:pk>/map/edit/', views.location_map_edit, name='location_map_edit'),
     path('api/location-tree/', views.location_tree, name='api_location_tree'),
     path('api/map-data/<int:pk>/', views.map_data, name='api_map_data'),
     
@@ -44,8 +45,10 @@ urlpatterns = [
     path('workstations/<int:pk>/edit/', views.workstation_edit, name='workstation_edit'),
     path('workstations/<int:pk>/delete/', views.workstation_delete, name='workstation_delete'),
     path('workstations/batch-create/', views.workstation_batch_create, name='workstation_batch_create'),
+    path('api/workstations/<int:pk>/bind-device/', views.api_workstation_bind_device, name='api_workstation_bind_device'),
+    path('api/workstations/<int:pk>/unbind-device/', views.api_workstation_unbind_device, name='api_workstation_unbind_device'),
     
-    path('locations/<int:pk>/elements/save/', views.map_element_save, name='map_element_save'),
+    path('locations/elements/save/', views.map_element_save, name='map_element_save'),
     path('elements/<int:pk>/delete/', views.map_element_delete, name='map_element_delete'),
     path('locations/<int:pk>/background/upload/', views.map_background_upload, name='map_background_upload'),
     

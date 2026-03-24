@@ -324,6 +324,7 @@ class MapElement(models.Model):
     auto_doorstop = models.BooleanField(default=True, verbose_name='自动生成门垛')
     snap_enabled = models.BooleanField(default=True, verbose_name='启用吸附')
     snap_threshold = models.FloatField(default=10, verbose_name='吸附阈值')
+    label = models.CharField(max_length=100, blank=True, default='', verbose_name='标签文字')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
 
