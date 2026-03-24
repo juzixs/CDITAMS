@@ -68,7 +68,7 @@
     </div>
 </div>
 <div id="inf">
-    <span>网格:<input type="number" id="iG" value="{{ location.grid_size|default:50 }}"> px</span>
+    <span>网格:<input type="number" id="iG" value="{{ location.grid_size|default:30 }}"> px</span>
     <span>吸附:<input type="number" id="iS" value="{{ location.default_snap_threshold|default:10 }}"> px</span>
     <span>缩放:<span id="zl">100%</span></span>
 </div>
@@ -93,7 +93,7 @@ function getCsrf() {
 }
 var MW = {{ location.map_width|default:1200 }};
 var MH = {{ location.map_height|default:800 }};
-var gSize = {{ location.grid_size|default:50 }};
+var gSize = {{ location.grid_size|default:30 }};
 var sTh = {{ location.default_snap_threshold|default:10 }};
 var sOn = {{ location.default_snap_enabled|yesno:'true,false' }};
 var gOn = true, scl = 1, tool = 'select', sel = null;
@@ -181,12 +181,46 @@ function mkS(d) {
         n = new Konva.Text({ x: d.x, y: d.y, text: d.label || '标注', fontSize: d.fs || 14, fill: d.c || '#333', draggable: true });
         objL.add(n);
     }
-    if (n) { n._d = d; n.on('click tap', function() { doSelect(this); }); }
+    if (n) {
+        n._d = d;
+        n.on('click tap', function() { doSelect(this); });
+        n.on('dragend', function() {
+            var nd = this._d;
+            if (!nd) return;
+            if (this instanceof Konva.Group) {
+                nd.x = Math.round(this.x());
+                nd.y = Math.round(this.y());
+            } else if (this instanceof Konva.Line) {
+                var pts = this.points();
+                var dx = this.x(), dy = this.y();
+                if (nd.t === 'wall' && pts.length >= 4) {
+                    nd.x = Math.round(dx + pts[0]);
+                    nd.y = Math.round(dy + pts[1]);
+                    nd.x2 = Math.round(dx + pts[2]);
+                    nd.y2 = Math.round(dy + pts[3]);
+                    this.position({ x: 0, y: 0 });
+                    this.points([nd.x, nd.y, nd.x2, nd.y2]);
+                } else {
+                    nd.x = Math.round(dx + (pts[0] || 0));
+                    nd.y = Math.round(dy + (pts[1] || 0));
+                    this.position({ x: 0, y: 0 });
+                    this.points([nd.x, nd.y, nd.x + (nd.w || 60), nd.y]);
+                }
+            } else if (this instanceof Konva.Text) {
+                nd.x = Math.round(this.x());
+                nd.y = Math.round(this.y());
+            } else if (this instanceof Konva.Rect) {
+                nd.x = Math.round(this.x());
+                nd.y = Math.round(this.y());
+            }
+            saveH();
+        });
+    }
     return n;
 }
 
 for (var i = 0; i < initE.length; i++) mkS(initE[i]);
-saveH(); [elL, objL, objL, objL].forEach(function(l) { l.draw(); });
+saveH(); [elL, objL].forEach(function(l) { l.draw(); });
 
 // Selection
 function doSelect(node) {
@@ -355,7 +389,7 @@ document.addEventListener('keydown', function(e) {
 });
 document.addEventListener('keyup', function(e) { if (e.code === 'Space') { spcDown = false; stage.container().style.cursor = tool === 'select' ? 'default' : 'crosshair'; } });
 
-function rebuildH() { [elL, objL, objL, objL].forEach(function(l) { l.destroyChildren(); l.draw(); }); hist[hIdx].forEach(function(d) { mkS(d); }); [elL, objL, objL, objL].forEach(function(l) { l.draw(); }); uHB(); }
+function rebuildH() { [elL, objL].forEach(function(l) { l.destroyChildren(); l.draw(); }); hist[hIdx].forEach(function(d) { mkS(d); }); [elL, objL].forEach(function(l) { l.draw(); }); uHB(); }
 
 function doDelete() {
     if (!sel) return; var l = sel.getLayer(); sel.destroy(); tr.nodes([]); l.draw(); uiL.draw(); sel = null;

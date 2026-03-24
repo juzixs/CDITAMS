@@ -131,7 +131,7 @@ function renderMap(data) {
 
     // Grid
     if (showGrid) {
-        const gridSize = {{ location.grid_size|default:50 }};
+        const gridSize = {{ location.grid_size|default:30 }};
         for (let x = 0; x <= MAP_W; x += gridSize)
             bgLayer.add(new Konva.Line({ points: [x, 0, x, MAP_H], stroke: '#e0e0e0', strokeWidth: 0.5 }));
         for (let y = 0; y <= MAP_H; y += gridSize)

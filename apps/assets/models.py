@@ -75,7 +75,7 @@ class AssetLocation(models.Model):
     has_map = models.BooleanField(default=False, verbose_name='是否有地图')
     map_width = models.IntegerField(default=1200, verbose_name='地图宽度')
     map_height = models.IntegerField(default=800, verbose_name='地图高度')
-    grid_size = models.IntegerField(default=50, verbose_name='网格大小')
+    grid_size = models.IntegerField(default=30, verbose_name='网格大小')
     default_doorstop_width = models.FloatField(default=15, verbose_name='默认门垛宽度')
     default_snap_threshold = models.FloatField(default=10, verbose_name='默认吸附阈值')
     default_snap_enabled = models.BooleanField(default=True, verbose_name='默认启用吸附')
