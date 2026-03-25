@@ -235,11 +235,8 @@ function renderMap(data) {
         const devCount = (ws.devices || []).length;
 
         const group = new Konva.Group({ x: ws.x, y: ws.y, _wsData: ws });
-        group.add(new Konva.Rect({ width: w, height: h, fill: bgColor, stroke: borderColor, strokeWidth: 2, cornerRadius: 3, shadowColor: '#000', shadowBlur: 2, shadowOpacity: 0.1 }));
-        group.add(new Konva.Text({ text: ws.workstation_code || ws.code || '', fontSize: 11, fill: '#333', width: w, height: h - 14, align: 'center', verticalAlign: 'middle' }));
-        if (devCount > 0) {
-            group.add(new Konva.Text({ text: devCount + '台设备', fontSize: 9, fill: '#666', width: w, y: h - 14, height: 14, align: 'center' }));
-        }
+        group.add(new Konva.Rect({ width: w, height: h, fill: bgColor, stroke: borderColor, strokeWidth: 2, cornerRadius: 3 }));
+        group.add(new Konva.Text({ text: ws.workstation_code || ws.code || '', fontSize: 11, fill: '#333', width: w, height: h, align: 'center', verticalAlign: 'middle' }));
 
         group.on('click tap', function() { showWSPanel(ws); });
 
