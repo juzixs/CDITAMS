@@ -2,8 +2,8 @@
 {% block title %}设备地图 - 驰达IT资产管理系统{% endblock %}
 {% block extra_css %}
 <style>
-#mapContainer { position: relative; width: 100%; height: calc(100vh - 180px); border: 1px solid #ddd; background: #f0f0f0; overflow: hidden; border-radius: 4px; }
-#mapCanvas { }
+#mapContainer { position: relative; width: 100%; height: calc(100vh - 150px); border: 1px solid #ddd; background: #f0f0f0; overflow: hidden; border-radius: 4px; }
+#mapCanvas { width: 100%; height: 100%; }
 #sidePanel { width: 300px; background: #fff; border-left: 1px solid #ddd; overflow-y: auto; display: none; padding: 0; }
 #sidePanel.show { display: block; }
 .panel-header { padding: 12px 15px; background: #f8f9fa; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
@@ -86,7 +86,9 @@ const LOCATION_ID = {{ location.id }};
 const MAP_W = {{ location.map_width|default:1200 }};
 const MAP_H = {{ location.map_height|default:800 }};
 
-const stage = new Konva.Stage({ container: 'mapCanvas', width: MAP_W, height: MAP_H });
+var mc = document.getElementById('mapCanvas');
+var mc = document.getElementById('mapCanvas');
+var stage = new Konva.Stage({ container: 'mapCanvas', width: mc.clientWidth || MAP_W, height: mc.clientHeight || MAP_H });
 const bgLayer = new Konva.Layer();
 const elementLayer = new Konva.Layer();
 const objLayer = new Konva.Layer();
@@ -132,17 +134,17 @@ function renderMap(data) {
     // Grid
     if (showGrid) {
         const gridSize = {{ location.grid_size|default:30 }};
-        for (let x = 0; x <= MAP_W; x += gridSize)
-            bgLayer.add(new Konva.Line({ points: [x, 0, x, MAP_H], stroke: '#e0e0e0', strokeWidth: 0.5 }));
-        for (let y = 0; y <= MAP_H; y += gridSize)
-            bgLayer.add(new Konva.Line({ points: [0, y, MAP_W, y], stroke: '#e0e0e0', strokeWidth: 0.5 }));
+        for (let x = 0; x <= stage.width(); x += gridSize)
+            bgLayer.add(new Konva.Line({ points: [x, 0, x, stage.height()], stroke: '#e0e0e0', strokeWidth: 0.5 }));
+        for (let y = 0; y <= stage.height(); y += gridSize)
+            bgLayer.add(new Konva.Line({ points: [0, y, stage.width(), y], stroke: '#e0e0e0', strokeWidth: 0.5 }));
     }
 
     // Background
     if (data.background && data.background.file_path) {
         const img = new Image();
         img.onload = function() {
-            bgLayer.add(new Konva.Image({ image: img, width: MAP_W, height: MAP_H, opacity: data.background.opacity || 0.5 }));
+            bgLayer.add(new Konva.Image({ image: img, width: stage.width(), height: stage.height(), opacity: data.background.opacity || 0.5 }));
             bgLayer.draw();
         };
         img.src = data.background.file_path;
@@ -161,7 +163,7 @@ function renderMap(data) {
 
     // Elements
     (data.elements || []).forEach(el => {
-        if (el.element_type === 'wall') {
+        if (el.element_type === 'line') {
             elementLayer.add(new Konva.Line({ points: [el.x, el.y, el.x2 || el.x + el.width, el.y2 || el.y], stroke: el.color || '#000', strokeWidth: el.thickness || 3, lineCap: 'round' }));
         } else if (el.element_type === 'door') {
             const dw = el.door_width || 60;
@@ -172,7 +174,7 @@ function renderMap(data) {
                 group.add(new Konva.Arc({ innerRadius: 0, outerRadius: dw, angle: ang, rotation: el.door_direction === 'left' ? -ang * 180 / Math.PI : 0, stroke: el.color || '#333', strokeWidth: 1 }));
             }
             elementLayer.add(group);
-        } else if (el.element_type === 'window') {
+        } else if (el.element_type === 'dashed') {
             elementLayer.add(new Konva.Line({ points: [el.x, el.y, el.x + (el.width || 60), el.y], stroke: el.color || '#2196F3', strokeWidth: 3, dash: [10, 5] }));
         } else if (el.element_type === 'rect') {
             elementLayer.add(new Konva.Rect({ x: el.x, y: el.y, width: el.width || 60, height: el.height || 40, stroke: el.color || '#000', strokeWidth: el.thickness || 2 }));
@@ -249,12 +251,12 @@ function togglePanel() {
     const panel = document.getElementById('sidePanel');
     const isOpen = panel.style.display !== 'none';
     panel.style.display = isOpen ? 'none' : 'block';
-    stage.width(isOpen ? MAP_W : MAP_W - 300);
+    stage.width(isOpen ? mc.clientWidth : mc.clientWidth - 300);
     stage.batchDraw();
 }
 function closePanel() {
     document.getElementById('sidePanel').style.display = 'none';
-    stage.width(MAP_W);
+    stage.width(mc.clientWidth);
     stage.batchDraw();
     selectedWS = null;
 }
@@ -262,7 +264,7 @@ function closePanel() {
 function showWSPanel(ws) {
     selectedWS = ws;
     document.getElementById('sidePanel').style.display = 'block';
-    stage.width(MAP_W - 300);
+    stage.width(mc.clientWidth - 300);
     stage.batchDraw();
 
     document.getElementById('panelTitle').textContent = '工位: ' + (ws.workstation_code || ws.code);

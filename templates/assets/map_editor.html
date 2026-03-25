@@ -3,7 +3,7 @@
 {% block extra_css %}
 <style>
 #editorWrap{display:flex}
-#editorContainer{flex:1;height:calc(100vh - 200px);border:1px solid #ddd;background:#f0f0f0;border-radius:4px 0 0 4px}
+#editorContainer{flex:1;height:calc(100vh - 200px);border:1px solid #ddd;background:#f0f0f0;border-radius:4px 0 0 4px;overflow:auto}
 #sideP{width:220px;background:#fff;border:1px solid #ddd;border-left:none;border-radius:0 4px 4px 0;padding:10px;overflow-y:auto;height:calc(100vh - 200px)}
 #sideP h6{margin:0 0 8px;font-size:13px;border-bottom:1px solid #eee;padding-bottom:6px}
 .li{display:flex;align-items:center;padding:3px 6px;border-radius:4px;font-size:12px}
@@ -29,8 +29,8 @@
 </div>
 <div id="tb">
     <button class="tb on" id="t-select" title="选择工具 - 选中、移动元素 (V)"><i class="fas fa-mouse-pointer"></i> 选择</button>
-    <button class="tb" id="t-wall" title="画线工具 - 绘制直线 (W)"><i class="fas fa-minus"></i> 画线</button>
-    <button class="tb" id="t-window" title="虚线工具 - 绘制虚线 (N)"><i class="fas fa-grip-lines"></i> 虚线</button>
+    <button class="tb" id="t-line" title="画线工具 - 绘制直线 (W)"><i class="fas fa-minus"></i> 画线</button>
+    <button class="tb" id="t-dashed" title="虚线工具 - 绘制虚线 (N)"><i class="fas fa-grip-lines"></i> 虚线</button>
     <button class="tb" id="t-rect" title="矩形工具 - 绘制矩形 (R)"><i class="far fa-square"></i> 矩形</button>
     <button class="tb" id="t-door" title="画门工具 - 绘制门，支持左开/右开/推拉 (D)"><i class="fas fa-door-open"></i> 画门</button>
     <button class="tb" id="t-workstation" title="画工位工具 - 绘制工位矩形并输入编号 (B)"><i class="fas fa-th"></i> 工位</button>
@@ -144,7 +144,7 @@ function uHB() { document.getElementById('btnU').disabled = hIdx <= 0; document.
 // Make shape
 function mkS(d) {
     var n;
-    if (d.t === 'wall') {
+    if (d.t === 'line') {
         n = new Konva.Line({ points: [d.x, d.y, d.x2 != null ? d.x2 : d.x + d.w, d.y2 != null ? d.y2 : d.y], stroke: d.c || '#000', strokeWidth: d.th || 3, lineCap: 'round', draggable: true });
         elL.add(n);
     } else if (d.t === 'door') {
@@ -152,7 +152,7 @@ function mkS(d) {
         g.add(new Konva.Line({ points: [0, 0, d.dw || 60, 0], stroke: d.c || '#333', strokeWidth: 2 }));
         if (d.dd !== 'sliding') { var a = (d.da || 90) * Math.PI / 180; g.add(new Konva.Arc({ innerRadius: 0, outerRadius: d.dw || 60, angle: a, rotation: d.dd === 'left' ? -a * 180 / Math.PI : 0, stroke: d.c || '#333', strokeWidth: 1 })); }
         elL.add(g); n = g;
-    } else if (d.t === 'window') {
+    } else if (d.t === 'dashed') {
         n = new Konva.Line({ points: [d.x, d.y, d.x + (d.w || 60), d.y], stroke: d.c || '#2196F3', strokeWidth: 3, dash: [10, 5], draggable: true });
         elL.add(n);
     } else if (d.t === 'rect') {
@@ -193,7 +193,7 @@ function mkS(d) {
             } else if (this instanceof Konva.Line) {
                 var pts = this.points();
                 var dx = this.x(), dy = this.y();
-                if (nd.t === 'wall' && pts.length >= 4) {
+                if (nd.t === 'line' && pts.length >= 4) {
                     nd.x = Math.round(dx + pts[0]);
                     nd.y = Math.round(dy + pts[1]);
                     nd.x2 = Math.round(dx + pts[2]);
@@ -264,7 +264,7 @@ tr.on('transformend', function() {
 });
 
 // ========== TOOL BUTTONS ==========
-var toolNames = ['select', 'wall', 'window', 'rect', 'door', 'workstation', 'region', 'text'];
+var toolNames = ['select', 'line', 'dashed', 'rect', 'door', 'workstation', 'region', 'text'];
 for (var ti = 0; ti < toolNames.length; ti++) {
     (function(tname) {
         document.getElementById('t-' + tname).addEventListener('click', function() {
@@ -310,14 +310,14 @@ stage.on('mousemove touchmove', function(e) {
     var x = snp((pos.x - stage.x()) / scl), y = snp((pos.y - stage.y()) / scl), sx = dSt.x, sy = dSt.y;
     if (tmpN) { tmpN.destroy(); tmpN = null; }
 
-    if (tool === 'wall') tmpN = new Konva.Line({ points: [sx, sy, x, y], stroke: '#000', strokeWidth: 3, dash: [5, 5] });
+    if (tool === 'line') tmpN = new Konva.Line({ points: [sx, sy, x, y], stroke: '#000', strokeWidth: 3, dash: [5, 5] });
     else if (tool === 'door') {
         var dx = x - sx, dy = y - sy;
         var dw = Math.sqrt(dx*dx + dy*dy) || 60;
         var ang = Math.atan2(dy, dx);
         tmpN = new Konva.Line({ points: [sx, sy, x, y], stroke: '#333', strokeWidth: 2, dash: [5, 5] });
     }
-    else if (tool === 'window') tmpN = new Konva.Line({ points: [sx, sy, sx + (Math.abs(x - sx) || 60), sy], stroke: '#2196F3', strokeWidth: 3, dash: [5, 5] });
+    else if (tool === 'dashed') tmpN = new Konva.Line({ points: [sx, sy, sx + (Math.abs(x - sx) || 60), sy], stroke: '#2196F3', strokeWidth: 3, dash: [5, 5] });
     else if (tool === 'rect') tmpN = new Konva.Rect({ x: Math.min(sx, x), y: Math.min(sy, y), width: Math.abs(x - sx) || 60, height: Math.abs(y - sy) || 40, stroke: '#000', strokeWidth: 2, dash: [5, 5] });
     else if (tool === 'workstation') tmpN = new Konva.Rect({ x: Math.min(sx, x), y: Math.min(sy, y), width: Math.abs(x - sx) || 60, height: Math.abs(y - sy) || 40, fill: '#e3f2fd80', stroke: '#1976D2', strokeWidth: 1, dash: [5, 5] });
     else if (tool === 'region' && polyP.length > 0) { var p2 = []; for (var i = 0; i < polyP.length; i++) p2.push(polyP[i].x, polyP[i].y); p2.push(x, y); tmpN = new Konva.Line({ points: p2, stroke: '#3498db', strokeWidth: 2, dash: [5, 5] }); }
@@ -335,9 +335,9 @@ stage.on('mouseup touchend', function(e) {
     if (tmpN) { tmpN.destroy(); tmpN = null; }
 
     var d = null;
-    if (tool === 'wall') d = { t: 'wall', x: sx, y: sy, x2: x, y2: y, c: '#000', th: 3 };
+    if (tool === 'line') d = { t: 'line', x: sx, y: sy, x2: x, y2: y, c: '#000', th: 3 };
     else if (tool === 'door') { var dx = x-sx, dy = y-sy; var w1 = Math.sqrt(dx*dx+dy*dy) || 60; var ang = Math.atan2(dy,dx)*180/Math.PI; d = { t: 'door', x: sx, y: sy, w: w1, h: 20, c: '#333', th: 2, dd: 'right', dw: w1, da: 90, angle: ang }; }
-    else if (tool === 'window') d = { t: 'window', x: sx, y: sy, w: Math.abs(x - sx) || 60, h: 0, c: '#2196F3', th: 3 };
+    else if (tool === 'dashed') d = { t: 'dashed', x: sx, y: sy, w: Math.abs(x - sx) || 60, h: 0, c: '#2196F3', th: 3 };
     else if (tool === 'rect') d = { t: 'rect', x: Math.min(sx, x), y: Math.min(sy, y), w: Math.abs(x - sx) || 60, h: Math.abs(y - sy) || 40, c: '#000', th: 2 };
     else if (tool === 'workstation') { var w2 = Math.abs(x - sx) || 60, h2 = Math.abs(y - sy) || 40; var code = prompt('工位编号:', LOC_CODE + '-' + String(objL.getChildren().length + 1).padStart(3, '0')); if (code) d = { t: 'workstation', x: Math.min(sx, x), y: Math.min(sy, y), w: w2, h: h2, c: '#e3f2fd', label: code }; }
 
@@ -374,7 +374,7 @@ document.addEventListener('keydown', function(e) {
         if (k === 'y') { e.preventDefault(); if (hIdx < hist.length - 1) { hIdx++; rebuildH(); } }
         return;
     }
-    var map = { v: 'select', w: 'wall', d: 'door', n: 'window', r: 'rect', b: 'workstation', p: 'region', t: 'text' };
+    var map = { v: 'select', w: 'line', d: 'door', n: 'dashed', r: 'rect', b: 'workstation', p: 'region', t: 'text' };
     if (map[k]) {
         tool = map[k];
         for (var j = 0; j < toolNames.length; j++) document.getElementById('t-' + toolNames[j]).classList.toggle('on', toolNames[j] === tool);

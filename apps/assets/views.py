@@ -1112,7 +1112,7 @@ def map_data(request, pk):
             'map_height': location.map_height,
         },
         'background': bg_data,
-        'elements': list(elements),
+        'elements': [{'element_type': {'wall': 'line', 'window': 'dashed'}.get(e.get('element_type'), e.get('element_type')), **{k: v for k, v in e.items() if k != 'element_type'}} for e in elements],
         'workstations': workstation_list,
         'devices': list(device_list),
         'area_bindings': [{
@@ -1145,7 +1145,7 @@ def map_element_save(request):
                 el_id = el_data.get('id')
                 data = {
                     'location_id': location_id,
-                    'element_type': el_data.get('type', 'wall'),
+                    'element_type': {'line': 'wall', 'dashed': 'window'}.get(el_data.get('type', 'wall'), el_data.get('type', 'wall')),
                     'x': float(el_data.get('x', 0)),
                     'y': float(el_data.get('y', 0)),
                     'x2': float(el_data.get('x2')) if el_data.get('x2') else None,
@@ -1501,7 +1501,7 @@ def location_map_edit(request, pk):
     for el in elements_qs:
         elements_list.append({
             'i': el.id,
-            't': el.element_type,
+            't': 'line' if el.element_type == 'wall' else ('dashed' if el.element_type == 'window' else el.element_type),
             'x': el.x,
             'y': el.y,
             'x2': el.x2,
