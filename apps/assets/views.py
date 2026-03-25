@@ -49,7 +49,7 @@ def device_list(request):
     location_id = request.GET.get('location', '')
     status = request.GET.get('status', '')
     
-    devices = Device.objects.select_related('category', 'location', 'user', 'department').all()
+    devices = Device.objects.select_related('category', 'location', 'user', 'department').order_by('id').all()
     
     if search:
         devices = devices.filter(
@@ -1314,7 +1314,7 @@ def workstation_list(request, pk):
     
     ws_data = []
     for ws in workstations:
-        devices = ws.devices.select_related('user', 'department', 'category').order_by('id')
+        devices = ws.devices.select_related('user', 'department', 'category').order_by('category__name', 'id')
         
         display_name = ws.name
         if not display_name:
