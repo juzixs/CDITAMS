@@ -51,6 +51,7 @@
     <button class="tb" id="btnBg" title="上传底图 - 作为绘制参考，不保存"><i class="fas fa-image"></i> 底图</button>
     <button class="tb" id="btnBgSelect" title="选中底图 - 可拖拽、缩放、旋转底图" style="display:none;"><i class="fas fa-hand-pointer"></i> 选中</button>
     <button class="tb" id="btnBgDel" title="清除底图 - 移除已上传的底图" style="display:none;"><i class="fas fa-times"></i></button>
+    <button class="tb" id="btnImport" title="引入地图 - 从其他位置复制地图数据"><i class="fas fa-file-import"></i> 引入</button>
     <input type="file" id="bgFileInput" accept="image/*" style="display:none;">
     <span id="coord">X:0 Y:0</span>
 </div>
@@ -73,6 +74,34 @@
     <span>吸附:<input type="number" id="iS" value="{{ location.default_snap_threshold|default:10 }}"> px</span>
     <span>缩放:<span id="zl">100%</span></span>
 </div>
+
+<!-- Import Map Modal -->
+<div id="importModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:1000;">
+    <div style="margin:100px auto;max-width:500px;background:#fff;border-radius:8px;overflow:hidden;">
+        <div style="padding:15px 20px;background:#f8f9fa;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;">
+            <h5 style="margin:0;font-size:16px;"><i class="fas fa-file-import me-2"></i>引入地图</h5>
+            <button class="btn btn-sm btn-outline-secondary" onclick="closeImportModal()"><i class="fas fa-times"></i></button>
+        </div>
+        <div style="padding:20px;">
+            <p class="text-muted mb-3">选择一个已有地图的位置，复制其墙体、门、窗等结构（不包含工位和区域）。</p>
+            <div class="mb-3">
+                <label class="form-label">选择来源位置：</label>
+                <select id="importSource" class="form-select">
+                    <option value="">-- 请选择 --</option>
+                </select>
+            </div>
+            <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" id="importReplace">
+                <label class="form-check-label" for="importReplace">替换当前地图（清除现有元素）</label>
+            </div>
+        </div>
+        <div style="padding:15px 20px;background:#f8f9fa;border-top:1px solid #eee;text-align:right;">
+            <button class="btn btn-secondary me-2" onclick="closeImportModal()">取消</button>
+            <button class="btn btn-primary" onclick="doImport()"><i class="fas fa-check me-1"></i>引入</button>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 {% block extra_js %}
 <script src="https://unpkg.com/konva@9/konva.min.js"></script>
@@ -666,6 +695,80 @@ document.getElementById('btnBgDel').addEventListener('click', function() {
     this.style.display = 'none';
     document.getElementById('btnBgSelect').style.display = 'none';
 });
+
+// ========== IMPORT MAP FROM OTHER LOCATION ==========
+document.getElementById('btnImport').addEventListener('click', function() {
+    var modal = document.getElementById('importModal');
+    modal.style.display = 'block';
+    var select = document.getElementById('importSource');
+    select.innerHTML = '<option value="">-- 加载中... --</option>';
+    fetch('/assets/api/location-tree/').then(function(r) { return r.json(); }).then(function(resp) {
+        var data = resp.data || resp;
+        select.innerHTML = '<option value="">-- 请选择 --</option>';
+        function addLocations(nodes, prefix) {
+            nodes.forEach(function(n) {
+                if (n.has_map && n.id !== LOC) {
+                    var opt = document.createElement('option');
+                    opt.value = n.id;
+                    opt.textContent = prefix + n.name + ' (' + n.code + ')';
+                    select.appendChild(opt);
+                }
+                if (n.children && n.children.length) addLocations(n.children, prefix + n.name + ' / ');
+            });
+        }
+        if (Array.isArray(data)) addLocations(data, '');
+    }).catch(function() { select.innerHTML = '<option value="">加载失败</option>'; });
+});
+
+function closeImportModal() {
+    document.getElementById('importModal').style.display = 'none';
+}
+window.closeImportModal = closeImportModal;
+
+function doImport() {
+    var sourceId = document.getElementById('importSource').value;
+    if (!sourceId) { alert('请选择来源位置'); return; }
+    var replace = document.getElementById('importReplace').checked;
+    
+    fetch('/assets/api/map-data/' + sourceId + '/').then(function(r) { return r.json(); }).then(function(data) {
+        var elements = data.elements || [];
+        // Filter out workstations and regions, keep walls/doors/windows/rect/text
+        var keepTypes = ['line', 'dashed', 'rect', 'door', 'wall', 'window', 'text'];
+        var importElements = elements.filter(function(el) {
+            return keepTypes.indexOf(el.element_type) >= 0;
+        });
+        
+        if (replace) {
+            // Clear current elements
+            [elL, objL].forEach(function(l) { l.destroyChildren(); });
+        }
+        
+        // Import elements
+        var typeMap = { 'wall': 'line', 'window': 'dashed' };
+        importElements.forEach(function(el) {
+            var d = {
+                t: typeMap[el.element_type] || el.element_type,
+                x: el.x || 0, y: el.y || 0,
+                x2: el.x2, y2: el.y2,
+                w: el.width || 0, h: el.height || 0,
+                c: el.color || '#000', th: el.thickness || 2,
+                dd: el.door_direction || 'right',
+                dw: el.door_width || 60, da: el.door_open_angle || 90,
+                angle: el.rotation || 0,
+                label: el.label || ''
+            };
+            mkS(d);
+        });
+        
+        [elL, objL].forEach(function(l) { l.draw(); });
+        saveH();
+        closeImportModal();
+        alert('成功引入 ' + importElements.length + ' 个元素');
+    }).catch(function(e) {
+        alert('引入失败: ' + e);
+    });
+}
+window.doImport = doImport;
 
 }); // end DOMContentLoaded
 </script>
