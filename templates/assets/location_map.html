@@ -22,7 +22,7 @@
 .tree-item { padding: 6px 10px; cursor: pointer; border-radius: 4px; font-size: 13px; }
 .tree-item:hover { background: #f0f0f0; }
 .tree-item.active { background: #e3f2fd; }
-.legend { position: absolute; bottom: 10px; left: 10px; z-index: 20; background: #fff; padding: 8px 12px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); font-size: 12px; }
+.legend { }
 </style>
 {% endblock %}
 {% block content %}
@@ -254,16 +254,28 @@ function renderMap(data) {
         objLayer.add(group);
     });
 
-    // Unbound devices
-    (data.devices || []).forEach(d => {
-        if (d.workstation) return;
-        let sc = d.status === 'normal' ? '#28a745' : d.status === 'fault' ? '#dc3545' : d.status === 'repairing' ? '#ffc107' : '#6c757d';
-        const dx = d.x || 100; const dy = d.y || 100;
-        objLayer.add(new Konva.Circle({ x: dx, y: dy, radius: 8, fill: sc, stroke: '#fff', strokeWidth: 2 }));
-        objLayer.add(new Konva.Text({ x: dx - 25, y: dy + 12, text: d.asset_no ? d.asset_no.split('-').pop() : '', fontSize: 9, fill: '#333', width: 50, align: 'center' }));
-    });
+    // Unbound devices - render count info instead of dots on map
+    var unboundDevices = (data.devices || []).filter(d => !d.workstation);
+    if (unboundDevices.length > 0) {
+        var panel = document.getElementById('unboundPanel');
+        if (!panel) {
+            panel = document.createElement('div');
+            panel.id = 'unboundPanel';
+            panel.style.cssText = 'position:absolute;bottom:10px;right:10px;z-index:20;background:#fff;padding:8px 12px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.15);font-size:12px;max-height:200px;overflow-y:auto;';
+            document.getElementById('mapContainer').appendChild(panel);
+        }
+        var html = '<div style="font-weight:bold;margin-bottom:4px;">未绑定设备 (' + unboundDevices.length + ')</div>';
+        unboundDevices.forEach(d => {
+            var sc = d.status === 'normal' ? '#28a745' : d.status === 'fault' ? '#dc3545' : d.status === 'repairing' ? '#ffc107' : '#6c757d';
+            html += '<div style="display:flex;align-items:center;gap:6px;padding:2px 0;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + sc + ';"></span>' + (d.asset_no || '-') + ' ' + (d.name || '') + '</div>';
+        });
+        panel.innerHTML = html;
+    } else {
+        var p = document.getElementById('unboundPanel');
+        if (p) p.remove();
+    }
 
-    [bgLayer, elementLayer, objLayer, objLayer, objLayer, objLayer].forEach(l => l.draw());
+    [bgLayer, elementLayer, objLayer].forEach(l => l.draw());
 }
 
 // Right panel
