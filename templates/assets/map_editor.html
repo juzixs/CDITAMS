@@ -29,6 +29,7 @@
 </div>
 <div id="tb">
     <button class="tb on" id="t-select" title="选择工具 - 选中、移动元素 (V)"><i class="fas fa-mouse-pointer"></i> 选择</button>
+    <button class="tb" id="t-boxselect" title="框选工具 - 拖拽矩形框选多个元素 (A)"><i class="far fa-object-group"></i> 框选</button>
     <button class="tb" id="t-line" title="画线工具 - 绘制直线 (W)"><i class="fas fa-minus"></i> 画线</button>
     <button class="tb" id="t-dashed" title="虚线工具 - 绘制虚线 (N)"><i class="fas fa-grip-lines"></i> 虚线</button>
     <button class="tb" id="t-rect" title="矩形工具 - 绘制矩形 (R)"><i class="far fa-square"></i> 矩形</button>
@@ -96,7 +97,7 @@ var MH = {{ location.map_height|default:800 }};
 var gSize = {{ location.grid_size|default:30 }};
 var sTh = {{ location.default_snap_threshold|default:10 }};
 var sOn = {{ location.default_snap_enabled|yesno:'true,false' }};
-var gOn = true, scl = 1, tool = 'select', sel = null;
+var gOn = true, scl = 1, tool = 'select', sel = null, selectedNodes = [];
 var drawing = false, dSt = null, tmpN = null, polyP = [];
 var hist = [], hIdx = -1, spcDown = false, pSt = null;
 
@@ -184,34 +185,63 @@ function mkS(d) {
     if (n) {
         n._d = d;
         n.on('click tap', function() { doSelect(this); });
+        n.on('dragstart', function() {
+            if (selectedNodes.length > 1 && selectedNodes.indexOf(this) >= 0) {
+                this._dragStartX = this.x();
+                this._dragStartY = this.y();
+                selectedNodes.forEach(function(sn) {
+                    if (sn !== this) { sn._dragStartX = sn.x(); sn._dragStartY = sn.y(); }
+                }.bind(this));
+            }
+        });
+        n.on('dragmove', function() {
+            if (selectedNodes.length > 1 && selectedNodes.indexOf(this) >= 0) {
+                var dx = this.x() - (this._dragStartX || this.x());
+                var dy = this.y() - (this._dragStartY || this.y());
+                selectedNodes.forEach(function(sn) {
+                    if (sn !== this) {
+                        sn.x((sn._dragStartX || sn.x()) + dx);
+                        sn.y((sn._dragStartY || sn.y()) + dy);
+                    }
+                }.bind(this));
+            }
+        });
         n.on('dragend', function() {
-            var nd = this._d;
-            if (!nd) return;
-            if (this instanceof Konva.Group) {
-                nd.x = Math.round(this.x());
-                nd.y = Math.round(this.y());
-            } else if (this instanceof Konva.Line) {
-                var pts = this.points();
-                var dx = this.x(), dy = this.y();
-                if (nd.t === 'line' && pts.length >= 4) {
-                    nd.x = Math.round(dx + pts[0]);
-                    nd.y = Math.round(dy + pts[1]);
-                    nd.x2 = Math.round(dx + pts[2]);
-                    nd.y2 = Math.round(dy + pts[3]);
-                    this.position({ x: 0, y: 0 });
-                    this.points([nd.x, nd.y, nd.x2, nd.y2]);
-                } else {
-                    nd.x = Math.round(dx + (pts[0] || 0));
-                    nd.y = Math.round(dy + (pts[1] || 0));
-                    this.position({ x: 0, y: 0 });
-                    this.points([nd.x, nd.y, nd.x + (nd.w || 60), nd.y]);
+            // Update data for all selected nodes
+            function updateNodeData(sn) {
+                var snd = sn._d;
+                if (!snd) return;
+                if (sn instanceof Konva.Group) {
+                    snd.x = Math.round(sn.x());
+                    snd.y = Math.round(sn.y());
+                } else if (sn instanceof Konva.Line) {
+                    var pts = sn.points();
+                    var sx = sn.x(), sy = sn.y();
+                    if (snd.t === 'line' && pts.length >= 4) {
+                        snd.x = Math.round(sx + pts[0]);
+                        snd.y = Math.round(sy + pts[1]);
+                        snd.x2 = Math.round(sx + pts[2]);
+                        snd.y2 = Math.round(sy + pts[3]);
+                        sn.position({ x: 0, y: 0 });
+                        sn.points([snd.x, snd.y, snd.x2, snd.y2]);
+                    } else {
+                        snd.x = Math.round(sx + (pts[0] || 0));
+                        snd.y = Math.round(sy + (pts[1] || 0));
+                        sn.position({ x: 0, y: 0 });
+                        sn.points([snd.x, snd.y, snd.x + (snd.w || 60), snd.y]);
+                    }
+                } else if (sn instanceof Konva.Text) {
+                    snd.x = Math.round(sn.x());
+                    snd.y = Math.round(sn.y());
+                } else if (sn instanceof Konva.Rect) {
+                    snd.x = Math.round(sn.x());
+                    snd.y = Math.round(sn.y());
                 }
-            } else if (this instanceof Konva.Text) {
-                nd.x = Math.round(this.x());
-                nd.y = Math.round(this.y());
-            } else if (this instanceof Konva.Rect) {
-                nd.x = Math.round(this.x());
-                nd.y = Math.round(this.y());
+            }
+            if (selectedNodes.length > 1) {
+                selectedNodes.forEach(updateNodeData);
+            } else {
+                updateNodeData(this);
             }
             saveH();
         });
@@ -264,7 +294,7 @@ tr.on('transformend', function() {
 });
 
 // ========== TOOL BUTTONS ==========
-var toolNames = ['select', 'line', 'dashed', 'rect', 'door', 'workstation', 'region', 'text'];
+var toolNames = ['select', 'boxselect', 'line', 'dashed', 'rect', 'door', 'workstation', 'region', 'text'];
 for (var ti = 0; ti < toolNames.length; ti++) {
     (function(tname) {
         document.getElementById('t-' + tname).addEventListener('click', function() {
@@ -290,6 +320,13 @@ stage.on('mousedown touchstart', function(e) {
     if (!pos) return;
     var x = snp((pos.x - stage.x()) / scl), y = snp((pos.y - stage.y()) / scl);
 
+    if (tool === 'boxselect') {
+        drawing = true; dSt = { x: x, y: y };
+        selectedNodes = [];
+        tr.nodes([]);
+        uiL.draw();
+        return;
+    }
     if (tool === 'region') { polyP.push({ x: x, y: y }); drawing = true; return; }
     if (tool === 'text') {
         var lbl = prompt('输入标注文字:', '标注');
@@ -309,6 +346,16 @@ stage.on('mousemove touchmove', function(e) {
 
     var x = snp((pos.x - stage.x()) / scl), y = snp((pos.y - stage.y()) / scl);
     if (tmpN) { tmpN.destroy(); tmpN = null; }
+
+    if (tool === 'boxselect' && dSt) {
+        tmpN = new Konva.Rect({
+            x: Math.min(dSt.x, x), y: Math.min(dSt.y, y),
+            width: Math.abs(x - dSt.x), height: Math.abs(y - dSt.y),
+            fill: 'rgba(0,123,255,0.1)', stroke: '#007bff', strokeWidth: 1, dash: [5, 5]
+        });
+        if (tmpN) { uiL.add(tmpN); uiL.draw(); }
+        return;
+    }
 
     if (tool === 'region' && polyP.length > 0) {
         var p2 = [];
@@ -339,6 +386,54 @@ stage.on('mouseup touchend', function(e) {
     var pos = stage.getPointerPosition();
     if (pSt) { pSt = null; stage.container().style.cursor = tool === 'select' ? 'default' : 'crosshair'; return; }
     if (tool === 'region') { return; }
+
+    // Box select: find elements inside the selection rectangle
+    if (tool === 'boxselect' && drawing && dSt && pos) {
+        var x = snp((pos.x - stage.x()) / scl), y = snp((pos.y - stage.y()) / scl);
+        var sx = dSt.x, sy = dSt.y;
+        var boxX1 = Math.min(sx, x), boxY1 = Math.min(sy, y);
+        var boxX2 = Math.max(sx, x), boxY2 = Math.max(sy, y);
+
+        if (tmpN) { tmpN.destroy(); tmpN = null; uiL.draw(); }
+
+        selectedNodes = [];
+        [elL, objL].forEach(function(layer) {
+            layer.getChildren().forEach(function(node) {
+                var nx = node.x(), ny = node.y();
+                // For Line elements, check points to get actual position
+                if (node instanceof Konva.Line) {
+                    var pts = node.points();
+                    for (var i = 0; i < pts.length; i += 2) {
+                        var px = nx + (pts[i] || 0), py = ny + (pts[i+1] || 0);
+                        if (px >= boxX1 && px <= boxX2 && py >= boxY1 && py <= boxY2) {
+                            selectedNodes.push(node); return;
+                        }
+                    }
+                } else if (node instanceof Konva.Group) {
+                    var rect = node.findOne('Rect');
+                    var gw = rect ? rect.width() : 60, gh = rect ? rect.height() : 40;
+                    if (nx + gw >= boxX1 && nx <= boxX2 && ny + gh >= boxY1 && ny <= boxY2) {
+                        selectedNodes.push(node);
+                    }
+                } else if (node instanceof Konva.Text) {
+                    var tw = node.width() || 50, th = node.height() || 20;
+                    if (nx + tw >= boxX1 && nx <= boxX2 && ny + th >= boxY1 && ny <= boxY2) {
+                        selectedNodes.push(node);
+                    }
+                } else {
+                    if (nx >= boxX1 && nx <= boxX2 && ny >= boxY1 && ny <= boxY2) {
+                        selectedNodes.push(node);
+                    }
+                }
+            });
+        });
+        tr.nodes(selectedNodes);
+        uiL.draw();
+        drawing = false;
+        dSt = null;
+        return;
+    }
+
     if (!drawing || tool === 'select' || tool === 'text') { drawing = false; return; }
     if (!pos) return;
 
@@ -359,7 +454,7 @@ stage.on('mouseup touchend', function(e) {
 // Click to deselect
 stage.on('click tap', function(e) {
     if (tool !== 'select') return;
-    if (e.target === stage) { sel = null; tr.nodes([]); uiL.draw(); document.getElementById('props').innerHTML = '<p class="text-muted mb-0">选中元素后显示</p>'; }
+    if (e.target === stage) { sel = null; selectedNodes = []; tr.nodes([]); uiL.draw(); document.getElementById('props').innerHTML = '<p class="text-muted mb-0">选中元素后显示</p>'; }
 });
 
 // Double click for polygon
@@ -385,7 +480,7 @@ document.addEventListener('keydown', function(e) {
         if (k === 'y') { e.preventDefault(); if (hIdx < hist.length - 1) { hIdx++; rebuildH(); } }
         return;
     }
-    var map = { v: 'select', w: 'line', d: 'door', n: 'dashed', r: 'rect', b: 'workstation', p: 'region', t: 'text' };
+    var map = { v: 'select', a: 'boxselect', w: 'line', d: 'door', n: 'dashed', r: 'rect', b: 'workstation', p: 'region', t: 'text' };
     if (map[k]) {
         tool = map[k];
         for (var j = 0; j < toolNames.length; j++) document.getElementById('t-' + toolNames[j]).classList.toggle('on', toolNames[j] === tool);
@@ -403,6 +498,16 @@ document.addEventListener('keyup', function(e) { if (e.code === 'Space') { spcDo
 function rebuildH() { [elL, objL].forEach(function(l) { l.destroyChildren(); l.draw(); }); hist[hIdx].forEach(function(d) { mkS(d); }); [elL, objL].forEach(function(l) { l.draw(); }); uHB(); }
 
 function doDelete() {
+    if (selectedNodes.length > 0) {
+        selectedNodes.forEach(function(n) { n.destroy(); });
+        selectedNodes = [];
+        tr.nodes([]);
+        [elL, objL].forEach(function(l) { l.draw(); });
+        uiL.draw();
+        sel = null;
+        document.getElementById('props').innerHTML = '<p class="text-muted mb-0">选中元素后显示</p>'; saveH();
+        return;
+    }
     if (!sel) return; var l = sel.getLayer(); sel.destroy(); tr.nodes([]); l.draw(); uiL.draw(); sel = null;
     document.getElementById('props').innerHTML = '<p class="text-muted mb-0">选中元素后显示</p>'; saveH();
 }
