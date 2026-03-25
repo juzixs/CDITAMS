@@ -1312,18 +1312,18 @@ def workstation_list(request, pk):
     location = get_object_or_404(AssetLocation, pk=pk)
     workstations = Workstation.objects.filter(location=location).prefetch_related('devices__category', 'devices__user', 'devices__department')
     
-    # Build workstation data with full path and devices
     ws_data = []
     for ws in workstations:
-        devices = ws.devices.select_related('user', 'department', 'category').all()
+        devices = ws.devices.select_related('user', 'department', 'category').order_by('id')
         
-        # Auto-generate name if not set
         display_name = ws.name
         if not display_name:
+            # Find earliest PC device
             pc_device = devices.filter(category__name='台式机').first() or devices.filter(category__name__icontains='计算机').first()
             if pc_device and pc_device.user:
                 display_name = f'{pc_device.user.realname}的工位'
             elif devices.exists():
+                # Use earliest non-PC device's department
                 first_device = devices.first()
                 if first_device.department:
                     display_name = f'{first_device.department.name}工位'
@@ -1388,9 +1388,8 @@ def workstation_create(request):
 def workstation_edit(request, pk):
     workstation = get_object_or_404(Workstation.objects.select_related('location'), pk=pk)
     
-    # Auto-generate name if empty
     if not workstation.name:
-        devices = workstation.devices.select_related('user', 'department', 'category').all()
+        devices = workstation.devices.select_related('user', 'department', 'category').order_by('id')
         pc_device = devices.filter(category__name='台式机').first() or devices.filter(category__name__icontains='计算机').first()
         if pc_device and pc_device.user:
             workstation.name = f'{pc_device.user.realname}的工位'
