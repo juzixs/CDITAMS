@@ -77,8 +77,6 @@ def init_departments():
 
 def init_categories():
     print("初始化资产分类...")
-    Device.objects.all().delete()
-    AssetCategory.objects.all().delete()
     
     xcd, _ = AssetCategory.objects.get_or_create(
         code='XACD', defaults=dict(name='西安驰达', level=1, description='西安驰达飞机零部件制造股份有限公司', sort=1)
@@ -153,7 +151,6 @@ def init_categories():
 
 def init_locations():
     print("初始化位置...")
-    AssetLocation.objects.all().delete()
     
     cy, _ = AssetLocation.objects.get_or_create(
         code='CY',
@@ -168,17 +165,17 @@ def init_locations():
     oa.save()
     
     floors = [
-        ('B1层', 'CYOAB1', 'B1', 1),
-        ('1楼', 'CYOA01', '01', 2),
-        ('2楼', 'CYOA02', '02', 3),
-        ('3楼', 'CYOA03', '03', 4),
-        ('4楼', 'CYOA04', '04', 5),
-        ('5楼', 'CYOA05', '05', 6),
-        ('天台', 'CYOAC1', 'C1', 7),
+        ('B1层', 'CYOAB1', 'B1', 1, True),
+        ('1楼', 'CYOA01', '01', 2, True),
+        ('2楼', 'CYOA02', '02', 3, True),
+        ('3楼', 'CYOA03', '03', 4, True),
+        ('4楼', 'CYOA04', '04', 5, True),
+        ('5楼', 'CYOA05', '05', 6, True),
+        ('天台', 'CYOAC1', 'C1', 7, False),
     ]
     
     floor_objs = {}
-    for name, code, floor_code, sort in floors:
+    for name, code, floor_code, sort, has_map in floors:
         floor, _ = AssetLocation.objects.get_or_create(
             code=code,
             defaults={
@@ -188,7 +185,13 @@ def init_locations():
                 'park_code': 'CY',
                 'building_code': 'OA',
                 'floor_code': floor_code,
-                'sort': sort
+                'sort': sort,
+                'has_map': has_map,
+                'map_width': 1200,
+                'map_height': 800,
+                'grid_size': 30,
+                'default_snap_threshold': 10,
+                'default_snap_enabled': True,
             }
         )
         floor_objs[code] = floor

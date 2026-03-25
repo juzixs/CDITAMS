@@ -185,6 +185,26 @@ function mkS(d) {
     if (n) {
         n._d = d;
         n.on('click tap', function() { doSelect(this); });
+        // Double click to edit label for text and region
+        n.on('dblclick dbltap', function() {
+            var nd = this._d;
+            if (!nd || (nd.t !== 'text' && nd.t !== 'region' && nd.t !== 'workstation')) return;
+            var newLabel = prompt('修改名称:', nd.label || '');
+            if (newLabel !== null) {
+                nd.label = newLabel;
+                if (nd.t === 'text' && this instanceof Konva.Text) {
+                    this.text(newLabel);
+                } else if (nd.t === 'workstation') {
+                    var txt = this.findOne('Text');
+                    if (txt) txt.text(newLabel);
+                } else if (nd.t === 'region') {
+                    var txt2 = this.findOne('Text');
+                    if (txt2) txt2.text(newLabel);
+                }
+                this.getLayer().draw();
+                saveH();
+            }
+        });
         n.on('dragstart', function() {
             if (selectedNodes.length > 1 && selectedNodes.indexOf(this) >= 0) {
                 this._dragStartX = this.x();
@@ -267,8 +287,25 @@ function doSelect(node) {
     uiL.draw();
     var d = node._d || {}, h = '<div class="mb-1"><b>类型:</b> ' + (d.t || '') + '</div>';
     h += '<div class="mb-1"><b>X:</b> ' + Math.round(node.x()) + ' <b>Y:</b> ' + Math.round(node.y()) + '</div>';
-    if (d.label) h += '<div class="mb-1"><b>名称:</b> ' + d.label + '</div>';
+    if (d.t === 'text' || d.t === 'region' || d.t === 'workstation') {
+        h += '<div class="mb-1"><b>名称:</b> <input type="text" id="propLabel" value="' + (d.label || '') + '" style="width:120px;font-size:12px;padding:2px 4px;height:24px;" onchange="updateLabel(this.value)"></div>';
+    } else if (d.label) {
+        h += '<div class="mb-1"><b>名称:</b> ' + d.label + '</div>';
+    }
     document.getElementById('props').innerHTML = h;
+}
+
+function updateLabel(newLabel) {
+    if (!sel || !sel._d) return;
+    sel._d.label = newLabel;
+    if (sel._d.t === 'text' && sel instanceof Konva.Text) {
+        sel.text(newLabel);
+    } else if (sel._d.t === 'workstation' || sel._d.t === 'region') {
+        var txt = sel.findOne('Text');
+        if (txt) txt.text(newLabel);
+    }
+    sel.getLayer().draw();
+    saveH();
 }
 
 // Update workstation internals on transform
