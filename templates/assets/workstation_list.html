@@ -2,8 +2,8 @@
 {% block title %}工位管理 - {{ location.name }} - 驰达IT资产管理系统{% endblock %}
 {% block extra_css %}
 <style>
-.device-badge { display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; border-radius: 10px; font-size: 11px; background: #f8f9fa; border: 1px solid #e0e0e0; margin: 1px 2px; white-space: nowrap; }
-.device-badge .dot { width: 7px; height: 7px; border-radius: 50%; }
+.device-badge { display: flex; align-items: center; gap: 3px; padding: 1px 0; font-size: 12px; white-space: nowrap; line-height: 1.6; }
+.device-badge .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 </style>
 {% endblock %}
 {% block content %}
@@ -20,13 +20,13 @@
         <table class="table table-hover align-middle" style="table-layout:fixed;">
             <thead>
                 <tr>
-                    <th style="width:12%;">工位编号</th>
+                    <th style="width:13%;">工位编号</th>
                     <th style="width:12%;">工位名称</th>
-                    <th style="width:16%;">位置</th>
+                    <th style="width:17%;">位置</th>
                     <th style="width:8%;">坐标</th>
                     <th style="width:7%;">状态</th>
                     <th style="width:6%;">设备数</th>
-                    <th style="width:22%;">绑定设备</th>
+                    <th style="width:20%;">绑定设备</th>
                     <th style="width:17%;">操作</th>
                 </tr>
             </thead>
@@ -50,10 +50,10 @@
                     <td>
                         {% if item.devices %}
                         {% for d in item.devices %}
-                        <div class="device-badge" style="display:flex;margin-bottom:2px;" title="{{ d.asset_no }} {{ d.name }}{% if d.department %} | {{ d.department }}{% endif %}{% if d.user %} | {{ d.user }}{% endif %}">
-                            <span class="dot" style="background:{% if d.status == 'normal' %}#28a745{% elif d.status == 'fault' %}#dc3545{% elif d.status == 'repairing' %}#ffc107{% else %}#6c757d{% endif %};margin-right:4px;flex-shrink:0;"></span>
-                            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ d.asset_no }} {{ d.name }}</span>
-                            <button class="btn btn-link btn-sm p-0 text-danger" style="font-size:9px;line-height:1;margin-left:4px;flex-shrink:0;" onclick="unbindDevice({{ item.workstation.id }}, {{ d.id }})" title="解绑">&times;</button>
+                        <div class="device-badge" title="{{ d.asset_no }} {{ d.name }}{% if d.department %} | {{ d.department }}{% endif %}{% if d.user %} | {{ d.user }}{% endif %}">
+                            <span class="dot" style="background:{% if d.status == 'normal' %}#28a745{% elif d.status == 'fault' %}#dc3545{% elif d.status == 'repairing' %}#ffc107{% else %}#6c757d{% endif %};"></span>
+                            <span style="overflow:hidden;text-overflow:ellipsis;">{{ d.asset_no }} {{ d.name }}</span>
+                            <button class="btn btn-link btn-sm p-0 text-danger" style="font-size:9px;line-height:1;margin-left:2px;" onclick="unbindDevice({{ item.workstation.id }}, {{ d.id }})" title="解绑">&times;</button>
                         </div>
                         {% endfor %}
                         {% else %}
