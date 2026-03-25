@@ -671,24 +671,33 @@ def location_delete(request, pk):
 
 @login_required
 def device_map(request):
-    locations = AssetLocation.objects.filter(
-        level=3, 
-        has_map=True
-    ).select_related('parent__parent', 'parent').prefetch_related('workstations', 'devices')
+    # Get all locations with hierarchy
+    all_locs = AssetLocation.objects.select_related('parent__parent', 'parent').prefetch_related('workstations', 'devices')
     
-    location_list = []
-    for loc in locations:
-        location_list.append({
-            'id': loc.id,
-            'name': loc.name,
-            'full_path': loc.get_full_path(),
-            'workstation_count': loc.workstations.count(),
-            'device_count': loc.devices.count(),
-        })
+    # Build hierarchy: parks -> buildings -> floors
+    parks = []
+    for park in all_locs.filter(level=1).order_by('sort', 'id'):
+        park_data = {
+            'id': park.id, 'name': park.name, 'code': park.code,
+            'buildings': []
+        }
+        for building in all_locs.filter(parent=park, level=2).order_by('sort', 'id'):
+            building_data = {
+                'id': building.id, 'name': building.name, 'code': building.code,
+                'floors': []
+            }
+            for floor in all_locs.filter(parent=building, level=3, has_map=True).order_by('sort', 'id'):
+                building_data['floors'].append({
+                    'id': floor.id, 'name': floor.name, 'code': floor.code,
+                    'workstation_count': floor.workstations.count(),
+                    'device_count': floor.devices.count(),
+                })
+            if building_data['floors']:
+                park_data['buildings'].append(building_data)
+        if park_data['buildings']:
+            parks.append(park_data)
     
-    return render(request, 'assets/device_map.html', {
-        'locations': location_list,
-    })
+    return render(request, 'assets/device_map.html', {'parks': parks})
 
 
 @login_required
