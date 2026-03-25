@@ -1,18 +1,23 @@
 {% extends 'base.html' %}
 {% block title %}工位管理 - {{ location.name }} - 驰达IT资产管理系统{% endblock %}
+{% block extra_css %}
+<style>
+.device-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 12px; font-size: 11px; background: #f8f9fa; border: 1px solid #e0e0e0; margin: 2px; }
+.device-badge .dot { width: 8px; height: 8px; border-radius: 50%; }
+</style>
+{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h4><i class="fas fa-th"></i> 工位管理 - {{ location.name }}</h4>
+    <h4><i class="fas fa-th"></i> 工位管理 - {{ location.get_full_path }}</h4>
     <div>
-        <a href="{% url 'workstation_batch_create' %}?location_id={{ location.id }}" class="btn btn-success"><i class="fas fa-plus-square"></i> 批量创建</a>
-        <a href="{% url 'workstation_create' %}?location_id={{ location.id }}" class="btn btn-primary"><i class="fas fa-plus"></i> 新增工位</a>
+        <a href="{% url 'location_map_edit' location.id %}" class="btn btn-primary"><i class="fas fa-edit"></i> 编辑地图</a>
         <a href="{% url 'location_map' location.id %}" class="btn btn-outline-secondary"><i class="fas fa-map"></i> 地图查看</a>
         <a href="{% url 'location_list' %}" class="btn btn-outline-secondary">返回位置</a>
     </div>
 </div>
 <div class="card">
     <div class="card-body">
-        <table class="table table-hover">
+        <table class="table table-hover align-middle">
             <thead>
                 <tr>
                     <th>工位编号</th>
@@ -21,36 +26,146 @@
                     <th>坐标</th>
                     <th>状态</th>
                     <th>设备数</th>
-                    <th>操作</th>
+                    <th>绑定设备</th>
+                    <th style="width:200px;">操作</th>
                 </tr>
             </thead>
             <tbody>
-                {% for ws in workstations %}
+                {% for item in ws_data %}
                 <tr>
-                    <td><strong>{{ ws.workstation_code }}</strong></td>
-                    <td>{{ ws.name }}</td>
-                    <td>{{ location.name }}</td>
-                    <td>{{ ws.x|floatformat:0 }}, {{ ws.y|floatformat:0 }}</td>
+                    <td><strong>{{ item.workstation.workstation_code }}</strong></td>
+                    <td>{{ item.display_name|default:'-' }}</td>
+                    <td><small class="text-muted">{{ item.full_path }}</small></td>
+                    <td><small>{{ item.workstation.x|floatformat:0 }}, {{ item.workstation.y|floatformat:0 }}</small></td>
                     <td>
-                        {% if ws.status == 'available' %}
-                        <span class="badge bg-success">可用</span>
-                        {% elif ws.status == 'occupied' %}
+                        {% if item.workstation.status == 'occupied' %}
                         <span class="badge bg-primary">已占用</span>
-                        {% else %}
+                        {% elif item.workstation.status == 'maintenance' %}
                         <span class="badge bg-warning">维修中</span>
+                        {% else %}
+                        <span class="badge bg-success">可用</span>
                         {% endif %}
                     </td>
-                    <td>{{ ws.devices.count }}</td>
+                    <td><span class="badge bg-info">{{ item.device_count }}</span></td>
                     <td>
-                        <a href="{% url 'workstation_edit' ws.id %}" class="btn btn-sm btn-outline-primary">编辑</a>
-                        <a href="{% url 'workstation_delete' ws.id %}" class="btn btn-sm btn-outline-danger" onclick="return confirm('确定删除此工位？')">删除</a>
+                        {% if item.devices %}
+                        {% for d in item.devices %}
+                        <span class="device-badge">
+                            <span class="dot" style="background:{% if d.status == 'normal' %}#28a745{% elif d.status == 'fault' %}#dc3545{% elif d.status == 'repairing' %}#ffc107{% else %}#6c757d{% endif %};"></span>
+                            <a href="{% url 'device_detail' d.id %}" target="_blank">{{ d.asset_no }}</a> {{ d.name }}
+                            <button class="btn btn-link btn-sm p-0 text-danger" style="font-size:10px;" onclick="unbindDevice({{ item.workstation.id }}, {{ d.id }})" title="解绑">&times;</button>
+                        </span>
+                        {% endfor %}
+                        {% else %}
+                        <small class="text-muted">-</small>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-success" onclick="showBindPanel({{ item.workstation.id }})"><i class="fas fa-link"></i> 绑定</button>
+                        <a href="{% url 'workstation_edit' item.workstation.id %}" class="btn btn-sm btn-outline-primary"><i class="fas fa-edit"></i> 编辑</a>
+                        <a href="{% url 'workstation_delete' item.workstation.id %}" class="btn btn-sm btn-outline-danger" onclick="return confirm('确定删除此工位？')"><i class="fas fa-trash"></i> 删除</a>
                     </td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="7" class="text-center text-muted">暂无工位数据</td></tr>
+                <tr><td colspan="7" class="text-center text-muted py-4">
+                    <i class="fas fa-th text-muted" style="font-size:2rem;"></i>
+                    <p class="mt-2 mb-0">暂无工位数据</p>
+                    <small>请在<a href="{% url 'location_map_edit' location.id %}">地图编辑页面</a>创建工位</small>
+                </td></tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 </div>
+
+<!-- Bind Device Modal -->
+<div id="bindModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:1000;">
+    <div style="margin:150px auto;max-width:450px;background:#fff;border-radius:8px;overflow:hidden;">
+        <div style="padding:15px 20px;background:#f8f9fa;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;">
+            <h6 style="margin:0;"><i class="fas fa-link me-2"></i>绑定设备到工位 <span id="bindWsCode"></span></h6>
+            <button class="btn btn-sm btn-outline-secondary" onclick="closeBindModal()"><i class="fas fa-times"></i></button>
+        </div>
+        <div style="padding:15px 20px;">
+            <input type="text" id="bindSearchInput" class="form-control form-control-sm mb-2" placeholder="输入设备编号或名称搜索..." oninput="searchBindDevices()">
+            <div id="bindSearchResults" style="max-height:250px;overflow-y:auto;"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+var CSRF = '{{ csrf_token }}';
+var bindWsId = null;
+
+function getCsrf() {
+    var cookies = document.cookie.split(';');
+    for (var i = 0; i < cookies.length; i++) {
+        var c = cookies[i].trim();
+        if (c.indexOf('csrftoken=') === 0) return c.substring('csrftoken='.length);
+    }
+    return CSRF;
+}
+
+function showBindPanel(wsId) {
+    bindWsId = wsId;
+    document.getElementById('bindModal').style.display = 'block';
+    document.getElementById('bindSearchInput').value = '';
+    document.getElementById('bindSearchResults').innerHTML = '';
+    document.getElementById('bindSearchInput').focus();
+}
+
+function closeBindModal() {
+    document.getElementById('bindModal').style.display = 'none';
+    bindWsId = null;
+}
+
+function searchBindDevices() {
+    var q = document.getElementById('bindSearchInput').value.trim();
+    if (q.length < 1) { document.getElementById('bindSearchResults').innerHTML = ''; return; }
+    fetch('/assets/api/devices/search/?q=' + encodeURIComponent(q))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var html = '';
+            (data.devices || []).forEach(function(d) {
+                if (d.workstation_id) {
+                    html += '<div class="p-2 border-bottom"><small class="text-muted">' + d.asset_no + ' - ' + d.name + '（已绑定）</small></div>';
+                } else {
+                    html += '<div class="p-2 border-bottom d-flex justify-content-between align-items-center">';
+                    html += '<div><strong>' + d.asset_no + '</strong> ' + d.name + '</div>';
+                    html += '<button class="btn btn-sm btn-success" onclick="doBind(' + d.id + ')">绑定</button></div>';
+                }
+            });
+            if (!html) html = '<div class="p-2 text-muted">未找到设备</div>';
+            document.getElementById('bindSearchResults').innerHTML = html;
+        });
+}
+
+function doBind(deviceId) {
+    if (!bindWsId) return;
+    fetch('/assets/api/workstations/' + bindWsId + '/bind-device/', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCsrf(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ device_id: deviceId })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+        if (res.success) { location.reload(); }
+        else { alert('绑定失败: ' + res.message); }
+    });
+}
+
+function unbindDevice(wsId, deviceId) {
+    if (!confirm('确定解绑此设备？')) return;
+    fetch('/assets/api/workstations/' + wsId + '/unbind-device/', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCsrf(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ device_id: deviceId })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+        if (res.success) { location.reload(); }
+        else { alert('解绑失败: ' + res.message); }
+    });
+}
+</script>
 {% endblock %}

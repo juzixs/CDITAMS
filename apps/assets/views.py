@@ -1187,8 +1187,36 @@ def map_element_save(request):
                 else:
                     element = MapElement.objects.create(**data)
                     saved_ids.append(element.id)
+                
+                # Sync workstation to Workstation table
+                if data['element_type'] == 'workstation':
+                    from apps.assets.models import Workstation
+                    location = AssetLocation.objects.filter(pk=location_id).first()
+                    if location:
+                        ws, created = Workstation.objects.get_or_create(
+                            location=location,
+                            workstation_code=data['label'] or f'WS-{element.id}',
+                            defaults={
+                                'x': data['x'],
+                                'y': data['y'],
+                                'width': data['width'] or 60,
+                                'height': data['height'] or 40,
+                                'status': 'available',
+                            }
+                        )
+                        if not created:
+                            ws.x = data['x']
+                            ws.y = data['y']
+                            ws.width = data['width'] or 60
+                            ws.height = data['height'] or 40
+                            ws.save()
             
             existing_ids = [int(el.get('id')) for el in elements_list if el.get('id')]
+            # Delete workstations that correspond to deleted workstation-type elements
+            deleted_ws_elements = MapElement.objects.filter(location_id=location_id, element_type='workstation').exclude(id__in=saved_ids)
+            deleted_ws_labels = [e.label for e in deleted_ws_elements if e.label]
+            if deleted_ws_labels:
+                Workstation.objects.filter(location_id=location_id, workstation_code__in=deleted_ws_labels).delete()
             MapElement.objects.filter(location_id=location_id).exclude(id__in=saved_ids).delete()
             
             return JsonResponse({'success': True, 'message': f'保存成功，共 {len(saved_ids)} 个元素', 'saved_ids': saved_ids})
@@ -1280,12 +1308,37 @@ def map_background_upload(request, pk):
 
 
 @login_required
-def workstation_list(request, location_id):
-    location = get_object_or_404(AssetLocation, pk=location_id)
-    workstations = Workstation.objects.filter(location=location).prefetch_related('devices')
+def workstation_list(request, pk):
+    location = get_object_or_404(AssetLocation, pk=pk)
+    workstations = Workstation.objects.filter(location=location).prefetch_related('devices__category', 'devices__user', 'devices__department')
+    
+    # Build workstation data with full path and devices
+    ws_data = []
+    for ws in workstations:
+        devices = ws.devices.select_related('user', 'department', 'category').all()
+        
+        # Auto-generate name if not set
+        display_name = ws.name
+        if not display_name:
+            pc_device = devices.filter(category__name='台式机').first() or devices.filter(category__name__icontains='计算机').first()
+            if pc_device and pc_device.user:
+                display_name = f'{pc_device.user.realname}的工位'
+            elif devices.exists():
+                first_device = devices.first()
+                if first_device.department:
+                    display_name = f'{first_device.department.name}工位'
+        
+        ws_data.append({
+            'workstation': ws,
+            'display_name': display_name,
+            'full_path': location.get_full_path(),
+            'devices': [{'id': d.id, 'asset_no': d.asset_no, 'name': d.name, 'status': d.status, 'status_display': d.get_status_display()} for d in devices],
+            'device_count': devices.count(),
+        })
+    
     return render(request, 'assets/workstation_list.html', {
         'location': location,
-        'workstations': workstations,
+        'ws_data': ws_data,
     })
 
 
@@ -1333,26 +1386,30 @@ def workstation_create(request):
 
 @login_required
 def workstation_edit(request, pk):
-    workstation = get_object_or_404(Workstation, pk=pk)
+    workstation = get_object_or_404(Workstation.objects.select_related('location'), pk=pk)
+    
+    # Auto-generate name if empty
+    if not workstation.name:
+        devices = workstation.devices.select_related('user', 'department', 'category').all()
+        pc_device = devices.filter(category__name='台式机').first() or devices.filter(category__name__icontains='计算机').first()
+        if pc_device and pc_device.user:
+            workstation.name = f'{pc_device.user.realname}的工位'
+        elif devices.exists():
+            first_device = devices.first()
+            if first_device.department:
+                workstation.name = f'{first_device.department.name}工位'
     
     if request.method == 'POST':
-        workstation.name = request.POST.get('name')
-        workstation.x = float(request.POST.get('x', 0))
-        workstation.y = float(request.POST.get('y', 0))
-        workstation.width = float(request.POST.get('width', 30))
-        workstation.height = float(request.POST.get('height', 20))
+        workstation.name = request.POST.get('name', '')
         workstation.status = request.POST.get('status', 'available')
         workstation.description = request.POST.get('description', '')
         workstation.save()
         
         messages.success(request, '工位更新成功')
-        return redirect('workstation_list', location_id=workstation.location_id)
+        return redirect('workstation_list', pk=workstation.location_id)
     
-    locations = AssetLocation.objects.filter(level=4)
     return render(request, 'assets/workstation_form.html', {
         'workstation': workstation,
-        'location': workstation.location,
-        'locations': locations,
     })
 
 
