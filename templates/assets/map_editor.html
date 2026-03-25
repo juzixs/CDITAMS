@@ -307,8 +307,19 @@ stage.on('mousemove touchmove', function(e) {
     document.getElementById('coord').textContent = 'X:' + Math.round((pos.x - stage.x()) / scl) + ' Y:' + Math.round((pos.y - stage.y()) / scl);
     if (!drawing || tool === 'select' || tool === 'text') return;
 
-    var x = snp((pos.x - stage.x()) / scl), y = snp((pos.y - stage.y()) / scl), sx = dSt.x, sy = dSt.y;
+    var x = snp((pos.x - stage.x()) / scl), y = snp((pos.y - stage.y()) / scl);
     if (tmpN) { tmpN.destroy(); tmpN = null; }
+
+    if (tool === 'region' && polyP.length > 0) {
+        var p2 = [];
+        for (var i = 0; i < polyP.length; i++) p2.push(polyP[i].x, polyP[i].y);
+        p2.push(x, y);
+        tmpN = new Konva.Line({ points: p2, stroke: '#3498db', strokeWidth: 2, dash: [5, 5] });
+        if (tmpN) { uiL.add(tmpN); uiL.draw(); }
+        return;
+    }
+
+    var sx = dSt.x, sy = dSt.y;
 
     if (tool === 'line') tmpN = new Konva.Line({ points: [sx, sy, x, y], stroke: '#000', strokeWidth: 3, dash: [5, 5] });
     else if (tool === 'door') {
@@ -320,7 +331,6 @@ stage.on('mousemove touchmove', function(e) {
     else if (tool === 'dashed') tmpN = new Konva.Line({ points: [sx, sy, sx + (Math.abs(x - sx) || 60), sy], stroke: '#2196F3', strokeWidth: 3, dash: [5, 5] });
     else if (tool === 'rect') tmpN = new Konva.Rect({ x: Math.min(sx, x), y: Math.min(sy, y), width: Math.abs(x - sx) || 60, height: Math.abs(y - sy) || 40, stroke: '#000', strokeWidth: 2, dash: [5, 5] });
     else if (tool === 'workstation') tmpN = new Konva.Rect({ x: Math.min(sx, x), y: Math.min(sy, y), width: Math.abs(x - sx) || 60, height: Math.abs(y - sy) || 40, fill: '#e3f2fd80', stroke: '#1976D2', strokeWidth: 1, dash: [5, 5] });
-    else if (tool === 'region' && polyP.length > 0) { var p2 = []; for (var i = 0; i < polyP.length; i++) p2.push(polyP[i].x, polyP[i].y); p2.push(x, y); tmpN = new Konva.Line({ points: p2, stroke: '#3498db', strokeWidth: 2, dash: [5, 5] }); }
 
     if (tmpN) { uiL.add(tmpN); uiL.draw(); }
 });
@@ -328,7 +338,8 @@ stage.on('mousemove touchmove', function(e) {
 stage.on('mouseup touchend', function(e) {
     var pos = stage.getPointerPosition();
     if (pSt) { pSt = null; stage.container().style.cursor = tool === 'select' ? 'default' : 'crosshair'; return; }
-    if (!drawing || tool === 'select' || tool === 'region' || tool === 'text') { drawing = false; return; }
+    if (tool === 'region') { return; }
+    if (!drawing || tool === 'select' || tool === 'text') { drawing = false; return; }
     if (!pos) return;
 
     var x = snp((pos.x - stage.x()) / scl), y = snp((pos.y - stage.y()) / scl), sx = dSt.x, sy = dSt.y;
