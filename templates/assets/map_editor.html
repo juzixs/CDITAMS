@@ -157,6 +157,27 @@ drawGrid();
 
 function snp(v) { if (!sOn) return v; var s = Math.round(v / gSize) * gSize; return Math.abs(v - s) < sTh ? s : v; }
 
+// Get next available workstation number
+function getNextWsNum() {
+    var prefix = LOC_CODE + '-';
+    var used = [];
+    [elL, objL].forEach(function(layer) {
+        layer.getChildren().forEach(function(n) {
+            if (n._d && n._d.t === 'workstation' && n._d.label) {
+                var num = parseInt(n._d.label.replace(prefix, ''));
+                if (!isNaN(num)) used.push(num);
+            }
+        });
+    });
+    used.sort(function(a, b) { return a - b; });
+    var next = 1;
+    for (var i = 0; i < used.length; i++) {
+        if (used[i] === next) next++;
+        else if (used[i] > next) break;
+    }
+    return String(next).padStart(3, '0');
+}
+
 // Get canvas coords from mouse event
 function cCoords(e) {
     var rect = stage.container().getBoundingClientRect();
@@ -511,7 +532,7 @@ stage.on('mouseup touchend', function(e) {
     else if (tool === 'door') { var dx = x-sx, dy = y-sy; var w1 = Math.sqrt(dx*dx+dy*dy) || 60; var ang = Math.atan2(dy,dx)*180/Math.PI; d = { t: 'door', x: sx, y: sy, w: w1, h: 20, c: '#333', th: 2, dd: 'right', dw: w1, da: 90, angle: ang }; }
     else if (tool === 'dashed') d = { t: 'dashed', x: sx, y: sy, w: Math.abs(x - sx) || 60, h: 0, c: '#2196F3', th: 3 };
     else if (tool === 'rect') d = { t: 'rect', x: Math.min(sx, x), y: Math.min(sy, y), w: Math.abs(x - sx) || 60, h: Math.abs(y - sy) || 40, c: '#000', th: 2 };
-    else if (tool === 'workstation') { var w2 = Math.abs(x - sx) || 60, h2 = Math.abs(y - sy) || 40; var code = prompt('工位编号:', LOC_CODE + '-' + String(objL.getChildren().length + 1).padStart(3, '0')); if (code) d = { t: 'workstation', x: Math.min(sx, x), y: Math.min(sy, y), w: w2, h: h2, c: '#e3f2fd', label: code }; }
+    else if (tool === 'workstation') { var w2 = Math.abs(x - sx) || 60, h2 = Math.abs(y - sy) || 40; var code = prompt('工位编号:', LOC_CODE + '-' + getNextWsNum()); if (code) d = { t: 'workstation', x: Math.min(sx, x), y: Math.min(sy, y), w: w2, h: h2, c: '#e3f2fd', label: code }; }
 
     if (d) { mkS(d); (d.t === 'workstation' ? objL : elL).draw(); saveH(); }
     drawing = false; uiL.draw();
