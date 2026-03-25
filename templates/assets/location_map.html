@@ -240,13 +240,12 @@ function renderMap(data) {
 
         group.on('click tap', function() { showWSPanel(ws); });
 
-        // Device dots on workstation
+        // Device dots on workstation - inside bottom-right corner
         (ws.devices || []).forEach((d, i) => {
             let sc = d.status === 'normal' ? '#28a745' : d.status === 'fault' ? '#dc3545' : d.status === 'repairing' ? '#ffc107' : '#6c757d';
-            const dx = w + 5 + (i % 3) * 16;
-            const dy = 5 + Math.floor(i / 3) * 16;
-            group.add(new Konva.Circle({ x: dx, y: dy + 8, radius: 6, fill: sc, stroke: '#fff', strokeWidth: 1.5 }));
-            group.add(new Konva.Text({ x: dx - 20, y: dy + 16, text: d.asset_no ? d.asset_no.split('-').pop() : '', fontSize: 8, fill: '#333', width: 40, align: 'center' }));
+            const dx = w - 5 - i * 8;
+            const dy = h - 5;
+            group.add(new Konva.Circle({ x: dx, y: dy, radius: 3, fill: sc }));
         });
 
         objLayer.add(group);
