@@ -1332,7 +1332,7 @@ def workstation_list(request, pk):
             'workstation': ws,
             'display_name': display_name,
             'full_path': location.get_full_path(),
-            'devices': [{'id': d.id, 'asset_no': d.asset_no, 'name': d.name, 'status': d.status, 'status_display': d.get_status_display()} for d in devices],
+            'devices': [{'id': d.id, 'asset_no': d.asset_no, 'name': d.name, 'status': d.status, 'status_display': d.get_status_display(), 'department': d.department.name if d.department else '', 'user': d.user.realname if d.user else ''} for d in devices],
             'device_count': devices.count(),
         })
     
