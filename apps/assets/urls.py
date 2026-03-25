@@ -23,6 +23,7 @@ urlpatterns = [
     path('api/devices/generate-asset-number/', views.api_generate_asset_number, name='api_generate_asset_number'),
     path('api/devices/get-category-by-asset-no/', views.api_get_category_by_asset_no, name='api_get_category_by_asset_no'),
     path('api/devices/search/', views.api_devices_search, name='api_devices_search'),
+    path('api/devices/unbound/', views.api_devices_unbound, name='api_devices_unbound'),
     
     path('categories/', views.category_list, name='category_list'),
     path('categories/create/', views.category_create, name='category_create'),

@@ -2,8 +2,8 @@
 {% block title %}工位管理 - {{ location.name }} - 驰达IT资产管理系统{% endblock %}
 {% block extra_css %}
 <style>
-.device-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 12px; font-size: 11px; background: #f8f9fa; border: 1px solid #e0e0e0; margin: 2px; }
-.device-badge .dot { width: 8px; height: 8px; border-radius: 50%; }
+.device-badge { display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; border-radius: 10px; font-size: 11px; background: #f8f9fa; border: 1px solid #e0e0e0; margin: 1px 2px; white-space: nowrap; }
+.device-badge .dot { width: 7px; height: 7px; border-radius: 50%; }
 </style>
 {% endblock %}
 {% block content %}
@@ -17,17 +17,17 @@
 </div>
 <div class="card">
     <div class="card-body">
-        <table class="table table-hover align-middle">
+        <table class="table table-hover align-middle" style="table-layout:fixed;">
             <thead>
                 <tr>
-                    <th>工位编号</th>
-                    <th>工位名称</th>
-                    <th>位置</th>
-                    <th>坐标</th>
-                    <th>状态</th>
-                    <th>设备数</th>
-                    <th>绑定设备</th>
-                    <th style="width:200px;">操作</th>
+                    <th style="width:12%;">工位编号</th>
+                    <th style="width:12%;">工位名称</th>
+                    <th style="width:16%;">位置</th>
+                    <th style="width:8%;">坐标</th>
+                    <th style="width:7%;">状态</th>
+                    <th style="width:6%;">设备数</th>
+                    <th style="width:22%;">绑定设备</th>
+                    <th style="width:17%;">操作</th>
                 </tr>
             </thead>
             <tbody>
@@ -47,27 +47,27 @@
                         {% endif %}
                     </td>
                     <td><span class="badge bg-info">{{ item.device_count }}</span></td>
-                    <td>
+                    <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
                         {% if item.devices %}
                         {% for d in item.devices %}
-                        <span class="device-badge">
+                        <span class="device-badge" title="{{ d.asset_no }} {{ d.name }}">
                             <span class="dot" style="background:{% if d.status == 'normal' %}#28a745{% elif d.status == 'fault' %}#dc3545{% elif d.status == 'repairing' %}#ffc107{% else %}#6c757d{% endif %};"></span>
-                            <a href="{% url 'device_detail' d.id %}" target="_blank">{{ d.asset_no }}</a> {{ d.name }}
-                            <button class="btn btn-link btn-sm p-0 text-danger" style="font-size:10px;" onclick="unbindDevice({{ item.workstation.id }}, {{ d.id }})" title="解绑">&times;</button>
+                            {{ d.asset_no }}
+                            <button class="btn btn-link btn-sm p-0 text-danger" style="font-size:9px;line-height:1;" onclick="unbindDevice({{ item.workstation.id }}, {{ d.id }})" title="解绑">&times;</button>
                         </span>
                         {% endfor %}
                         {% else %}
                         <small class="text-muted">-</small>
                         {% endif %}
                     </td>
-                    <td>
-                        <button class="btn btn-sm btn-outline-success" onclick="showBindPanel({{ item.workstation.id }})"><i class="fas fa-link"></i> 绑定</button>
-                        <a href="{% url 'workstation_edit' item.workstation.id %}" class="btn btn-sm btn-outline-primary"><i class="fas fa-edit"></i> 编辑</a>
-                        <a href="{% url 'workstation_delete' item.workstation.id %}" class="btn btn-sm btn-outline-danger" onclick="return confirm('确定删除此工位？')"><i class="fas fa-trash"></i> 删除</a>
+                    <td style="white-space:nowrap;">
+                        <button class="btn btn-sm btn-outline-success" onclick="showBindPanel({{ item.workstation.id }})"><i class="fas fa-link"></i></button>
+                        <a href="{% url 'workstation_edit' item.workstation.id %}" class="btn btn-sm btn-outline-primary"><i class="fas fa-edit"></i></a>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteWs({{ item.workstation.id }})"><i class="fas fa-trash"></i></button>
                     </td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="7" class="text-center text-muted py-4">
+                <tr><td colspan="8" class="text-center text-muted py-4">
                     <i class="fas fa-th text-muted" style="font-size:2rem;"></i>
                     <p class="mt-2 mb-0">暂无工位数据</p>
                     <small>请在<a href="{% url 'location_map_edit' location.id %}">地图编辑页面</a>创建工位</small>
@@ -110,8 +110,8 @@ function showBindPanel(wsId) {
     bindWsId = wsId;
     document.getElementById('bindModal').style.display = 'block';
     document.getElementById('bindSearchInput').value = '';
-    document.getElementById('bindSearchResults').innerHTML = '';
     document.getElementById('bindSearchInput').focus();
+    loadUnbindDevices();
 }
 
 function closeBindModal() {
@@ -119,24 +119,37 @@ function closeBindModal() {
     bindWsId = null;
 }
 
+function loadUnbindDevices() {
+    var container = document.getElementById('bindSearchResults');
+    container.innerHTML = '<div class="p-2 text-muted">加载中...</div>';
+    fetch('/assets/api/devices/unbound/')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            renderDeviceList(data.devices || []);
+        })
+        .catch(function() { container.innerHTML = '<div class="p-2 text-danger">加载失败</div>'; });
+}
+
+function renderDeviceList(devices) {
+    var html = '';
+    devices.forEach(function(d) {
+        var sc = d.status === 'normal' ? '#28a745' : d.status === 'fault' ? '#dc3545' : d.status === 'repairing' ? '#ffc107' : '#6c757d';
+        html += '<div class="p-2 border-bottom d-flex justify-content-between align-items-center">';
+        html += '<div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + sc + ';margin-right:6px;"></span>';
+        html += '<strong>' + d.asset_no + '</strong> ' + (d.name || '') + (d.user ? ' <small class="text-muted">(' + d.user + ')</small>' : '') + '</div>';
+        html += '<button class="btn btn-sm btn-success" onclick="doBind(' + d.id + ')">绑定</button></div>';
+    });
+    if (!html) html = '<div class="p-2 text-muted">暂无未绑定设备</div>';
+    document.getElementById('bindSearchResults').innerHTML = html;
+}
+
 function searchBindDevices() {
     var q = document.getElementById('bindSearchInput').value.trim();
-    if (q.length < 1) { document.getElementById('bindSearchResults').innerHTML = ''; return; }
+    if (q.length < 1) { loadUnbindDevices(); return; }
     fetch('/assets/api/devices/search/?q=' + encodeURIComponent(q))
         .then(function(r) { return r.json(); })
         .then(function(data) {
-            var html = '';
-            (data.devices || []).forEach(function(d) {
-                if (d.workstation_id) {
-                    html += '<div class="p-2 border-bottom"><small class="text-muted">' + d.asset_no + ' - ' + d.name + '（已绑定）</small></div>';
-                } else {
-                    html += '<div class="p-2 border-bottom d-flex justify-content-between align-items-center">';
-                    html += '<div><strong>' + d.asset_no + '</strong> ' + d.name + '</div>';
-                    html += '<button class="btn btn-sm btn-success" onclick="doBind(' + d.id + ')">绑定</button></div>';
-                }
-            });
-            if (!html) html = '<div class="p-2 text-muted">未找到设备</div>';
-            document.getElementById('bindSearchResults').innerHTML = html;
+            renderDeviceList(data.devices || []);
         });
 }
 
@@ -152,6 +165,20 @@ function doBind(deviceId) {
         if (res.success) { location.reload(); }
         else { alert('绑定失败: ' + res.message); }
     });
+}
+
+function deleteWs(wsId) {
+    if (!confirm('确定删除此工位？删除后绑定的设备将自动解绑。')) return;
+    fetch('/assets/workstations/' + wsId + '/delete/', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCsrf() }
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+        if (res.success) { location.reload(); }
+        else { alert('删除失败: ' + res.message); }
+    })
+    .catch(function(e) { alert('删除失败: ' + e); });
 }
 
 function unbindDevice(wsId, deviceId) {

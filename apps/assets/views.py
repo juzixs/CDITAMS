@@ -1417,10 +1417,8 @@ def workstation_edit(request, pk):
 def workstation_delete(request, pk):
     if request.method == 'POST':
         workstation = get_object_or_404(Workstation, pk=pk)
-        location_id = workstation.location_id
         workstation.delete()
-        messages.success(request, '工位删除成功')
-        return redirect('workstation_list', location_id=location_id)
+        return JsonResponse({'success': True, 'message': '工位删除成功'})
     return JsonResponse({'success': False, 'message': '无效请求'})
 
 
@@ -1652,6 +1650,22 @@ def api_location_area_bindings(request, pk):
     } for b in bindings]
     
     return JsonResponse({'success': True, 'bindings': data})
+
+
+@login_required
+def api_devices_unbound(request):
+    devices = Device.objects.filter(
+        workstation__isnull=True, status='normal'
+    ).select_related('category', 'user')[:50]
+    data = [{
+        'id': d.id,
+        'asset_no': d.asset_no,
+        'name': d.name,
+        'status': d.status,
+        'category': d.category.name if d.category else '',
+        'user': d.user.realname if d.user else '',
+    } for d in devices]
+    return JsonResponse({'success': True, 'devices': data})
 
 
 @login_required
