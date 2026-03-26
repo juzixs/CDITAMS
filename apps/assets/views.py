@@ -120,6 +120,10 @@ def device_create(request):
             created_by=request.user,
         )
         
+        if device.workstation_id:
+            device.workstation.status = 'occupied'
+            device.workstation.save()
+        
         qr = qrcode.QRCode(version=1, box_size=10, border=5)
         qr.add_data(f'/device/scan/{device.id}')
         qr.make(fit=True)
@@ -167,6 +171,7 @@ def device_edit(request, pk):
             'user': str(device.user) if device.user else '',
             'location': str(device.location) if device.location else '',
         }
+        old_workstation_id = device.workstation_id
         
         device.name = request.POST.get('name')
         device.asset_no = request.POST.get('asset_no', device.asset_no)
@@ -211,6 +216,16 @@ def device_edit(request, pk):
             device.photo = ''
         
         device.save()
+        
+        if device.workstation_id != old_workstation_id:
+            if device.workstation_id:
+                device.workstation.status = 'occupied'
+                device.workstation.save()
+            if old_workstation_id:
+                old_workstation = Workstation.objects.get(pk=old_workstation_id)
+                if not old_workstation.devices.exists():
+                    old_workstation.status = 'available'
+                    old_workstation.save()
         
         for field, old_val in old_values.items():
             new_val = str(getattr(device, field))
