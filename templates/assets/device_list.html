@@ -102,7 +102,7 @@
                                 {% elif field.field_key == 'department' %}
                                     {{ device.department.name|default:'-' }}
                                 {% elif field.field_key == 'location' %}
-                                    {{ device.location.name|default:'-' }}
+                                    {{ device.location.get_full_path|default:'-' }}
                                 {% elif field.field_key == 'category' %}
                                     {{ device.category.name }}
                                 {% elif field.field_key == 'is_fixed' %}

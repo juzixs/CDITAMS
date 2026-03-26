@@ -286,7 +286,9 @@ class Workstation(models.Model):
         ordering = ['workstation_code']
 
     def __str__(self):
-        return f"{self.workstation_code} - {self.name}"
+        if self.name:
+            return f"{self.workstation_code} - {self.name}"
+        return self.workstation_code
 
 
 class MapElement(models.Model):
