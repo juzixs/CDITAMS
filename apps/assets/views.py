@@ -412,8 +412,8 @@ def category_create(request):
             if parent:
                 level = parent.level + 1
         
-        if code and AssetCategory.objects.filter(code=code).exists():
-            messages.error(request, '分类编码已存在')
+        if code and AssetCategory.objects.filter(code=code, parent_id=parent_id or None).exists():
+            messages.error(request, '同级分类中编码已存在')
         else:
             AssetCategory.objects.create(
                 name=name,
@@ -426,8 +426,31 @@ def category_create(request):
             messages.success(request, '分类创建成功')
             return redirect('category_list')
     
-    categories = AssetCategory.objects.all()
-    return render(request, 'assets/category_form.html', {'categories': categories})
+    all_cats = AssetCategory.objects.order_by('sort', 'id').all()
+    flat_cats = build_category_tree(all_cats)
+    return render(request, 'assets/category_form.html', {'categories': flat_cats})
+
+
+def build_category_tree(all_cats):
+    """Build category tree and return flat list in tree order"""
+    # Group by parent_id
+    by_parent = {}
+    for cat in all_cats:
+        pid = cat.parent_id or 0
+        by_parent.setdefault(pid, []).append(cat)
+    
+    # Sort each level by sort, id
+    for pid in by_parent:
+        by_parent[pid].sort(key=lambda c: (c.sort or 0, c.id))
+    
+    # Recursive flatten
+    result = []
+    def flatten(parent_id):
+        for cat in by_parent.get(parent_id, []):
+            result.append(cat)
+            flatten(cat.id)
+    flatten(0)
+    return result
 
 
 @login_required
@@ -449,12 +472,18 @@ def category_edit(request, pk):
         category.parent_id = parent_id
         category.description = request.POST.get('description')
         category.sort = request.POST.get('sort', 0)
-        category.save()
-        messages.success(request, '分类更新成功')
-        return redirect('category_list')
+        
+        # Check for duplicate code within same parent
+        if category.code and AssetCategory.objects.filter(code=category.code, parent_id=parent_id or None).exclude(pk=pk).exists():
+            messages.error(request, '同级分类中编码已存在')
+        else:
+            category.save()
+            messages.success(request, '分类更新成功')
+            return redirect('category_list')
     
-    categories = AssetCategory.objects.exclude(pk=pk)
-    return render(request, 'assets/category_form.html', {'category': category, 'categories': categories})
+    all_cats = AssetCategory.objects.order_by('sort', 'id').exclude(pk=pk)
+    flat_cats = build_category_tree(all_cats)
+    return render(request, 'assets/category_form.html', {'category': category, 'categories': flat_cats})
 
 
 @login_required
