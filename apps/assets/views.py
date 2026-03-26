@@ -731,6 +731,57 @@ def device_map(request):
 
 
 @login_required
+def workstation_manage(request):
+    # Get all locations with hierarchy
+    all_locs = AssetLocation.objects.select_related('parent__parent', 'parent').prefetch_related('workstations__devices__category', 'workstations__devices__user', 'workstations__devices__department')
+    
+    # Build hierarchy: parks -> buildings -> floors -> workstations
+    parks = []
+    for park in all_locs.filter(level=1).order_by('sort', 'id'):
+        park_data = {
+            'id': park.id, 'name': park.name, 'code': park.code,
+            'buildings': []
+        }
+        for building in all_locs.filter(parent=park, level=2).order_by('sort', 'id'):
+            building_data = {
+                'id': building.id, 'name': building.name, 'code': building.code,
+                'floors': []
+            }
+            for floor in all_locs.filter(parent=building, level=3).order_by('sort', 'id'):
+                workstations = floor.workstations.order_by('workstation_code').prefetch_related('devices__category', 'devices__user', 'devices__department')
+                ws_list = []
+                for ws in workstations:
+                    devices = ws.devices.all()
+                    # Auto-generate name
+                    display_name = ws.name
+                    if not display_name:
+                        pc = devices.filter(category__name='台式机').first() or devices.filter(category__name__icontains='计算机').first()
+                        if pc and pc.user:
+                            display_name = f'{pc.user.realname}的工位'
+                        elif devices.exists() and devices.first().department:
+                            display_name = f'{devices.first().department.name}工位'
+                    ws_list.append({
+                        'id': ws.id, 'code': ws.workstation_code, 'name': display_name or '-',
+                        'x': ws.x, 'y': ws.y, 'status': ws.status, 'status_display': ws.get_status_display(),
+                        'devices': [{'id': d.id, 'asset_no': d.asset_no, 'name': d.name, 'status': d.status} for d in devices],
+                        'device_count': devices.count(),
+                    })
+                if ws_list or floor.has_map:
+                    building_data['floors'].append({
+                        'id': floor.id, 'name': floor.name, 'code': floor.code,
+                        'has_map': floor.has_map,
+                        'workstations': ws_list,
+                        'workstation_count': len(ws_list),
+                    })
+            if building_data['floors']:
+                park_data['buildings'].append(building_data)
+        if park_data['buildings']:
+            parks.append(park_data)
+    
+    return render(request, 'assets/workstation_manage.html', {'parks': parks})
+
+
+@login_required
 def field_list(request):
     fields = DeviceField.objects.all()
     return render(request, 'assets/field_list.html', {'fields': fields})
