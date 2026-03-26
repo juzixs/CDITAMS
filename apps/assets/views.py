@@ -1111,7 +1111,6 @@ def device_stats(request):
         'total': Device.objects.count(),
         'normal': Device.objects.filter(status='normal').count(),
         'fault': Device.objects.filter(status='fault').count(),
-        'repairing': Device.objects.filter(status='repairing').count(),
         'scrapped': Device.objects.filter(status='scrapped').count(),
         'unused': Device.objects.filter(status='unused').count(),
     }
@@ -1149,7 +1148,7 @@ def map_data(request, pk):
     
     elements = MapElement.objects.filter(location=location).values()
     workstations = Workstation.objects.filter(location=location).select_related('location')
-    devices = Device.objects.filter(location=location).select_related('category', 'user', 'workstation')
+    devices = Device.objects.filter(location=location, status__in=['normal', 'fault', 'unused']).select_related('category', 'user', 'workstation')
     
     try:
         background = location.background

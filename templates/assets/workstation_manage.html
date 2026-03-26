@@ -64,7 +64,7 @@
                             <td>
                                 {% for d in ws.devices %}
                                 <span class="device-item" title="{{ d.asset_no }} {{ d.name }}">
-                                    <span class="status-dot" style="background:{% if d.status == 'normal' %}#28a745{% elif d.status == 'fault' %}#dc3545{% elif d.status == 'repairing' %}#ffc107{% else %}#6c757d{% endif %};"></span>
+                                    <span class="status-dot" style="background:{% if d.status == 'normal' %}#28a745{% elif d.status == 'fault' %}#dc3545{% else %}#6c757d{% endif %};"></span>
                                     {{ d.asset_no }} {{ d.name }}
                                 </span>
                                 {% endfor %}

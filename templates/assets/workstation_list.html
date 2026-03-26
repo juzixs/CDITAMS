@@ -51,7 +51,7 @@
                         {% if item.devices %}
                         {% for d in item.devices %}
                         <div class="device-badge" title="{{ d.asset_no }} {{ d.name }}{% if d.department %} | {{ d.department }}{% endif %}{% if d.user %} | {{ d.user }}{% endif %}">
-                            <span class="dot" style="background:{% if d.status == 'normal' %}#28a745{% elif d.status == 'fault' %}#dc3545{% elif d.status == 'repairing' %}#ffc107{% else %}#6c757d{% endif %};"></span>
+                            <span class="dot" style="background:{% if d.status == 'normal' %}#28a745{% elif d.status == 'fault' %}#dc3545{% else %}#6c757d{% endif %};"></span>
                             <span style="overflow:hidden;text-overflow:ellipsis;">{{ d.asset_no }} {{ d.name }}</span>
                             <button class="btn btn-link btn-sm p-0 text-danger" style="font-size:9px;line-height:1;margin-left:2px;" onclick="unbindDevice({{ item.workstation.id }}, {{ d.id }})" title="解绑">&times;</button>
                         </div>
@@ -133,7 +133,7 @@ function loadUnbindDevices() {
 function renderDeviceList(devices) {
     var html = '';
     devices.forEach(function(d) {
-        var sc = d.status === 'normal' ? '#28a745' : d.status === 'fault' ? '#dc3545' : d.status === 'repairing' ? '#ffc107' : '#6c757d';
+        var sc = d.status === 'normal' ? '#28a745' : d.status === 'fault' ? '#dc3545' : '#6c757d';
         html += '<div class="p-2 border-bottom d-flex justify-content-between align-items-center">';
         html += '<div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + sc + ';margin-right:6px;"></span>';
         html += '<strong>' + d.asset_no + '</strong> ' + (d.name || '') + (d.user ? ' <small class="text-muted">(' + d.user + ')</small>' : '') + '</div>';

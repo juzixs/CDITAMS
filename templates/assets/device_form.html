@@ -163,10 +163,9 @@
                 <div class="col-12 col-md-4">
                     <label class="form-label">设备状态</label>
                     <select name="status" class="form-select">
-                        <option value="normal" {% if device.status == 'normal' or not device %}selected{% endif %}>正常</option>
+                        <option value="normal" {% if device.status == 'normal' or not device %}selected{% endif %}>使用</option>
                         <option value="fault" {% if device.status == 'fault' %}selected{% endif %}>故障</option>
-                        <option value="repairing" {% if device.status == 'repairing' %}selected{% endif %}>维修中</option>
-                        <option value="scrapped" {% if device.status == 'scrapped' %}selected{% endif %}>已报废</option>
+                        <option value="scrapped" {% if device.status == 'scrapped' %}selected{% endif %}>报废</option>
                         <option value="unused" {% if device.status == 'unused' %}selected{% endif %}>闲置</option>
                     </select>
                 </div>

@@ -21,7 +21,7 @@
             {% if field.sort == 8 %}<div class="card border-info mb-3">
                 <div class="card-header bg-info text-white py-2"><i class="fas fa-user me-2"></i>使用信息</div>
                 <div class="card-body p-0"><table class="table table-borderless table-sm mb-0">{% endif %}
-                <tr><td class="py-2 ps-3" style="width:140px;"><strong class="text-muted">{% if field.field_key == 'department' %}所属部门{% elif field.field_key == 'user' %}使用人{% elif field.field_key == 'location' %}位置{% elif field.field_key == 'workstation' %}工位{% elif field.field_key == 'status' %}设备状态{% endif %}</strong></td><td class="py-2" style="font-size:15px;">{% if field.field_key == 'department' %}{{ device.department.name|default:'-' }}{% elif field.field_key == 'user' %}{{ device.user.realname|default:'-' }}{% elif field.field_key == 'location' %}<span class="text-truncate" title="{{ device.location.full_path|default:'-' }}">{{ device.location.full_path|default:'-' }}</span>{% elif field.field_key == 'workstation' %}{{ device.workstation.workstation_code|default:'-' }}{% elif field.field_key == 'status' %}{% if device.status == 'normal' %}<span class="badge bg-success">正常</span>{% elif device.status == 'fault' %}<span class="badge bg-danger">故障</span>{% elif device.status == 'repairing' %}<span class="badge bg-warning">维修中</span>{% elif device.status == 'scrapped' %}<span class="badge bg-secondary">已报废</span>{% else %}<span class="badge bg-info">闲置</span>{% endif %}{% endif %}</td></tr>
+                <tr><td class="py-2 ps-3" style="width:140px;"><strong class="text-muted">{% if field.field_key == 'department' %}所属部门{% elif field.field_key == 'user' %}使用人{% elif field.field_key == 'location' %}位置{% elif field.field_key == 'workstation' %}工位{% elif field.field_key == 'status' %}设备状态{% endif %}</strong></td><td class="py-2" style="font-size:15px;">{% if field.field_key == 'department' %}{{ device.department.name|default:'-' }}{% elif field.field_key == 'user' %}{{ device.user.realname|default:'-' }}{% elif field.field_key == 'location' %}<span class="text-truncate" title="{{ device.location.full_path|default:'-' }}">{{ device.location.full_path|default:'-' }}</span>{% elif field.field_key == 'workstation' %}{{ device.workstation.workstation_code|default:'-' }}{% elif field.field_key == 'status' %}{% if device.status == 'normal' %}<span class="badge bg-success">使用</span>{% elif device.status == 'fault' %}<span class="badge bg-danger">故障</span>{% elif device.status == 'scrapped' %}<span class="badge bg-secondary">报废</span>{% else %}<span class="badge bg-info">闲置</span>{% endif %}{% endif %}</td></tr>
             {% if field.sort == 12 %}</table></div></div>{% endif %}{% endif %}{% endfor %}
 
             {% for field in all_fields %}{% if field.sort > 12 and field.sort <= 14 %}
@@ -97,14 +97,12 @@
     var statusColors = {
         'normal': '#d4edda',
         'fault': '#f8d7da',
-        'repairing': '#fff3cd',
         'scrapped': '#e2e3e5',
         'unused': '#e2e3e5'
     };
     var statusBorders = {
         'normal': '#28a745',
         'fault': '#dc3545',
-        'repairing': '#ffc107',
         'scrapped': '#6c757d',
         'unused': '#6c757d'
     };

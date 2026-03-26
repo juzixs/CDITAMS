@@ -40,10 +40,9 @@
             <div class="col-md-2">
                 <select name="status" class="form-select">
                     <option value="">全部状态</option>
-                    <option value="normal" {% if request.GET.status == 'normal' %}selected{% endif %}>正常</option>
+                    <option value="normal" {% if request.GET.status == 'normal' %}selected{% endif %}>使用</option>
                     <option value="fault" {% if request.GET.status == 'fault' %}selected{% endif %}>故障</option>
-                    <option value="repairing" {% if request.GET.status == 'repairing' %}selected{% endif %}>维修中</option>
-                    <option value="scrapped" {% if request.GET.status == 'scrapped' %}selected{% endif %}>已报废</option>
+                    <option value="scrapped" {% if request.GET.status == 'scrapped' %}selected{% endif %}>报废</option>
                     <option value="unused" {% if request.GET.status == 'unused' %}selected{% endif %}>闲置</option>
                 </select>
             </div>
@@ -86,13 +85,11 @@
                             <td>
                                 {% if field.field_key == 'status' %}
                                     {% if device.status == 'normal' %}
-                                    <span class="badge bg-success">正常</span>
+                                    <span class="badge bg-success">使用</span>
                                     {% elif device.status == 'fault' %}
                                     <span class="badge bg-danger">故障</span>
-                                    {% elif device.status == 'repairing' %}
-                                    <span class="badge bg-warning">维修中</span>
                                     {% elif device.status == 'scrapped' %}
-                                    <span class="badge bg-secondary">已报废</span>
+                                    <span class="badge bg-secondary">报废</span>
                                     {% else %}
                                     <span class="badge bg-info">闲置</span>
                                     {% endif %}

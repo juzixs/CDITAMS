@@ -176,10 +176,9 @@ class DeviceFieldValue(models.Model):
 
 class Device(models.Model):
     STATUS_CHOICES = [
-        ('normal', '正常'),
+        ('normal', '使用'),
         ('fault', '故障'),
-        ('repairing', '维修中'),
-        ('scrapped', '已报废'),
+        ('scrapped', '报废'),
         ('unused', '闲置'),
     ]
     

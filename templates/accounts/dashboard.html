@@ -84,16 +84,15 @@
     new Chart(ctx, {
         type: 'doughnut',
         data: {
-            labels: ['正常', '故障', '维修中', '已报废', '闲置'],
+            labels: ['使用', '故障', '报废', '闲置'],
             datasets: [{
                 data: [
                     {{ stats.normal_devices }},
                     {{ stats.fault_devices }},
-                    {{ stats.repairing_devices|default:0 }},
                     {{ stats.scrapped_devices }},
                     {{ stats.unused_devices|default:0 }}
                 ],
-                backgroundColor: ['#28a745', '#dc3545', '#ffc107', '#6c757d', '#17a2b8']
+                backgroundColor: ['#28a745', '#dc3545', '#6c757d', '#17a2b8']
             }]
         },
         options: { responsive: true }

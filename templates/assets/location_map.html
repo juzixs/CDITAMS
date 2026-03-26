@@ -63,9 +63,8 @@
                 <button class="btn btn-sm btn-outline-secondary" onclick="togglePanel()" title="面板"><i class="fas fa-columns"></i></button>
             </div>
             <div class="legend" style="position:absolute;bottom:10px;left:10px;z-index:20;background:#fff;padding:8px 12px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1);font-size:12px;">
-                <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#28a745;"></span> 正常
+                <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#28a745;"></span> 使用
                 <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#dc3545;margin-left:8px;"></span> 故障
-                <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#ffc107;margin-left:8px;"></span> 维修
                 <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#6c757d;margin-left:8px;"></span> 闲置
             </div>
             <div id="mapCanvas"></div>
@@ -242,7 +241,7 @@ function renderMap(data) {
 
         // Device dots on workstation - inside bottom-right corner
         (ws.devices || []).forEach((d, i) => {
-            let sc = d.status === 'normal' ? '#28a745' : d.status === 'fault' ? '#dc3545' : d.status === 'repairing' ? '#ffc107' : '#6c757d';
+            let sc = d.status === 'normal' ? '#28a745' : d.status === 'fault' ? '#dc3545' : '#6c757d';
             const dx = w - 5 - i * 8;
             const dy = h - 5;
             group.add(new Konva.Circle({ x: dx, y: dy, radius: 3, fill: sc }));
@@ -263,7 +262,7 @@ function renderMap(data) {
         }
         var html = '<div style="font-weight:bold;margin-bottom:4px;">未绑定设备 (' + unboundDevices.length + ')</div>';
         unboundDevices.forEach(d => {
-            var sc = d.status === 'normal' ? '#28a745' : d.status === 'fault' ? '#dc3545' : d.status === 'repairing' ? '#ffc107' : '#6c757d';
+            var sc = d.status === 'normal' ? '#28a745' : d.status === 'fault' ? '#dc3545' : '#6c757d';
             html += '<div style="display:flex;align-items:center;gap:6px;padding:2px 0;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + sc + ';"></span>' + (d.asset_no || '-') + ' ' + (d.name || '') + '</div>';
         });
         panel.innerHTML = html;
@@ -313,7 +312,7 @@ function showWSPanel(ws) {
         <div id="boundDevices">`;
 
     (ws.devices || []).forEach(d => {
-        const sc = d.status === 'normal' ? '#28a745' : d.status === 'fault' ? '#dc3545' : d.status === 'repairing' ? '#ffc107' : '#6c757d';
+        const sc = d.status === 'normal' ? '#28a745' : d.status === 'fault' ? '#dc3545' : '#6c757d';
         html += `<div class="device-item">
             <div><span class="status-dot" style="background:${sc}"></span>
                 <a href="/assets/${d.id}/" target="_blank">${d.asset_no}</a> ${d.name || ''}
