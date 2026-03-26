@@ -147,6 +147,17 @@
                     </select>
                 </div>
             </div>
+            <!-- Location Map -->
+            <div id="location-map-wrapper" style="display:none;" class="mb-3">
+                <div class="card border-info">
+                    <div class="card-header bg-info text-white py-2">
+                        <i class="fas fa-map me-2"></i>位置地图 <small>（点击工位可快速选择）</small>
+                    </div>
+                    <div class="card-body p-1">
+                        <div id="formMapContainer" style="width:100%;height:300px;overflow:hidden;border-radius:4px;background:#f5f5f5;"></div>
+                    </div>
+                </div>
+            </div>
             <!-- sort 12: 设备状态 -->
             <div class="row g-2 g-md-3">
                 <div class="col-12 col-md-4">
@@ -354,6 +365,7 @@
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/i18n/zh-CN.js"></script>
+<script src="https://unpkg.com/konva@9/konva.min.js"></script>
 <script>
 let categoriesData = [];
 let categoriesLoaded = false;
@@ -458,11 +470,138 @@ function loadWorkstations(locationId, selectedWorkstationId) {
             if (selectedWorkstationId) {
                 select.val(selectedWorkstationId);
             }
+            
+            // Load location map
+            loadLocationMap(locationId, selectedWorkstationId);
         })
         .catch(() => {
             select.empty();
             select.append($('<option>').text('加载失败'));
+            document.getElementById('location-map-wrapper').style.display = 'none';
         });
+}
+
+function loadLocationMap(locationId, workstationId) {
+    var wrapper = document.getElementById('location-map-wrapper');
+    var container = document.getElementById('formMapContainer');
+    
+    if (!locationId) {
+        wrapper.style.display = 'none';
+        return;
+    }
+    
+    wrapper.style.display = 'block';
+    container.innerHTML = '';
+    
+    var stage = new Konva.Stage({ container: 'formMapContainer', width: container.offsetWidth || 700, height: 300, draggable: true });
+    var bgLayer = new Konva.Layer();
+    var elLayer = new Konva.Layer();
+    var wsLayer = new Konva.Layer();
+    stage.add(bgLayer, elLayer, wsLayer);
+
+    // Mouse wheel zoom
+    container.addEventListener('wheel', function(e) {
+        e.preventDefault();
+        var oldScale = stage.scaleX();
+        var pointer = stage.getPointerPosition();
+        if (!pointer) return;
+        var mousePointTo = { x: (pointer.x - stage.x()) / oldScale, y: (pointer.y - stage.y()) / oldScale };
+        var direction = e.deltaY > 0 ? -1 : 1;
+        var newScale = Math.max(0.1, Math.min(direction > 0 ? oldScale * 1.1 : oldScale / 1.1, 3));
+        stage.scale({ x: newScale, y: newScale });
+        stage.position({ x: pointer.x - mousePointTo.x * newScale, y: pointer.y - mousePointTo.y * newScale });
+        stage.batchDraw();
+    });
+
+    fetch('/assets/api/map-data/' + locationId + '/')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var mapW = data.location.map_width || 1200;
+            var mapH = data.location.map_height || 800;
+            var s = Math.min(stage.width() / mapW, stage.height() / mapH);
+            stage.scale({ x: s, y: s });
+            stage.position({ x: 0, y: (stage.height() - mapH * s) / 2 });
+
+            // Grid
+            for (var x = 0; x <= mapW; x += 30) bgLayer.add(new Konva.Line({ points: [x, 0, x, mapH], stroke: '#eee', strokeWidth: 0.5 }));
+            for (var y = 0; y <= mapH; y += 30) bgLayer.add(new Konva.Line({ points: [0, y, mapW, y], stroke: '#eee', strokeWidth: 0.5 }));
+
+            // Elements
+            (data.elements || []).forEach(function(el) {
+                if (el.element_type === 'wall' || el.element_type === 'line') {
+                    elLayer.add(new Konva.Line({ points: [el.x, el.y, el.x2 || el.x + el.width, el.y2 || el.y], stroke: el.color || '#333', strokeWidth: el.thickness || 2, lineCap: 'round' }));
+                } else if (el.element_type === 'door') {
+                    var g = new Konva.Group({ x: el.x, y: el.y, rotation: el.rotation || 0 });
+                    g.add(new Konva.Line({ points: [0, 0, el.door_width || 60, 0], stroke: '#666', strokeWidth: 2 }));
+                    if (el.door_direction !== 'sliding') { var a = (el.door_open_angle || 90) * Math.PI / 180; g.add(new Konva.Arc({ innerRadius: 0, outerRadius: el.door_width || 60, angle: a, rotation: el.door_direction === 'left' ? -a * 180 / Math.PI : 0, stroke: '#666', strokeWidth: 1 })); }
+                    elLayer.add(g);
+                } else if (el.element_type === 'window' || el.element_type === 'dashed') {
+                    elLayer.add(new Konva.Line({ points: [el.x, el.y, el.x + (el.width || 60), el.y], stroke: '#2196F3', strokeWidth: 3, dash: [10, 5] }));
+                } else if (el.element_type === 'rect') {
+                    elLayer.add(new Konva.Rect({ x: el.x, y: el.y, width: el.width || 60, height: el.height || 40, stroke: '#333', strokeWidth: 2 }));
+                } else if (el.element_type === 'text') {
+                    elLayer.add(new Konva.Text({ x: el.x, y: el.y, text: el.label || '', fontSize: 14, fill: el.color || '#333' }));
+                }
+            });
+
+            // Workstations - clickable
+            (data.workstations || []).forEach(function(ws) {
+                var isTarget = workstationId && ws.id === workstationId;
+                var w = ws.width || 60, h = ws.height || 40;
+                var group = new Konva.Group({ x: ws.x, y: ws.y });
+                group.setAttr('wsId', ws.id);
+                group.setAttr('wsCode', ws.workstation_code);
+                group.add(new Konva.Rect({
+                    width: w, height: h,
+                    fill: isTarget ? '#d4edda' : '#e3f2fd',
+                    stroke: isTarget ? '#28a745' : '#1976D2',
+                    strokeWidth: isTarget ? 3 : 1,
+                    cornerRadius: 3,
+                    shadowColor: isTarget ? '#28a745' : 'transparent',
+                    shadowBlur: isTarget ? 8 : 0,
+                    shadowOpacity: isTarget ? 0.5 : 0
+                }));
+                group.add(new Konva.Text({
+                    text: ws.workstation_code || '', fontSize: 11,
+                    fill: isTarget ? '#28a745' : '#333',
+                    fontStyle: isTarget ? 'bold' : 'normal',
+                    width: w, height: h, align: 'center', verticalAlign: 'middle'
+                }));
+                
+                // Click to select workstation
+                group.on('click tap', function(e) {
+                    e.cancelBubble = true;
+                    var clickedWsId = this.getAttr('wsId');
+                    var clickedWsCode = this.getAttr('wsCode');
+                    if (!clickedWsId) return;
+                    // Update select
+                    var select = document.getElementById('workstation-select');
+                    select.value = clickedWsId;
+                    // Update map highlight
+                    wsLayer.getChildren().forEach(function(g) {
+                        var rect = g.findOne('Rect');
+                        var txt = g.findOne('Text');
+                        if (!rect || !txt) return;
+                        if (g.getAttr('wsId') === clickedWsId) {
+                            rect.fill('#d4edda').stroke('#28a745').strokeWidth(3).shadowColor('#28a745').shadowBlur(8).shadowOpacity(0.5);
+                            txt.fill('#28a745').fontStyle('bold');
+                        } else {
+                            rect.fill('#e3f2fd').stroke('#1976D2').strokeWidth(1).shadowColor('transparent').shadowBlur(0);
+                            txt.fill('#333').fontStyle('normal');
+                        }
+                    });
+                    wsLayer.draw();
+                });
+                
+                group.on('mouseenter', function() { stage.container().style.cursor = 'pointer'; });
+                group.on('mouseleave', function() { stage.container().style.cursor = 'default'; });
+                
+                wsLayer.add(group);
+            });
+
+            [bgLayer, elLayer, wsLayer].forEach(function(l) { l.draw(); });
+        })
+        .catch(function() { container.innerHTML = '<div style="padding:20px;color:#999;">加载地图失败</div>'; });
 }
 
 function generateAssetNumber(categoryId) {
