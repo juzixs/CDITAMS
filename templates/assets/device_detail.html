@@ -122,6 +122,27 @@
     var wsLayer = new Konva.Layer();
     stage.add(bgLayer, elLayer, wsLayer);
 
+    // Mouse wheel zoom
+    container.addEventListener('wheel', function(e) {
+        e.preventDefault();
+        var oldScale = stage.scaleX();
+        var pointer = stage.getPointerPosition();
+        var mousePointTo = {
+            x: (pointer.x - stage.x()) / oldScale,
+            y: (pointer.y - stage.y()) / oldScale
+        };
+        var direction = e.deltaY > 0 ? -1 : 1;
+        var newScale = direction > 0 ? oldScale * 1.1 : oldScale / 1.1;
+        newScale = Math.max(0.1, Math.min(newScale, 3));
+        stage.scale({ x: newScale, y: newScale });
+        var newPos = {
+            x: pointer.x - mousePointTo.x * newScale,
+            y: pointer.y - mousePointTo.y * newScale
+        };
+        stage.position(newPos);
+        stage.batchDraw();
+    });
+
     fetch('/assets/api/map-data/' + LOC_ID + '/')
         .then(function(r) { return r.json(); })
         .then(function(data) {
