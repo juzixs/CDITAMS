@@ -116,7 +116,7 @@
         return;
     }
     
-    var stage = new Konva.Stage({ container: 'mapThumbContainer', width: container.offsetWidth, height: 200 });
+    var stage = new Konva.Stage({ container: 'mapThumbContainer', width: container.offsetWidth, height: 200, draggable: true });
     var bgLayer = new Konva.Layer();
     var elLayer = new Konva.Layer();
     var wsLayer = new Konva.Layer();
@@ -131,8 +131,10 @@
             var scaleY = stage.height() / mapH;
             var s = Math.min(scaleX, scaleY);
             stage.scale({ x: s, y: s });
-            stage.offsetX((stage.width() / s - mapW) / 2);
-            stage.offsetY((stage.height() / s - mapH) / 2);
+            // Center the map
+            var offsetX = (stage.width() / s - mapW) / 2;
+            var offsetY = (stage.height() / s - mapH) / 2;
+            stage.position({ x: offsetX * s, y: offsetY * s });
 
             // Grid
             var gs = 30;
