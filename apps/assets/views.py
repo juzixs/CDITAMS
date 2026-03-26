@@ -88,7 +88,7 @@ def device_create(request):
         category_id = request.POST.get('category')
         category = AssetCategory.objects.get(pk=category_id)
         
-        asset_no = generate_asset_no(category)
+        asset_no = request.POST.get('asset_no', '').strip() or generate_asset_no(category)
         
         device = Device.objects.create(
             asset_no=asset_no,
@@ -169,6 +169,7 @@ def device_edit(request, pk):
         }
         
         device.name = request.POST.get('name')
+        device.asset_no = request.POST.get('asset_no', device.asset_no)
         device.device_no = request.POST.get('device_no')
         device.serial_no = request.POST.get('serial_no')
         device.model = request.POST.get('model')
@@ -992,6 +993,7 @@ def api_generate_asset_number(request):
         return JsonResponse({'success': False, 'message': f'生成资产编号失败: {str(e)}'}, status=500)
 
 
+@csrf_exempt
 @login_required
 def api_get_category_by_asset_no(request):
     if request.method != 'POST':

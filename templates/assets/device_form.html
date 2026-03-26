@@ -359,6 +359,7 @@ let categoriesData = [];
 let categoriesLoaded = false;
 let userTypingAssetNo = false;
 const currentCategoryId = {% if device and device.category_id %}{{ device.category_id }}{% else %}null{% endif %};
+const existingAssetNo = {% if device and device.asset_no %}'{{ device.asset_no }}'{% else %}null{% endif %};
 const currentWorkstationId = {% if device and device.workstation_id %}{{ device.workstation_id }}{% else %}null{% endif %};
 const currentLocationId = {% if device and device.location_id %}{{ device.location_id }}{% else %}null{% endif %};
 
@@ -418,7 +419,7 @@ function loadCategories() {
                 });
                 
                 if (currentCategoryId) {
-                    select.val(currentCategoryId).trigger('change');
+                    select.val(currentCategoryId).trigger('change.select2');
                 }
                 
                 categoriesLoaded = true;
