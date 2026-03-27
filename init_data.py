@@ -65,6 +65,7 @@ def init_roles():
 def init_departments():
     print("初始化部门...")
     depts = [
+        {'name': '经营管理部', 'code': 'JYGL', 'sort': 0},
         {'name': '总经理办公室', 'code': 'OFFICE', 'sort': 1},
         {'name': '技术部', 'code': 'TECH', 'sort': 2},
         {'name': '财务部', 'code': 'FIN', 'sort': 3},
@@ -84,12 +85,18 @@ def init_categories():
     xays, _ = AssetCategory.objects.get_or_create(
         code='XAYS', defaults=dict(name='西安优盛', level=1, description='西安优盛航空科技有限公司', sort=2)
     )
+    xabej, _ = AssetCategory.objects.get_or_create(
+        code='XABEJ', defaults=dict(name='宝尔捷', level=1, description='', sort=80)
+    )
     
     z_xcd, _ = AssetCategory.objects.get_or_create(
         code='Z', defaults=dict(name='总经办', parent=xcd, level=2, sort=1)
     )
     z_xays, _ = AssetCategory.objects.get_or_create(
-        code='Y', defaults=dict(name='总经办', parent=xays, level=2, sort=1)
+        code='Z', defaults=dict(name='总经办', parent=xays, level=2, sort=1)
+    )
+    z_xabej, _ = AssetCategory.objects.get_or_create(
+        code='Z', defaults=dict(name='总经办', parent=xabej, level=2, sort=1)
     )
     
     jsj_xcd, _ = AssetCategory.objects.get_or_create(
@@ -112,6 +119,16 @@ def init_categories():
         code='003', parent=z_xays, defaults=dict(name='信息设备', level=3, sort=3)
     )
     
+    jsj_xabej, _ = AssetCategory.objects.get_or_create(
+        code='001', parent=z_xabej, defaults=dict(name='计算机', level=3, sort=1)
+    )
+    bgs_xabej, _ = AssetCategory.objects.get_or_create(
+        code='002', parent=z_xabej, defaults=dict(name='办公设备', level=3, sort=2)
+    )
+    xx_xabej, _ = AssetCategory.objects.get_or_create(
+        code='003', parent=z_xabej, defaults=dict(name='信息设备', level=3, sort=3)
+    )
+    
     computer_children = [
         ('台式机', '001', 1), ('笔记本', '002', 2), ('显示器', '003', 3), ('其他', '004', 4)
     ]
@@ -121,6 +138,9 @@ def init_categories():
         )
         AssetCategory.objects.get_or_create(
             code=code, parent=jsj_xays, defaults=dict(name=name, level=4, sort=sort)
+        )
+        AssetCategory.objects.get_or_create(
+            code=code, parent=jsj_xabej, defaults=dict(name=name, level=4, sort=sort)
         )
     
     office_children = [
@@ -134,6 +154,9 @@ def init_categories():
         AssetCategory.objects.get_or_create(
             code=code, parent=bgs_xays, defaults=dict(name=name, level=4, sort=sort)
         )
+        AssetCategory.objects.get_or_create(
+            code=code, parent=bgs_xabej, defaults=dict(name=name, level=4, sort=sort)
+        )
     
     info_children = [
         ('服务器', '001', 1), ('存储器', '002', 2), ('监控设备', '003', 3), ('监控系统', '004', 4), ('其他', '005', 5)
@@ -144,6 +167,9 @@ def init_categories():
         )
         AssetCategory.objects.get_or_create(
             code=code, parent=xx_xays, defaults=dict(name=name, level=4, sort=sort)
+        )
+        AssetCategory.objects.get_or_create(
+            code=code, parent=xx_xabej, defaults=dict(name=name, level=4, sort=sort)
         )
     
     print(f"已初始化 {AssetCategory.objects.count()} 条分类数据")
@@ -165,12 +191,12 @@ def init_locations():
     oa.save()
     
     floors = [
-        ('B1层', 'CYOAB1', 'B1', 1, True),
-        ('1楼', 'CYOA01', '01', 2, True),
-        ('2楼', 'CYOA02', '02', 3, True),
-        ('3楼', 'CYOA03', '03', 4, True),
-        ('4楼', 'CYOA04', '04', 5, True),
-        ('5楼', 'CYOA05', '05', 6, True),
+        ('B1层', 'CYOAB1', 'B1', 0, True),
+        ('1楼', 'CYOA01', '01', 0, True),
+        ('2楼', 'CYOA02', '02', 0, True),
+        ('3楼', 'CYOA03', '03', 0, True),
+        ('4楼', 'CYOA04', '04', 0, True),
+        ('5楼', 'CYOA05', '05', 0, True),
         ('天台', 'CYOAC1', 'C1', 7, False),
     ]
     
@@ -259,13 +285,15 @@ def create_superuser():
     print("创建超级管理员...")
     User = get_user_model()
     if not User.objects.filter(emp_no='86000001').exists():
+        dept = Department.objects.filter(code='JYGL').first()
         user = User.objects.create_user(
             username='86000001',
             emp_no='86000001',
             realname='管理员',
             password='password',
             is_superuser=True,
-            is_staff=True
+            is_staff=True,
+            department=dept
         )
         role = Role.objects.first()
         if role:
