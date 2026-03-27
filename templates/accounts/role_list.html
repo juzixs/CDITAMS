@@ -2,11 +2,83 @@
 {% block title %}角色管理 - 驰达IT资产管理系统{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-<h4>角色管理</h4>
-<a href="{% url 'role_create' %}" class="btn btn-primary"><i class="fas fa-plus"></i> 新增角色</a>
+    <h4>角色管理</h4>
+    <div>
+        <a href="{% url 'role_create' %}" class="btn btn-primary"><i class="fas fa-plus"></i> 新增角色</a>
+    </div>
 </div>
-<div class="card"><div class="card-body">
-<table class="table"><thead><tr><th>角色名称</th><th>角色标识</th><th>描述</th><th>排序</th><th>操作</th></tr></thead>
-<tbody>{% for r in roles %}<tr><td>{{ r.name }}</td><td>{{ r.code }}</td><td>{{ r.description|default:'-'|truncatewords:10 }}</td><td>{{ r.sort }}</td>
-<td><a href="{% url 'role_edit' r.id %}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-edit"></i></a>{% if not r.users.exists %}<a href="{% url 'role_delete' r.id %}" class="btn btn-sm btn-outline-danger" onclick="return confirm('确定删除？')"><i class="fas fa-trash"></i></a>{% endif %}</td></tr>{% empty %}<tr><td colspan="5" class="text-center">暂无角色</td></tr>{% endfor %}</tbody></table>
-</div></div>{% endblock %}
+
+<div class="card mb-3">
+    <div class="card-body py-3">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label">搜索</label>
+                <input type="text" name="search" class="form-control" placeholder="搜索角色名称/标识" value="{{ request.GET.search }}">
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary"><i class="fas fa-search me-1"></i>搜索</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>角色名称</th>
+                    <th>角色标识</th>
+                    <th>描述</th>
+                    <th>权限数量</th>
+                    <th>用户数量</th>
+                    <th>排序</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in roles %}
+                <tr>
+                    <td><a href="{% url 'role_detail' r.id %}">{{ r.name }}</a></td>
+                    <td><code>{{ r.code }}</code></td>
+                    <td>{{ r.description|default:'-'|truncatewords:10 }}</td>
+                    <td><span class="badge bg-info">{{ r.permissions.count }}</span></td>
+                    <td><span class="badge bg-secondary">{{ r.users.count }}</span></td>
+                    <td>{{ r.sort }}</td>
+                    <td>
+                        <a href="{% url 'role_detail' r.id %}" class="btn btn-sm btn-outline-primary"><i class="fas fa-eye"></i></a>
+                        <a href="{% url 'role_edit' r.id %}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-edit"></i></a>
+                        {% if not r.users.exists %}
+                        <form method="post" action="{% url 'role_delete' r.id %}" class="d-inline" onsubmit="return confirm('确定删除该角色？')">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center text-muted">暂无角色</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        {% if roles.has_other_pages %}
+        <nav>
+            <ul class="pagination justify-content-center">
+                {% if roles.has_previous %}
+                <li class="page-item"><a class="page-link" href="?page={{ roles.previous_page_number }}&search={{ request.GET.search }}">上一页</a></li>
+                {% endif %}
+                {% for num in roles.paginator.page_range %}
+                <li class="page-item {% if roles.number == num %}active{% endif %}"><a class="page-link" href="?page={{ num }}&search={{ request.GET.search }}">{{ num }}</a></li>
+                {% endfor %}
+                {% if roles.has_next %}
+                <li class="page-item"><a class="page-link" href="?page={{ roles.next_page_number }}&search={{ request.GET.search }}">下一页</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

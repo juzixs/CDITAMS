@@ -1,4 +1,4 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -278,7 +278,16 @@ def department_delete(request, pk):
 
 @login_required
 def role_list(request):
-    roles = Role.objects.prefetch_related('permissions').all()
+    search = request.GET.get('search', '')
+    roles = Role.objects.prefetch_related('permissions', 'users')
+    if search:
+        roles = roles.filter(Q(name__icontains=search) | Q(code__icontains=search))
+    roles = roles.order_by('sort', 'id')
+    
+    paginator = Paginator(roles, 20)
+    page = request.GET.get('page', 1)
+    roles = paginator.get_page(page)
+    
     return render(request, 'accounts/role_list.html', {'roles': roles})
 
 
@@ -302,13 +311,24 @@ def role_create(request):
         messages.success(request, '角色创建成功')
         return redirect('role_list')
     
-    permissions = Permission.objects.filter(parent__isnull=True).prefetch_related('children')
-    return render(request, 'accounts/role_form.html', {'permissions': permissions})
+    all_perms = Permission.objects.all().order_by('module', 'sort', 'id')
+    modules = {}
+    for perm in all_perms:
+        if perm.module not in modules:
+            modules[perm.module] = {'parent': [], 'children': {}}
+        if perm.parent is None:
+            modules[perm.module]['parent'].append(perm)
+        else:
+            if perm.parent_id not in modules[perm.module]['children']:
+                modules[perm.module]['children'][perm.parent_id] = []
+            modules[perm.module]['children'][perm.parent_id].append(perm)
+    
+    return render(request, 'accounts/role_form.html', {'modules': modules})
 
 
 @login_required
 def role_edit(request, pk):
-    role = Role.objects.get(pk=pk)
+    role = get_object_or_404(Role, pk=pk)
     
     if request.method == 'POST':
         role.name = request.POST.get('name')
@@ -320,14 +340,34 @@ def role_edit(request, pk):
         messages.success(request, '角色更新成功')
         return redirect('role_list')
     
-    permissions = Permission.objects.filter(parent__isnull=True).prefetch_related('children')
-    return render(request, 'accounts/role_form.html', {'role': role, 'permissions': permissions})
+    all_perms = Permission.objects.all().order_by('module', 'sort', 'id')
+    modules = {}
+    for perm in all_perms:
+        if perm.module not in modules:
+            modules[perm.module] = {'parent': [], 'children': {}}
+        if perm.parent is None:
+            modules[perm.module]['parent'].append(perm)
+        else:
+            if perm.parent_id not in modules[perm.module]['children']:
+                modules[perm.module]['children'][perm.parent_id] = []
+            modules[perm.module]['children'][perm.parent_id].append(perm)
+    
+    role_perm_ids = set(role.permissions.values_list('id', flat=True))
+    return render(request, 'accounts/role_form.html', {'role': role, 'modules': modules, 'role_perm_ids': role_perm_ids})
+
+
+@login_required
+def role_detail(request, pk):
+    role = get_object_or_404(Role.objects.prefetch_related('permissions', 'users'), pk=pk)
+    permissions = role.permissions.all().order_by('module', 'sort', 'id')
+    users = role.users.all()
+    return render(request, 'accounts/role_detail.html', {'role': role, 'permissions': permissions, 'users': users})
 
 
 @login_required
 def role_delete(request, pk):
     if request.method == 'POST':
-        role = Role.objects.get(pk=pk)
+        role = get_object_or_404(Role, pk=pk)
         if role.users.exists():
             messages.error(request, '该角色下有用户，无法删除')
         else:

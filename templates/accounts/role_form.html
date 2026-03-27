@@ -1,14 +1,128 @@
 {% extends 'base.html' %}
-{% block title %}{% if role %}编辑{% else %}新增{% endif %}角色{% endblock %}
+{% load account_tags %}
+{% block title %}{% if role %}编辑{% else %}新增{% endif %}角色 - 驰达IT资产管理系统{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4"><h4>{% if role %}编辑{% else %}新增{% endif %}角色</h4></div>
-<div class="card"><div class="card-body">
-<form method="post">{% csrf_token %}
-<div class="row mb-3">
-<div class="col-md-6"><label class="form-label">角色名称 <span class="text-danger">*</span></label><input type="text" name="name" class="form-control" value="{{ role.name|default:'' }}" required></div>
-<div class="col-md-6"><label class="form-label">角色标识</label><input type="text" name="code" class="form-control" value="{{ role.code|default:'' }}"></div>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4>{% if role %}编辑{% else %}新增{% endif %}角色</h4>
 </div>
-<div class="mb-3"><label class="form-label">描述</label><textarea name="description" class="form-control" rows="2">{{ role.description|default:'' }}</textarea></div>
-<div class="mb-3"><label class="form-label">排序</label><input type="number" name="sort" class="form-control" value="{{ role.sort|default:0 }}"></div>
-<div class="mt-4"><button type="submit" class="btn btn-primary">保存</button><a href="{% url 'role_list' %}" class="btn btn-outline-secondary">返回</a></div>
-</form></div></div>{% endblock %}
+
+<div class="card">
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">角色名称 <span class="text-danger">*</span></label>
+                    <input type="text" name="name" class="form-control" value="{{ role.name|default:'' }}" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">角色标识 <span class="text-danger">*</span></label>
+                    <input type="text" name="code" class="form-control" value="{{ role.code|default:'' }}" required>
+                </div>
+            </div>
+            
+            <div class="row mb-3">
+                <div class="col-md-8">
+                    <label class="form-label">描述</label>
+                    <textarea name="description" class="form-control" rows="2">{{ role.description|default:'' }}</textarea>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">排序</label>
+                    <input type="number" name="sort" class="form-control" value="{{ role.sort|default:0 }}">
+                </div>
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">权限分配</label>
+                <div class="d-flex mb-2">
+                    <button type="button" class="btn btn-sm btn-outline-primary me-2" onclick="selectAll()">全选</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="unselectAll()">反选</button>
+                </div>
+                <div class="border rounded p-3" style="max-height:400px;overflow-y:auto;">
+                    {% for module_name, module_data in modules.items %}
+                    <div class="mb-3">
+                        <div class="d-flex align-items-center mb-2">
+                            <input type="checkbox" class="form-check-input me-2 module-check" data-module="{{ module_name }}" onchange="toggleModule(this)">
+                            <strong class="text-primary">{{ module_name }}</strong>
+                        </div>
+                        <div class="ms-4">
+                            {% for parent_perm in module_data.parent %}
+                            <div class="mb-2">
+                                <div class="d-flex align-items-center">
+                                    <input type="checkbox" class="form-check-input me-2 perm-check" name="permissions" value="{{ parent_perm.id }}" 
+                                           {% if role_perm_ids and parent_perm.id in role_perm_ids %}checked{% endif %}
+                                           data-parent="{{ parent_perm.id }}" onchange="toggleParent(this)">
+                                    <span class="badge bg-info me-2">菜单</span>
+                                    <span>{{ parent_perm.name }}</span>
+                                </div>
+                                {% with children=module_data.children|get_item:parent_perm.id %}
+                                {% if children %}
+                                <div class="ms-4 mt-1">
+                                    {% for child_perm in children %}
+                                    <div class="d-flex align-items-center mb-1">
+                                        <input type="checkbox" class="form-check-input me-2 perm-check" name="permissions" value="{{ child_perm.id }}"
+                                               {% if role_perm_ids and child_perm.id in role_perm_ids %}checked{% endif %}
+                                               data-child-of="{{ parent_perm.id }}">
+                                        <span class="badge bg-secondary me-2">按钮</span>
+                                        <span>{{ child_perm.name }}</span>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                                {% endwith %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">保存</button>
+                <a href="{% url 'role_list' %}" class="btn btn-outline-secondary">返回</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function selectAll() {
+    document.querySelectorAll('.perm-check').forEach(cb => cb.checked = true);
+    updateModuleChecks();
+}
+
+function unselectAll() {
+    document.querySelectorAll('.perm-check').forEach(cb => cb.checked = false);
+    updateModuleChecks();
+}
+
+function toggleModule(checkbox) {
+    const container = checkbox.closest('.mb-3');
+    container.querySelectorAll('.perm-check').forEach(cb => cb.checked = checkbox.checked);
+}
+
+function toggleParent(checkbox) {
+    const parentId = checkbox.dataset.parent;
+    document.querySelectorAll(`input[data-child-of="${parentId}"]`).forEach(cb => cb.checked = checkbox.checked);
+}
+
+function updateModuleChecks() {
+    document.querySelectorAll('.module-check').forEach(moduleCb => {
+        const container = moduleCb.closest('.mb-3');
+        const checks = container.querySelectorAll('.perm-check');
+        const allChecked = checks.length > 0 && Array.from(checks).every(cb => cb.checked);
+        moduleCb.checked = allChecked;
+    });
+}
+
+document.querySelectorAll('.perm-check').forEach(cb => {
+    cb.addEventListener('change', updateModuleChecks);
+});
+
+updateModuleChecks();
+</script>
+{% endblock %}
