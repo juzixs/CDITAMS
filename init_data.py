@@ -65,11 +65,19 @@ def init_roles():
 def init_departments():
     print("初始化部门...")
     depts = [
-        {'name': '经营管理部', 'code': 'JYGL', 'sort': 0},
-        {'name': '总经理办公室', 'code': 'OFFICE', 'sort': 1},
-        {'name': '技术部', 'code': 'TECH', 'sort': 2},
-        {'name': '财务部', 'code': 'FIN', 'sort': 3},
-        {'name': '人力资源部', 'code': 'HR', 'sort': 4},
+        {'name': '总经办', 'code': 'GMO', 'sort': 0},
+        {'name': '财务部', 'code': 'FIN', 'sort': 1},
+        {'name': '采购部', 'code': 'PUR', 'sort': 2},
+        {'name': '市场部', 'code': 'MKT', 'sort': 3},
+        {'name': '行政部', 'code': 'ADM', 'sort': 4},
+        {'name': '质量部', 'code': 'QA', 'sort': 5},
+        {'name': '审计部', 'code': 'AUD', 'sort': 6},
+        {'name': '人力资源部', 'code': 'HR', 'sort': 7},
+        {'name': '经营管理部', 'code': 'BMD', 'sort': 8},
+        {'name': '仓储物流部', 'code': 'LOG', 'sort': 9},
+        {'name': '数控中心', 'code': 'CNC', 'sort': 10},
+        {'name': '复材中心', 'code': 'CMC', 'sort': 11},
+        {'name': '航材及装配中心', 'code': 'AMAC', 'sort': 12},
     ]
     
     for d in depts:
@@ -285,7 +293,7 @@ def create_superuser():
     print("创建超级管理员...")
     User = get_user_model()
     if not User.objects.filter(emp_no='86000001').exists():
-        dept = Department.objects.filter(code='JYGL').first()
+        dept = Department.objects.filter(code='GMO').first()
         user = User.objects.create_user(
             username='86000001',
             emp_no='86000001',
