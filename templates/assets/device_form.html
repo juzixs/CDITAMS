@@ -97,8 +97,10 @@
                     <select name="secret_level" class="form-select">
                         <option value="public" {% if device.secret_level == 'public' or not device %}selected{% endif %}>公开</option>
                         <option value="internal" {% if device.secret_level == 'internal' %}selected{% endif %}>内部</option>
-                        <option value="confidential" {% if device.secret_level == 'confidential' %}selected{% endif %}>机密</option>
-                        <option value="secret" {% if device.secret_level == 'secret' %}selected{% endif %}>绝密</option>
+                        <option value="confidential" {% if device.secret_level == 'confidential' %}selected{% endif %}>秘密</option>
+                        <option value="secret" {% if device.secret_level == 'secret' %}selected{% endif %}>机密</option>
+                        <option value="top_secret" {% if device.secret_level == 'top_secret' %}selected{% endif %}>绝密</option>
+                        <option value="commercial_secret" {% if device.secret_level == 'commercial_secret' %}selected{% endif %}>商密</option>
                     </select>
                 </div>
             </div>

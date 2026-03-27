@@ -185,8 +185,10 @@ class Device(models.Model):
     SECRET_LEVELS = [
         ('public', '公开'),
         ('internal', '内部'),
-        ('confidential', '机密'),
-        ('secret', '绝密'),
+        ('confidential', '秘密'),
+        ('secret', '机密'),
+        ('top_secret', '绝密'),
+        ('commercial_secret', '商密'),
     ]
     
     asset_no = models.CharField(max_length=64, unique=True, verbose_name='资产编号')

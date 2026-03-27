@@ -312,7 +312,7 @@ def init_device_fields():
         {'name': '设备名称', 'field_key': 'name', 'field_type': 'text', 'is_system': True, 'is_visible': True, 'sort': 4},
         {'name': '型号', 'field_key': 'model', 'field_type': 'text', 'is_system': True, 'is_visible': True, 'sort': 5},
         {'name': '序列号', 'field_key': 'serial_no', 'field_type': 'text', 'is_system': True, 'is_visible': True, 'sort': 6},
-        {'name': '密级', 'field_key': 'secret_level', 'field_type': 'select', 'is_system': True, 'is_visible': True, 'sort': 7, 'options': '["public", "internal", "confidential", "secret"]'},
+        {'name': '密级', 'field_key': 'secret_level', 'field_type': 'select', 'is_system': True, 'is_visible': True, 'sort': 7, 'options': '["public", "internal", "confidential", "secret", "top_secret", "commercial_secret"]'},
         {'name': '所属部门', 'field_key': 'department', 'field_type': 'text', 'is_system': True, 'is_visible': True, 'sort': 8},
         {'name': '使用人', 'field_key': 'user', 'field_type': 'text', 'is_system': True, 'is_visible': True, 'sort': 9},
         {'name': '位置', 'field_key': 'location', 'field_type': 'text', 'is_system': True, 'is_visible': True, 'sort': 10},
