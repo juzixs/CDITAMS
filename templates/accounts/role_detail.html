@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load account_tags %}
 {% block title %}角色详情 - 驰达IT资产管理系统{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -9,75 +10,136 @@
     </div>
 </div>
 
-<div class="row">
-    <div class="col-md-4">
-        <div class="card mb-4">
-            <div class="card-header bg-primary text-white">
-                <i class="fas fa-info-circle me-2"></i>基本信息
+<!-- 基本信息卡片（全宽） -->
+<div class="card mb-4">
+    <div class="card-header bg-primary text-white">
+        <i class="fas fa-info-circle me-2"></i>基本信息
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-3">
+                <div class="mb-2">
+                    <span class="text-muted">角色名称</span>
+                </div>
+                <h5>{{ role.name }}</h5>
             </div>
-            <div class="card-body">
-                <table class="table table-borderless mb-0">
-                    <tr><td class="text-muted" style="width:100px;">角色名称</td><td><strong>{{ role.name }}</strong></td></tr>
-                    <tr><td class="text-muted">角色标识</td><td><code>{{ role.code }}</code></td></tr>
-                    <tr><td class="text-muted">描述</td><td>{{ role.description|default:'-' }}</td></tr>
-                    <tr><td class="text-muted">权限数量</td><td><span class="badge bg-info">{{ permissions|length }}</span></td></tr>
-                    <tr><td class="text-muted">用户数量</td><td><span class="badge bg-secondary">{{ users|length }}</span></td></tr>
-                    <tr><td class="text-muted">创建时间</td><td>{{ role.created_at|date:"Y-m-d H:i" }}</td></tr>
-                    <tr><td class="text-muted">更新时间</td><td>{{ role.updated_at|date:"Y-m-d H:i" }}</td></tr>
-                </table>
+            <div class="col-md-2">
+                <div class="mb-2">
+                    <span class="text-muted">角色标识</span>
+                </div>
+                <code>{{ role.code }}</code>
+            </div>
+            <div class="col-md-3">
+                <div class="mb-2">
+                    <span class="text-muted">描述</span>
+                </div>
+                <span>{{ role.description|default:'-' }}</span>
+            </div>
+            <div class="col-md-2">
+                <div class="mb-2">
+                    <span class="text-muted">权限数量</span>
+                </div>
+                <span class="badge bg-info fs-6">{{ perm_count }}</span>
+            </div>
+            <div class="col-md-2">
+                <div class="mb-2">
+                    <span class="text-muted">用户数量</span>
+                </div>
+                <span class="badge bg-secondary fs-6">{{ user_count }}</span>
+            </div>
+        </div>
+        <div class="row mt-3">
+            <div class="col-md-6">
+                <small class="text-muted">创建时间：{{ role.created_at|date:"Y-m-d H:i:s" }}</small>
+            </div>
+            <div class="col-md-6">
+                <small class="text-muted">更新时间：{{ role.updated_at|date:"Y-m-d H:i:s" }}</small>
             </div>
         </div>
     </div>
-    
-    <div class="col-md-4">
+</div>
+
+<div class="row">
+    <!-- 权限列表（8列） -->
+    <div class="col-md-8">
         <div class="card mb-4">
             <div class="card-header bg-info text-white">
                 <i class="fas fa-key me-2"></i>权限列表
             </div>
-            <div class="card-body" style="max-height:400px;overflow-y:auto;">
-                {% regroup permissions by module as module_list %}
-                {% for module in module_list %}
-                <div class="mb-3">
-                    <strong class="text-primary">{{ module.grouper }}</strong>
-                    <ul class="list-unstyled ms-3 mt-1">
-                        {% for perm in module.list %}
-                        <li class="mb-1">
-                            {% if perm.type == 'menu' %}
-                            <span class="badge bg-info me-1">菜单</span>
-                            {% else %}
-                            <span class="badge bg-secondary me-1">按钮</span>
+            <div class="card-body" style="max-height:500px;overflow-y:auto;">
+                {% for module_name, module_data in perm_tree.items %}
+                <div class="mb-4">
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="fas fa-folder text-primary me-2"></i>
+                        <strong class="text-primary">{{ module_name }}</strong>
+                    </div>
+                    <div class="ms-4">
+                        {% for menu_perm in module_data.menus %}
+                        <div class="mb-2">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-bars text-info me-2"></i>
+                                <span class="badge bg-info me-2">菜单</span>
+                                <span>{{ menu_perm.name }}</span>
+                                <small class="text-muted ms-2">{{ menu_perm.code }}</small>
+                            </div>
+                            {% with buttons=module_data.buttons|get_item:menu_perm.id %}
+                            {% if buttons %}
+                            <div class="ms-4 mt-1">
+                                {% for btn_perm in buttons %}
+                                <div class="d-flex align-items-center mb-1">
+                                    <i class="fas fa-hand-pointer text-secondary me-2"></i>
+                                    <span class="badge bg-secondary me-2">按钮</span>
+                                    <span>{{ btn_perm.name }}</span>
+                                    <small class="text-muted ms-2">{{ btn_perm.code }}</small>
+                                </div>
+                                {% endfor %}
+                            </div>
                             {% endif %}
-                            {{ perm.name }}
-                        </li>
+                            {% endwith %}
+                        </div>
                         {% endfor %}
-                    </ul>
+                    </div>
                 </div>
                 {% empty %}
-                <p class="text-muted">暂无权限</p>
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-ban fa-3x mb-3"></i>
+                    <p>该角色暂无任何权限</p>
+                    <a href="{% url 'role_edit' role.id %}" class="btn btn-sm btn-outline-primary">立即分配权限</a>
+                </div>
                 {% endfor %}
             </div>
         </div>
     </div>
     
+    <!-- 关联用户（4列） -->
     <div class="col-md-4">
         <div class="card mb-4">
             <div class="card-header bg-success text-white">
                 <i class="fas fa-users me-2"></i>关联用户
             </div>
-            <div class="card-body" style="max-height:400px;overflow-y:auto;">
-                <table class="table table-sm mb-0">
-                    <thead>
-                        <tr><th>工号</th><th>姓名</th><th>部门</th></tr>
+            <div class="card-body p-0" style="max-height:500px;overflow-y:auto;">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light sticky-top">
+                        <tr>
+                            <th>工号</th>
+                            <th>姓名</th>
+                            <th>部门</th>
+                        </tr>
                     </thead>
                     <tbody>
                         {% for u in users %}
                         <tr>
-                            <td>{{ u.emp_no }}</td>
+                            <td><code>{{ u.emp_no }}</code></td>
                             <td>{{ u.realname }}</td>
-                            <td>{{ u.department.name|default:'-' }}</td>
+                            <td><small>{{ u.department.name|default:'-' }}</small></td>
                         </tr>
                         {% empty %}
-                        <tr><td colspan="3" class="text-center text-muted">暂无用户</td></tr>
+                        <tr>
+                            <td colspan="3" class="text-center text-muted py-4">
+                                <i class="fas fa-user-slash mb-2"></i>
+                                <p class="mb-0">暂无用户关联</p>
+                            </td>
+                        </tr>
                         {% endfor %}
                     </tbody>
                 </table>

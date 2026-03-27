@@ -360,8 +360,27 @@ def role_edit(request, pk):
 def role_detail(request, pk):
     role = get_object_or_404(Role.objects.prefetch_related('permissions', 'users'), pk=pk)
     permissions = role.permissions.all().order_by('module', 'sort', 'id')
-    users = role.users.all()
-    return render(request, 'accounts/role_detail.html', {'role': role, 'permissions': permissions, 'users': users})
+    users = role.users.all().select_related('department')
+    
+    # 构建权限层级结构
+    perm_tree = {}
+    for perm in permissions:
+        if perm.module not in perm_tree:
+            perm_tree[perm.module] = {'menus': [], 'buttons': {}}
+        if perm.type == 'menu':
+            perm_tree[perm.module]['menus'].append(perm)
+        else:
+            if perm.parent_id not in perm_tree[perm.module]['buttons']:
+                perm_tree[perm.module]['buttons'][perm.parent_id] = []
+            perm_tree[perm.module]['buttons'][perm.parent_id].append(perm)
+    
+    return render(request, 'accounts/role_detail.html', {
+        'role': role,
+        'perm_tree': perm_tree,
+        'users': users,
+        'perm_count': permissions.count(),
+        'user_count': users.count(),
+    })
 
 
 @login_required
