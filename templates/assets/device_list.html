@@ -120,6 +120,8 @@
                                 <a href="{% url 'device_detail' device.id %}" class="btn btn-sm btn-outline-primary"><i class="fas fa-eye"></i></a>
                                 <a href="{% url 'device_edit' device.id %}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-edit"></i></a>
                                 <a href="{% url 'device_print_label' device.id %}" class="btn btn-sm btn-outline-info"><i class="fas fa-print"></i></a>
+                                <button type="button" class="btn btn-sm btn-outline-success" onclick="openAssignModal({{ device.id }})"><i class="fas fa-user-plus"></i></button>
+                                <button type="button" class="btn btn-sm btn-outline-warning" onclick="revokeDevice({{ device.id }})"><i class="fas fa-user-minus"></i></button>
                             </td>
                         </tr>
                         {% empty %}
@@ -201,5 +203,97 @@
         alert('请在用户管理中选择用户后进行分配');
         window.location.href = '{% url "user_list" %}';
     }
+
+    let currentAssignDeviceId = null;
+
+    function openAssignModal(deviceId) {
+        currentAssignDeviceId = deviceId;
+        $('#assignUserInput').val('');
+        $('#assignUserResults').html('');
+        $('#assignModal').modal('show');
+        loadAllUsers();
+    }
+
+    function loadAllUsers() {
+        $.get('/assets/api/users-by-department/', {}, function(res) {
+            if (res.success) {
+                window._allUsers = res.users;
+                renderUserResults(res.users);
+            }
+        });
+    }
+
+    function renderUserResults(users) {
+        let html = '';
+        users.forEach(function(u) {
+            html += `<div class="list-group-item list-group-item-action" style="cursor:pointer" onclick="selectUser(${u.id}, '${u.emp_no}-${u.realname}（${u.department}）')">
+                ${u.emp_no}-${u.realname}（${u.department}）
+            </div>`;
+        });
+        $('#assignUserResults').html(html || '<div class="list-group-item text-muted">无匹配用户</div>');
+    }
+
+    $('#assignUserInput').on('input', function() {
+        const keyword = $(this).val().toLowerCase();
+        if (!window._allUsers) return;
+        const filtered = window._allUsers.filter(function(u) {
+            const text = (u.emp_no + u.realname + u.department).toLowerCase();
+            return text.indexOf(keyword) >= 0;
+        });
+        renderUserResults(filtered);
+    });
+
+    function selectUser(userId, userText) {
+        if (!confirm('确定将设备分配给 ' + userText + ' 吗？')) return;
+        $.ajax({
+            url: '/assets/' + currentAssignDeviceId + '/assign/',
+            type: 'POST',
+            contentType: 'application/json',
+            headers: {'X-CSRFToken': '{{ csrf_token }}'},
+            data: JSON.stringify({user_id: userId}),
+            success: function(res) {
+                if (res.success) {
+                    alert('分配成功');
+                    location.reload();
+                } else {
+                    alert('分配失败: ' + res.message);
+                }
+            }
+        });
+    }
+
+    function revokeDevice(deviceId) {
+        if (!confirm('确定要回收该设备吗？将清空使用人和所属部门信息。')) return;
+        $.ajax({
+            url: '/assets/' + deviceId + '/revoke/',
+            type: 'POST',
+            contentType: 'application/json',
+            headers: {'X-CSRFToken': '{{ csrf_token }}'},
+            success: function(res) {
+                if (res.success) {
+                    alert('回收成功');
+                    location.reload();
+                } else {
+                    alert('回收失败: ' + res.message);
+                }
+            }
+        });
+    }
 </script>
+
+<!-- 分配弹窗 -->
+<div class="modal fade" id="assignModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">分配设备</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="assignUserInput" class="form-control mb-2" placeholder="搜索工号、姓名或部门...">
+                <div id="assignUserResults" class="list-group" style="max-height:300px;overflow-y:auto;"></div>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}

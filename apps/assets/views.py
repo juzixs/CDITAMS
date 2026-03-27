@@ -90,6 +90,7 @@ def device_create(request):
         
         asset_no = request.POST.get('asset_no', '').strip() or generate_asset_no(category)
         
+        user_id = request.POST.get('user') or None
         device = Device.objects.create(
             asset_no=asset_no,
             device_no=request.POST.get('device_no'),
@@ -97,9 +98,9 @@ def device_create(request):
             name=request.POST.get('name'),
             model=request.POST.get('model'),
             category=category,
-            status=request.POST.get('status', 'normal'),
+            status='normal' if user_id else 'unused',
             secret_level=request.POST.get('secret_level', 'public'),
-            user_id=request.POST.get('user') or None,
+            user_id=user_id,
             department_id=request.POST.get('department') or None,
             location_id=request.POST.get('location') or None,
             workstation_id=request.POST.get('workstation') or None,
@@ -179,10 +180,11 @@ def device_edit(request, pk):
         device.serial_no = request.POST.get('serial_no')
         device.model = request.POST.get('model')
         device.category_id = request.POST.get('category')
-        device.status = request.POST.get('status', 'normal')
         device.secret_level = request.POST.get('secret_level', 'public')
-        device.user_id = request.POST.get('user') or None
+        user_id = request.POST.get('user') or None
+        device.user_id = user_id
         device.department_id = request.POST.get('department') or None
+        device.status = 'normal' if user_id else 'unused'
         device.location_id = request.POST.get('location') or None
         device.workstation_id = request.POST.get('workstation') or None
         device.location_text = request.POST.get('location_text') or ''
@@ -1834,5 +1836,68 @@ def api_workstation_unbind_device(request, pk):
             field_name='workstation', old_value=old_ws, new_value='未绑定',
         )
         return JsonResponse({'success': True, 'message': '解绑成功'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+
+@login_required
+def api_users_by_department(request):
+    department_id = request.GET.get('department_id')
+    if department_id:
+        users = User.objects.filter(department_id=department_id, is_active=True).select_related('department')
+    else:
+        users = User.objects.filter(is_active=True).select_related('department')
+    result = [{
+        'id': u.id,
+        'emp_no': u.emp_no,
+        'realname': u.realname,
+        'department': u.department.name if u.department else ''
+    } for u in users]
+    return JsonResponse({'success': True, 'users': result})
+
+
+@login_required
+@csrf_exempt
+def api_device_assign(request, pk):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': '仅支持POST请求'})
+    try:
+        device = get_object_or_404(Device, pk=pk)
+        body = json.loads(request.body) if request.content_type == 'application/json' else request.POST
+        user_id = body.get('user_id')
+        user = get_object_or_404(User, pk=user_id)
+        old_user = str(device.user) if device.user else ''
+        old_dept = str(device.department) if device.department else ''
+        old_status = device.get_status_display()
+        device.user = user
+        device.department = user.department
+        device.status = 'normal'
+        device.save()
+        AssetLog.objects.create(device=device, user=request.user, action='assign',
+            old_value=f'{old_user}/{old_dept}/{old_status}',
+            new_value=f'{user.realname}/{user.department.name if user.department else ""}/使用')
+        return JsonResponse({'success': True, 'message': '分配成功'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+
+@login_required
+@csrf_exempt
+def api_device_revoke(request, pk):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': '仅支持POST请求'})
+    try:
+        device = get_object_or_404(Device, pk=pk)
+        old_user = str(device.user) if device.user else ''
+        old_dept = str(device.department) if device.department else ''
+        old_status = device.get_status_display()
+        device.user = None
+        device.department = None
+        device.status = 'unused'
+        device.save()
+        AssetLog.objects.create(device=device, user=request.user, action='revoke',
+            old_value=f'{old_user}/{old_dept}/{old_status}',
+            new_value='未分配/无/闲置')
+        return JsonResponse({'success': True, 'message': '回收成功'})
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)})

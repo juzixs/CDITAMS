@@ -8,6 +8,8 @@ urlpatterns = [
     path('<int:pk>/edit/', views.device_edit, name='device_edit'),
     path('<int:pk>/delete/', views.device_delete, name='device_delete'),
     path('<int:pk>/print/', views.device_print_label, name='device_print_label'),
+    path('<int:pk>/assign/', views.api_device_assign, name='api_device_assign'),
+    path('<int:pk>/revoke/', views.api_device_revoke, name='api_device_revoke'),
     path('scan/<int:device_id>/', views.device_scan, name='device_scan'),
     path('batch/delete/', views.device_batch_delete, name='device_batch_delete'),
     path('batch/assign/', views.device_batch_assign, name='device_batch_assign'),
@@ -24,6 +26,7 @@ urlpatterns = [
     path('api/devices/get-category-by-asset-no/', views.api_get_category_by_asset_no, name='api_get_category_by_asset_no'),
     path('api/devices/search/', views.api_devices_search, name='api_devices_search'),
     path('api/devices/unbound/', views.api_devices_unbound, name='api_devices_unbound'),
+    path('api/users-by-department/', views.api_users_by_department, name='api_users_by_department'),
     
     path('categories/', views.category_list, name='category_list'),
     path('categories/create/', views.category_create, name='category_create'),
