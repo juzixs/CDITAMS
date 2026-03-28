@@ -117,11 +117,14 @@
                             </td>
                             {% endfor %}
                             <td>
-                                <a href="{% url 'device_detail' device.id %}" class="btn btn-sm btn-outline-primary"><i class="fas fa-eye"></i></a>
-                                <a href="{% url 'device_edit' device.id %}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-edit"></i></a>
-                                <a href="{% url 'device_print_label' device.id %}" class="btn btn-sm btn-outline-info"><i class="fas fa-print"></i></a>
-                                <button type="button" class="btn btn-sm btn-outline-success" onclick="openAssignModal({{ device.id }})"><i class="fas fa-user-plus"></i></button>
-                                <button type="button" class="btn btn-sm btn-outline-warning" onclick="revokeDevice({{ device.id }})"><i class="fas fa-user-minus"></i></button>
+                                <a href="{% url 'device_detail' device.id %}" class="btn btn-sm btn-outline-primary" title="查看详情"><i class="fas fa-eye"></i></a>
+                                <a href="{% url 'device_edit' device.id %}" class="btn btn-sm btn-outline-secondary" title="编辑"><i class="fas fa-edit"></i></a>
+                                <a href="{% url 'device_print_label' device.id %}" class="btn btn-sm btn-outline-info" title="打印标签"><i class="fas fa-print"></i></a>
+                                {% if device.user %}
+                                <button type="button" class="btn btn-sm btn-outline-warning" onclick="revokeDevice({{ device.id }})" title="回收"><i class="fas fa-user-minus"></i></button>
+                                {% else %}
+                                <button type="button" class="btn btn-sm btn-outline-success" onclick="openAssignModal({{ device.id }})" title="分配"><i class="fas fa-user-plus"></i></button>
+                                {% endif %}
                             </td>
                         </tr>
                         {% empty %}
