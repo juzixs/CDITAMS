@@ -15,6 +15,12 @@ urlpatterns = [
     path('users/<int:pk>/edit/', views.user_edit, name='user_edit'),
     path('users/<int:pk>/delete/', views.user_delete, name='user_delete'),
     path('users/<int:pk>/reset-password/', views.user_reset_password, name='user_reset_password'),
+    path('users/import/', views.user_import, name='user_import'),
+    path('users/import-progress/', views.import_progress_api, name='import_progress_api'),
+    path('users/download-template/', views.user_download_template, name='user_download_template'),
+    path('users/batch-delete/', views.user_batch_delete, name='user_batch_delete'),
+    path('users/batch-enable/', views.user_batch_enable, name='user_batch_enable'),
+    path('users/batch-disable/', views.user_batch_disable, name='user_batch_disable'),
     
     path('departments/', views.department_list, name='department_list'),
     path('departments/create/', views.department_create, name='department_create'),

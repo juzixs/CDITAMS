@@ -1,0 +1,306 @@
+{% extends 'base.html' %}
+{% block title %}导入用户 - 驰达IT资产管理系统{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4><i class="fas fa-file-import me-2"></i>导入用户</h4>
+    <div>
+        <a href="{% url 'user_list' %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left me-1"></i>返回列表</a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <i class="fas fa-info-circle me-2"></i>导入说明
+            </div>
+            <div class="card-body">
+                <ol class="mb-0">
+                    <li>点击"下载模板"按钮获取Excel导入模板</li>
+                    <li>按照模板格式填写用户信息</li>
+                    <li><strong>工号</strong>和<strong>姓名</strong>为必填项</li>
+                    <li>部门填写部门名称（需与系统中部门名称一致）</li>
+                    <li>性别填写"男"或"女"</li>
+                    <li>导入的用户默认角色为<strong>普通用户</strong>，默认密码为<strong>password</strong></li>
+                    <li>如工号已存在，将更新该用户的<strong>性别、邮箱、电话、部门</strong>信息</li>
+                </ol>
+            </div>
+        </div>
+        
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fas fa-upload me-2"></i>上传文件
+            </div>
+            <div class="card-body">
+                <form id="importForm" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label">选择Excel文件</label>
+                        <input type="file" name="file" id="fileInput" class="form-control" accept=".xlsx,.xls" required>
+                        <small class="text-muted">支持 .xlsx 和 .xls 格式</small>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" id="importBtn" class="btn btn-primary"><i class="fas fa-upload me-1"></i>开始导入</button>
+                        <a href="{% url 'user_download_template' %}" class="btn btn-outline-success"><i class="fas fa-download me-1"></i>下载模板</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card d-none" id="progressCard">
+            <div class="card-header bg-info text-white">
+                <i class="fas fa-spinner fa-spin me-2" id="progressIcon"></i>处理进度
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span>导入进度</span>
+                        <span id="progressText">0%</span>
+                    </div>
+                    <div class="progress" style="height: 25px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" id="progressBar" role="progressbar" style="width: 0%">0/0</div>
+                    </div>
+                </div>
+                
+                <div class="row text-center mb-3">
+                    <div class="col-md-4">
+                        <div class="border rounded p-3">
+                            <h4 class="text-success mb-0" id="successCount">0</h4>
+                            <small class="text-muted">新增用户</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="border rounded p-3">
+                            <h4 class="text-info mb-0" id="updateCount">0</h4>
+                            <small class="text-muted">更新用户</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="border rounded p-3">
+                            <h4 class="text-danger mb-0" id="errorCount">0</h4>
+                            <small class="text-muted">失败记录</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="alert alert-light mb-0">
+                    <small class="text-muted">当前处理：<span id="currentInfo">等待开始...</span></small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card d-none mt-4" id="resultCard">
+            <div class="card-header bg-success text-white">
+                <i class="fas fa-check-circle me-2"></i>导入完成
+            </div>
+            <div class="card-body">
+                <div class="row text-center mb-3">
+                    <div class="col-md-4">
+                        <div class="border rounded p-3">
+                            <h3 class="text-success mb-0" id="finalSuccess">0</h3>
+                            <small class="text-muted">成功导入</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="border rounded p-3">
+                            <h3 class="text-info mb-0" id="finalUpdate">0</h3>
+                            <small class="text-muted">更新用户</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="border rounded p-3">
+                            <h3 class="text-danger mb-0" id="finalError">0</h3>
+                            <small class="text-muted">失败记录</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="d-none" id="errorDetail">
+                    <div class="alert alert-warning">
+                        <strong><i class="fas fa-exclamation-triangle me-1"></i>失败详情：</strong>
+                        <ul class="mb-0 mt-2" id="errorList"></ul>
+                    </div>
+                </div>
+                
+                <div class="d-flex gap-2">
+                    <a href="{% url 'user_list' %}" class="btn btn-primary"><i class="fas fa-users me-1"></i>查看用户列表</a>
+                    <button type="button" class="btn btn-outline-secondary" onclick="resetForm()"><i class="fas fa-redo me-1"></i>继续导入</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <i class="fas fa-table me-2"></i>模板格式
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>工号</th>
+                            <th>姓名</th>
+                            <th>性别</th>
+                            <th>部门</th>
+                            <th>邮箱</th>
+                            <th>电话</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="text-danger">*必填</td>
+                            <td class="text-danger">*必填</td>
+                            <td>选填</td>
+                            <td>选填</td>
+                            <td>选填</td>
+                            <td>选填</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <i class="fas fa-building me-2"></i>可选部门
+            </div>
+            <div class="card-body">
+                <small class="text-muted">
+                    总经办、财务部、采购部、市场部、行政部、质量部、审计部、人力资源部、经营管理部、仓储物流部、数控中心、复材中心、航材及装配中心
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let pollTimer = null;
+let currentTaskId = null;
+
+document.getElementById('importForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const fileInput = document.getElementById('fileInput');
+    if (!fileInput.files.length) {
+        alert('请选择要导入的文件');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    
+    document.getElementById('importBtn').disabled = true;
+    document.getElementById('importBtn').innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>上传中...';
+    
+    fetch('{% url "user_import" %}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            currentTaskId = data.task_id;
+            showProgress();
+            startPolling();
+        } else {
+            alert(data.message || '导入失败');
+            resetImportBtn();
+        }
+    })
+    .catch(error => {
+        alert('上传失败：' + error);
+        resetImportBtn();
+    });
+});
+
+function showProgress() {
+    document.getElementById('progressCard').classList.remove('d-none');
+    document.getElementById('resultCard').classList.add('d-none');
+}
+
+function startPolling() {
+    pollTimer = setInterval(pollProgress, 500);
+}
+
+function pollProgress() {
+    if (!currentTaskId) return;
+    
+    fetch('{% url "import_progress_api" %}?task_id=' + currentTaskId)
+    .then(response => response.json())
+    .then(data => {
+        updateProgressUI(data);
+        
+        if (data.status === 'completed' || data.status === 'error') {
+            clearInterval(pollTimer);
+            showResult(data);
+        }
+    });
+}
+
+function updateProgressUI(data) {
+    const total = data.total || 0;
+    const current = data.current || 0;
+    const percent = total > 0 ? Math.round((current / total) * 100) : 0;
+    
+    document.getElementById('progressBar').style.width = percent + '%';
+    document.getElementById('progressBar').textContent = current + '/' + total;
+    document.getElementById('progressText').textContent = percent + '% (' + current + '/' + total + ')';
+    
+    document.getElementById('successCount').textContent = data.success || 0;
+    document.getElementById('updateCount').textContent = data.update || 0;
+    document.getElementById('errorCount').textContent = data.error || 0;
+    
+    if (data.current_emp_no) {
+        document.getElementById('currentInfo').textContent = '第 ' + (data.current + 1) + ' 行 - 工号: ' + data.current_emp_no;
+    }
+}
+
+function showResult(data) {
+    document.getElementById('progressCard').classList.add('d-none');
+    document.getElementById('resultCard').classList.remove('d-none');
+    
+    document.getElementById('finalSuccess').textContent = data.success || 0;
+    document.getElementById('finalUpdate').textContent = data.update || 0;
+    document.getElementById('finalError').textContent = data.error || 0;
+    
+    if (data.errors && data.errors.length > 0) {
+        document.getElementById('errorDetail').classList.remove('d-none');
+        const errorList = document.getElementById('errorList');
+        errorList.innerHTML = '';
+        data.errors.forEach(function(error) {
+            const li = document.createElement('li');
+            li.textContent = error;
+            errorList.appendChild(li);
+        });
+    }
+    
+    resetImportBtn();
+}
+
+function resetImportBtn() {
+    document.getElementById('importBtn').disabled = false;
+    document.getElementById('importBtn').innerHTML = '<i class="fas fa-upload me-1"></i>开始导入';
+}
+
+function resetForm() {
+    document.getElementById('fileInput').value = '';
+    document.getElementById('resultCard').classList.add('d-none');
+    document.getElementById('progressCard').classList.add('d-none');
+    document.getElementById('errorDetail').classList.add('d-none');
+    currentTaskId = null;
+    
+    // 重置进度显示
+    document.getElementById('progressBar').style.width = '0%';
+    document.getElementById('progressBar').textContent = '0/0';
+    document.getElementById('progressText').textContent = '0%';
+    document.getElementById('successCount').textContent = '0';
+    document.getElementById('updateCount').textContent = '0';
+    document.getElementById('errorCount').textContent = '0';
+    document.getElementById('currentInfo').textContent = '等待开始...';
+}
+</script>
+{% endblock %}

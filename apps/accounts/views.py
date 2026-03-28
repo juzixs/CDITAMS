@@ -10,6 +10,12 @@ from .models import User, Department, Role, Permission, LoginLog
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 import json
+import threading
+import uuid
+import time
+
+# 全局变量存储导入进度
+import_progress = {}
 
 
 def user_login(request):
@@ -155,7 +161,12 @@ def user_create(request):
     
     departments = Department.objects.all()
     roles = Role.objects.all()
-    return render(request, 'accounts/user_form.html', {'departments': departments, 'roles': roles})
+    default_role = Role.objects.filter(code='user').first()
+    return render(request, 'accounts/user_form.html', {
+        'departments': departments,
+        'roles': roles,
+        'default_role_id': default_role.id if default_role else None,
+    })
 
 
 @login_required
@@ -181,7 +192,7 @@ def user_edit(request, pk):
     
     departments = Department.objects.all()
     roles = Role.objects.all()
-    return render(request, 'accounts/user_form.html', {'user': user, 'departments': departments, 'roles': roles})
+    return render(request, 'accounts/user_form.html', {'edit_user': user, 'departments': departments, 'roles': roles})
 
 
 @login_required
@@ -212,6 +223,204 @@ def user_reset_password(request, pk):
         messages.success(request, f'密码已重置为: {password}')
         return redirect('user_list')
     return render(request, 'accounts/user_reset_password.html', {'user': user})
+
+
+@login_required
+def user_download_template(request):
+    import openpyxl
+    from django.http import HttpResponse
+    
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = '用户导入模板'
+    
+    headers = ['工号', '姓名', '性别', '部门', '邮箱', '电话']
+    ws.append(headers)
+    
+    for col in ws.columns:
+        max_length = 0
+        column = col[0].column_letter
+        for cell in col:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        ws.column_dimensions[column].width = max(max_length + 2, 10)
+    
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="user_import_template.xlsx"'
+    wb.save(response)
+    return response
+
+
+def process_import_task(task_id, file_content):
+    """后台处理导入任务"""
+    import openpyxl
+    from io import BytesIO
+    
+    progress = import_progress[task_id]
+    
+    try:
+        wb = openpyxl.load_workbook(BytesIO(file_content))
+        ws = wb.active
+    except Exception as e:
+        progress['status'] = 'error'
+        progress['errors'].append(f'文件读取失败: {str(e)}')
+        return
+    
+    default_role = Role.objects.filter(code='user').first()
+    rows = list(ws.iter_rows(min_row=2, values_only=True))
+    progress['total'] = len(rows)
+    
+    for idx, row in enumerate(rows, start=2):
+        progress['current'] = idx - 1
+        
+        emp_no = str(row[0]).strip() if row[0] else ''
+        realname = str(row[1]).strip() if row[1] else ''
+        gender = str(row[2]).strip() if row[2] else ''
+        dept_name = str(row[3]).strip() if row[3] else ''
+        email = str(row[4]).strip() if row[4] else ''
+        phone = str(row[5]).strip() if row[5] else ''
+        
+        progress['current_emp_no'] = emp_no
+        
+        if not emp_no:
+            progress['error'] += 1
+            progress['errors'].append(f'第{idx}行：工号不能为空')
+            continue
+        if not realname:
+            progress['error'] += 1
+            progress['errors'].append(f'第{idx}行：姓名不能为空')
+            continue
+        
+        department = None
+        if dept_name:
+            department = Department.objects.filter(name=dept_name).first()
+            if not department:
+                progress['error'] += 1
+                progress['errors'].append(f'第{idx}行：部门"{dept_name}"不存在')
+                continue
+        
+        # 检查用户是否已存在（同时检查 emp_no 和 username）
+        user = User.objects.filter(Q(emp_no=emp_no) | Q(username=emp_no)).first()
+        
+        if user:
+            need_update = False
+            if gender and gender != user.gender:
+                user.gender = gender
+                need_update = True
+            if email and email != user.email:
+                user.email = email
+                need_update = True
+            if phone and phone != user.phone:
+                user.phone = phone
+                need_update = True
+            if department and department != user.department:
+                user.department = department
+                need_update = True
+            
+            if need_update:
+                user.save()
+                progress['update'] += 1
+        else:
+            try:
+                User.objects.create_user(
+                    username=emp_no,
+                    emp_no=emp_no,
+                    realname=realname,
+                    password='password',
+                    gender=gender,
+                    email=email,
+                    phone=phone,
+                    department=department,
+                    role=default_role,
+                )
+                progress['success'] += 1
+            except Exception as e:
+                progress['error'] += 1
+                progress['errors'].append(f'第{idx}行：创建失败 - {str(e)}')
+        
+        time.sleep(0.01)  # 模拟处理时间，让前端能看到进度
+    
+    progress['current'] = progress['total']
+    progress['status'] = 'completed'
+
+
+@login_required
+@csrf_exempt
+def user_import(request):
+    if request.method == 'POST':
+        import openpyxl
+        
+        file = request.FILES.get('file')
+        if not file:
+            return JsonResponse({'success': False, 'message': '请选择要导入的文件'})
+        
+        if not file.name.endswith(('.xlsx', '.xls')):
+            return JsonResponse({'success': False, 'message': '请上传Excel文件(.xlsx或.xls)'})
+        
+        # 生成任务ID
+        task_id = str(uuid.uuid4())[:8]
+        
+        # 读取文件内容
+        file_content = file.read()
+        
+        # 初始化进度
+        import_progress[task_id] = {
+            'status': 'processing',
+            'total': 0,
+            'current': 0,
+            'success': 0,
+            'update': 0,
+            'error': 0,
+            'errors': [],
+            'current_emp_no': ''
+        }
+        
+        # 启动后台任务处理导入
+        thread = threading.Thread(target=process_import_task, args=(task_id, file_content))
+        thread.daemon = True
+        thread.start()
+        
+        return JsonResponse({'success': True, 'task_id': task_id})
+    
+    return render(request, 'accounts/user_import.html')
+
+
+@login_required
+def import_progress_api(request):
+    task_id = request.GET.get('task_id')
+    if task_id and task_id in import_progress:
+        return JsonResponse(import_progress[task_id])
+    return JsonResponse({'status': 'not_found'})
+
+
+@login_required
+def user_batch_delete(request):
+    if request.method == 'POST':
+        ids = request.POST.get('ids', '').split(',')
+        User.objects.filter(id__in=ids).delete()
+        messages.success(request, f'成功删除 {len(ids)} 个用户')
+    return redirect('user_list')
+
+
+@login_required
+def user_batch_enable(request):
+    if request.method == 'POST':
+        ids = request.POST.get('ids', '').split(',')
+        User.objects.filter(id__in=ids).update(is_active=True)
+        messages.success(request, f'成功启用 {len(ids)} 个用户')
+    return redirect('user_list')
+
+
+@login_required
+def user_batch_disable(request):
+    if request.method == 'POST':
+        ids = request.POST.get('ids', '').split(',')
+        User.objects.filter(id__in=ids).update(is_active=False)
+        messages.success(request, f'成功禁用 {len(ids)} 个用户')
+    return redirect('user_list')
 
 
 @login_required
