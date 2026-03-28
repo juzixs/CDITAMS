@@ -149,22 +149,30 @@ def org_info(request):
 
 @login_required
 def profile(request):
+    from apps.accounts.models import Department
+    
     user = request.user
     if request.method == 'POST':
         user.realname = request.POST.get('realname')
         user.email = request.POST.get('email')
         user.phone = request.POST.get('phone')
         user.gender = request.POST.get('gender')
+        user.department_id = request.POST.get('department') or None
         
         if request.FILES.get('avatar'):
             user.avatar = request.FILES.get('avatar')
         
         password = request.POST.get('password')
+        confirm_password = request.POST.get('confirm_password')
         if password:
+            if password != confirm_password:
+                messages.error(request, '两次密码输入不一致')
+                return redirect('profile')
             user.set_password(password)
         
         user.save()
         messages.success(request, '个人信息更新成功')
         return redirect('profile')
     
-    return render(request, 'settings/profile.html', {'user': user})
+    departments = Department.objects.all()
+    return render(request, 'settings/profile.html', {'user': user, 'departments': departments})

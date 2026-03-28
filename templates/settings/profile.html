@@ -1,20 +1,152 @@
 {% extends 'base.html' %}
 {% block title %}个人设置 - 驰达IT资产管理系统{% endblock %}
 {% block content %}
-<h4 class="mb-4">个人设置</h4>
-<div class="card"><div class="card-body">
-<form method="post" enctype="multipart/form-data">{% csrf_token %}
-<div class="row mb-3">
-<div class="col-md-6"><label class="form-label">工号</label><input type="text" class="form-control" value="{{ user.emp_no }}" disabled></div>
-<div class="col-md-6"><label class="form-label">姓名</label><input type="text" name="realname" class="form-control" value="{{ user.realname }}"></div>
-</div>
-<div class="row mb-3">
-<div class="col-md-6"><label class="form-label">邮箱</label><input type="email" name="email" class="form-control" value="{{ user.email|default:'' }}"></div>
-<div class="col-md-6"><label class="form-label">电话</label><input type="text" name="phone" class="form-control" value="{{ user.phone|default:'' }}"></div>
-</div>
-<div class="row mb-3">
-<div class="col-md-6"><label class="form-label">性别</label><select name="gender" class="form-select"><option value="">请选择</option><option value="male" {% if user.gender == 'male' %}selected{% endif %}>男</option><option value="female" {% if user.gender == 'female' %}selected{% endif %}>女</option></select></div>
-<div class="col-md-6"><label class="form-label">新密码（留空不修改）</label><input type="password" name="password" class="form-control"></div>
-</div>
-<div class="mt-4"><button type="submit" class="btn btn-primary">保存</button></div>
-</form></div></div>{% endblock %}
+<h4 class="mb-4"><i class="fas fa-user-cog me-2"></i>个人设置</h4>
+
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    
+    <!-- 基本信息卡片 -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <i class="fas fa-info-circle me-2"></i>基本信息
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3 text-center">
+                    <div class="mb-3">
+                        {% if user.avatar %}
+                        <img id="avatarPreview" src="{{ user.avatar.url }}" class="rounded-circle" style="width:120px;height:120px;object-fit:cover;">
+                        {% else %}
+                        <div id="avatarPreview" class="rounded-circle bg-secondary d-inline-flex align-items-center justify-content-center" style="width:120px;height:120px;">
+                            <i class="fas fa-user fa-3x text-white"></i>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <label class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-camera me-1"></i>更换头像
+                        <input type="file" name="avatar" accept="image/*" class="d-none" onchange="previewAvatar(this)">
+                    </label>
+                </div>
+                <div class="col-md-9">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">工号</label>
+                            <input type="text" class="form-control" value="{{ user.emp_no }}" disabled>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">姓名 <span class="text-danger">*</span></label>
+                            <input type="text" name="realname" class="form-control" value="{{ user.realname }}" required>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">邮箱</label>
+                            <input type="email" name="email" class="form-control" value="{{ user.email|default:'' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">电话</label>
+                            <input type="text" name="phone" class="form-control" value="{{ user.phone|default:'' }}">
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">性别</label>
+                            <select name="gender" class="form-select">
+                                <option value="">请选择</option>
+                                <option value="male" {% if user.gender == 'male' %}selected{% endif %}>男</option>
+                                <option value="female" {% if user.gender == 'female' %}selected{% endif %}>女</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">部门</label>
+                            <select name="department" class="form-select">
+                                <option value="">请选择</option>
+                                {% for dept in departments %}
+                                <option value="{{ dept.id }}" {% if user.department_id == dept.id %}selected{% endif %}>{{ dept.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label">角色</label>
+                            <input type="text" class="form-control" value="{{ user.role.name|default:'未分配' }}" disabled>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">注册时间</label>
+                            <input type="text" class="form-control" value="{{ user.date_joined|date:'Y-m-d H:i' }}" disabled>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 修改密码卡片 -->
+    <div class="card mb-4">
+        <div class="card-header bg-warning text-dark">
+            <i class="fas fa-lock me-2"></i>修改密码（留空则不修改）
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <label class="form-label">新密码</label>
+                    <input type="password" name="password" class="form-control" id="newPassword">
+                    <small class="text-muted">至少6位字符</small>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">确认密码</label>
+                    <input type="password" name="confirm_password" class="form-control" id="confirmPassword">
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <div id="passwordMatch" class="text-muted"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="mt-4">
+        <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i>保存</button>
+        <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary ms-2">返回首页</a>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function previewAvatar(input) {
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const preview = document.getElementById('avatarPreview');
+            if (preview.tagName === 'IMG') {
+                preview.src = e.target.result;
+            } else {
+                const img = document.createElement('img');
+                img.id = 'avatarPreview';
+                img.className = 'rounded-circle';
+                img.style.cssText = 'width:120px;height:120px;object-fit:cover;';
+                img.src = e.target.result;
+                preview.parentNode.replaceChild(img, preview);
+            }
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+document.getElementById('confirmPassword').addEventListener('input', function() {
+    const newPassword = document.getElementById('newPassword').value;
+    const confirmPassword = this.value;
+    const matchDiv = document.getElementById('passwordMatch');
+    
+    if (!newPassword && !confirmPassword) {
+        matchDiv.innerHTML = '';
+    } else if (newPassword === confirmPassword) {
+        matchDiv.innerHTML = '<span class="text-success"><i class="fas fa-check-circle me-1"></i>密码匹配</span>';
+    } else {
+        matchDiv.innerHTML = '<span class="text-danger"><i class="fas fa-times-circle me-1"></i>密码不匹配</span>';
+    }
+});
+</script>
+{% endblock %}
