@@ -7,7 +7,7 @@ django.setup()
 
 from django.contrib.auth import get_user_model
 from apps.accounts.models import Department, Role, Permission
-from apps.assets.models import AssetCategory, AssetLocation, ServiceType, DeviceField, Device
+from apps.assets.models import AssetCategory, AssetLocation, ServiceType, DeviceField
 from apps.settings.models import SystemConfig, Organization
 
 
@@ -51,15 +51,28 @@ def init_roles():
     print("初始化角色...")
     permissions = Permission.objects.all()
     
-    role, _ = Role.objects.get_or_create(
+    # 超级管理员 - 所有权限
+    admin_role, _ = Role.objects.get_or_create(
         code='admin',
         defaults={
             'name': '超级管理员',
             'description': '拥有系统所有权限'
         }
     )
-    role.permissions.set(permissions)
-    return role
+    admin_role.permissions.set(permissions)
+    
+    # 普通用户 - 基本权限
+    user_role, _ = Role.objects.get_or_create(
+        code='user',
+        defaults={
+            'name': '普通用户',
+            'description': '普通用户基本权限'
+        }
+    )
+    basic_perms = Permission.objects.filter(code__in=['dashboard', 'device', 'device_create', 'device_edit'])
+    user_role.permissions.set(basic_perms)
+    
+    return admin_role
 
 
 def init_departments():
@@ -75,9 +88,10 @@ def init_departments():
         {'name': '人力资源部', 'code': 'HR', 'sort': 7},
         {'name': '经营管理部', 'code': 'BMD', 'sort': 8},
         {'name': '仓储物流部', 'code': 'LOG', 'sort': 9},
-        {'name': '数控中心', 'code': 'CNC', 'sort': 10},
-        {'name': '复材中心', 'code': 'CMC', 'sort': 11},
-        {'name': '航材及装配中心', 'code': 'AMAC', 'sort': 12},
+        {'name': '研发设计部', 'code': 'RDE', 'sort': 10},
+        {'name': '数控中心', 'code': 'CNC', 'sort': 11},
+        {'name': '复材中心', 'code': 'CMC', 'sort': 12},
+        {'name': '航材及装配中心', 'code': 'AMAC', 'sort': 13},
     ]
     
     for d in depts:
@@ -354,41 +368,6 @@ def init_device_fields():
     print(f"已初始化 {len(system_fields)} 个系统字段")
 
 
-def init_demo_device():
-    print("初始化演示设备...")
-    
-    if Device.objects.filter(asset_no='XACD-Z-001-001-001').exists():
-        print("演示设备已存在，跳过")
-        return
-    
-    parent_cat = AssetCategory.objects.filter(code='001', level=3, name='计算机').first()
-    category = AssetCategory.objects.filter(code='001', level=4, parent=parent_cat).first()
-    location = AssetLocation.objects.filter(code='CYOA02').first()
-    
-    if category and location:
-        Device.objects.create(
-            asset_no='XACD-Z-001-001-001',
-            name='台式电脑',
-            category=category,
-            device_no='/',
-            model='组装机',
-            serial_no='/',
-            secret_level='internal',
-            status='normal',
-            location=location,
-            mac_address='74-D4-35-B3-32-1E',
-            ip_address='172.29.3.1',
-            os_name='Win7',
-            purpose='办公',
-            is_fixed=True,
-            is_secret=True,
-            secret_category='信息系统'
-        )
-        print("演示设备创建成功")
-    else:
-        print(f"无法创建演示设备：分类={category}, 位置={location}")
-
-
 def run():
     print("开始初始化数据...")
     
@@ -402,7 +381,6 @@ def run():
     init_org()
     init_device_fields()
     create_superuser()
-    init_demo_device()
     
     print("数据初始化完成!")
 
