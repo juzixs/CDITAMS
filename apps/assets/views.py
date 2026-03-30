@@ -1981,15 +1981,14 @@ def get_device_all_fields():
         {'field_key': 'serial_no', 'label': '序列号', 'type': 'text'},
         {'field_key': 'name', 'label': '设备名称', 'type': 'text'},
         {'field_key': 'model', 'label': '型号', 'type': 'text'},
-        {'field_key': 'brand', 'label': '品牌', 'type': 'text'},
         {'field_key': 'category', 'label': '资产分类', 'type': 'foreignkey'},
         {'field_key': 'status', 'label': '设备状态', 'type': 'choice'},
         {'field_key': 'secret_level', 'label': '密级', 'type': 'choice'},
         {'field_key': 'user', 'label': '使用人', 'type': 'foreignkey'},
         {'field_key': 'department', 'label': '所属部门', 'type': 'foreignkey'},
-        {'field_key': 'location', 'label': '所在位置', 'type': 'foreignkey'},
+        {'field_key': 'location', 'label': '位置', 'type': 'foreignkey'},
         {'field_key': 'workstation', 'label': '工位', 'type': 'foreignkey'},
-        {'field_key': 'location_text', 'label': '位置文字描述', 'type': 'text'},
+        {'field_key': 'location_text', 'label': '所在位置描述', 'type': 'text'},
         {'field_key': 'purchase_date', 'label': '购入日期', 'type': 'date'},
         {'field_key': 'enable_date', 'label': '启用时间', 'type': 'date'},
         {'field_key': 'install_date', 'label': '安装时间', 'type': 'date'},
@@ -2016,7 +2015,17 @@ def get_device_all_fields():
 
 def get_device_field_value(device, field_key):
     """获取设备字段的值"""
-    if field_key in ['category', 'user', 'department', 'location', 'workstation', 'created_by']:
+    if field_key == 'location':
+        obj = getattr(device, 'location', None)
+        if obj:
+            return obj.get_full_path() if hasattr(obj, 'get_full_path') else str(obj)
+        return ''
+    elif field_key == 'workstation':
+        obj = getattr(device, 'workstation', None)
+        if obj:
+            return obj.name if hasattr(obj, 'name') else str(obj)
+        return ''
+    elif field_key in ['category', 'user', 'department', 'created_by']:
         obj = getattr(device, field_key, None)
         if obj:
             if hasattr(obj, 'name'):
