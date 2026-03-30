@@ -125,6 +125,21 @@
                                     {% if device.is_fixed %}<span class="badge bg-success">是</span>{% else %}<span class="badge bg-secondary">否</span>{% endif %}
                                 {% elif field.field_key == 'is_secret' %}
                                     {% if device.is_secret %}<span class="badge bg-success">是</span>{% else %}<span class="badge bg-secondary">否</span>{% endif %}
+                                {% elif field.field_key == 'qrcode' %}
+                                    {% if device.qrcode %}
+                                        <img src="{{ device.qrcode.url }}" style="width:50px;height:50px;object-fit:contain;">
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                {% elif field.field_key == 'photo' %}
+                                    {% if device.photo %}
+                                        <img src="{{ device.photo.url }}" style="width:50px;height:50px;object-fit:cover;cursor:pointer;"
+                                             data-bs-toggle="popover"
+                                             data-bs-title="设备照片"
+                                             data-bs-content='<img src="{{ device.photo.url }}" style="max-width:300px;max-height:300px;display:block;margin:auto;">'>
+                                    {% else %}
+                                        -
+                                    {% endif %}
                                 {% elif field.field_key == 'created_at' or field.field_key == 'updated_at' %}
                                     {{ device|getattr:field.field_key|date:"Y-m-d H:i" }}
                                 {% elif field.field_key == 'purchase_date' or field.field_key == 'enable_date' or field.field_key == 'install_date' %}
@@ -175,6 +190,20 @@
 {% endblock %}
 
 {% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var photoPopoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'))
+        photoPopoverTriggerList.map(function (popoverTriggerEl) {
+            return new bootstrap.Popover(popoverTriggerEl, {
+                html: true,
+                trigger: 'hover',
+                placement: 'right',
+                container: 'body',
+                sanitize: false
+            })
+        })
+    });
+</script>
 <script>
     document.getElementById('selectAll').addEventListener('change', function() {
         document.querySelectorAll('input[name="device_ids"]').forEach(cb => cb.checked = this.checked);
