@@ -111,13 +111,13 @@
                         <div class="col-md-4">
                             <div class="mb-3">
                                 <label class="form-label">X位置(mm)</label>
-                                <input type="number" id="editX" class="form-control" min="0" max="100">
+                                <input type="number" id="editX" class="form-control" min="0" max="100" step="0.1">
                             </div>
                         </div>
                         <div class="col-md-4">
                             <div class="mb-3">
                                 <label class="form-label">Y位置(mm)</label>
-                                <input type="number" id="editY" class="form-control" min="0" max="100">
+                                <input type="number" id="editY" class="form-control" min="0" max="100" step="0.1">
                             </div>
                         </div>
                         <div class="col-md-4">
@@ -135,7 +135,6 @@
                         <input type="checkbox" class="form-check-input" id="editShowLabel" checked>
                         <label class="form-check-label" for="editShowLabel">显示标签文字</label>
                     </div>
-                    <button type="button" class="btn btn-primary" onclick="applyFieldEdit()">应用</button>
                 </div>
             </div>
         </div>
@@ -184,14 +183,20 @@ function init() {
                 field_key: f.field_key,
                 label: f.label,
                 show: false,
-                font_size: pos.font_size || 9,
+                font_size: parseFloat(pos.font_size) || 9,
                 bold: pos.bold || false,
-                x: pos.x,
-                y: pos.y,
-                size: pos.size || 20,
+                x: parseFloat(pos.x) || 3,
+                y: parseFloat(pos.y) || 20,
+                size: parseFloat(pos.size) || 20,
                 show_label: true,
                 type: f.type
             });
+        } else {
+            // 确保已有配置的值都是浮点数
+            existingConfig.x = parseFloat(existingConfig.x);
+            existingConfig.y = parseFloat(existingConfig.y);
+            existingConfig.font_size = parseFloat(existingConfig.font_size);
+            existingConfig.size = parseFloat(existingConfig.size);
         }
     });
     
@@ -218,8 +223,8 @@ document.addEventListener('mouseup', (e) => {
     if (!dragState.isDragging || !dragState.config) return;
     
     const scale = 5;
-    dragState.config.x = Math.round(parseInt(dragState.element.style.left) / scale);
-    dragState.config.y = Math.round(parseInt(dragState.element.style.bottom) / scale);
+    dragState.config.x = parseFloat(dragState.element.style.left) / scale;
+    dragState.config.y = parseFloat(dragState.element.style.bottom) / scale;
     
     if (dragState.config.x < 0) dragState.config.x = 0;
     if (dragState.config.y < 0) dragState.config.y = 0;
@@ -395,25 +400,56 @@ function openFieldEditor(config) {
     setTimeout(() => {
         document.getElementById('editLabel').value = config.label;
         document.getElementById('editFontSize').value = config.font_size || 9;
-        document.getElementById('editX').value = config.x;
-        document.getElementById('editY').value = config.y;
+        document.getElementById('editX').value = parseFloat(config.x).toFixed(1);
+        document.getElementById('editY').value = parseFloat(config.y).toFixed(1);
         document.getElementById('editQrSize').value = config.size || 20;
         document.getElementById('editBold').checked = config.bold || false;
         document.getElementById('editShowLabel').checked = config.show_label !== false;
         
         document.getElementById('editQrSize').parentElement.style.display = config.field_key === 'qrcode' ? 'block' : 'none';
         document.getElementById('editFontSize').parentElement.parentElement.style.display = config.field_key === 'qrcode' ? 'none' : 'block';
+        
+        // 添加实时更新事件监听器
+        const fieldIds = ['editLabel', 'editFontSize', 'editX', 'editY', 'editQrSize', 'editBold', 'editShowLabel'];
+        fieldIds.forEach(id => {
+            const el = document.getElementById(id);
+            el.oninput = function() {
+                applyFieldEditNoClose();
+            };
+            el.onchange = function() {
+                applyFieldEditNoClose();
+            };
+        });
     }, 10);
+}
+
+function applyFieldEditNoClose() {
+    if (!currentEditField) return;
+    
+    currentEditField.label = document.getElementById('editLabel').value;
+    currentEditField.font_size = parseFloat(document.getElementById('editFontSize').value) || 9;
+    currentEditField.x = parseFloat(document.getElementById('editX').value) || 0;
+    currentEditField.y = parseFloat(document.getElementById('editY').value) || 0;
+    currentEditField.size = parseFloat(document.getElementById('editQrSize').value) || 20;
+    currentEditField.bold = document.getElementById('editBold').checked;
+    currentEditField.show_label = document.getElementById('editShowLabel').checked;
+    
+    const configIndex = fieldsConfig.findIndex(c => c.field_key === currentEditField.field_key);
+    if (configIndex !== -1) {
+        fieldsConfig[configIndex] = currentEditField;
+    }
+    
+    renderPreview();
 }
 
 function applyFieldEdit() {
     if (!currentEditField) return;
     
     currentEditField.label = document.getElementById('editLabel').value;
-    currentEditField.font_size = parseInt(document.getElementById('editFontSize').value) || 9;
-    currentEditField.x = parseInt(document.getElementById('editX').value) || 0;
-    currentEditField.y = parseInt(document.getElementById('editY').value) || 0;
-    currentEditField.size = parseInt(document.getElementById('editQrSize').value) || 20;
+    currentEditField.font_size = parseFloat(document.getElementById('editFontSize').value) || 9;
+    currentEditField.x = parseFloat(document.getElementById('editX').value) || 0;
+    currentEditField.y = parseFloat(document.getElementById('editY').value) || 0;
+    currentEditField.size = parseFloat(document.getElementById('editQrSize').value) || 20;
     currentEditField.bold = document.getElementById('editBold').checked;
     currentEditField.show_label = document.getElementById('editShowLabel').checked;
     
