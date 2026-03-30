@@ -27,6 +27,7 @@ urlpatterns = [
     path('api/devices/search/', views.api_devices_search, name='api_devices_search'),
     path('api/devices/unbound/', views.api_devices_unbound, name='api_devices_unbound'),
     path('api/users-by-department/', views.api_users_by_department, name='api_users_by_department'),
+    path('api/save-field-visibility/', views.api_save_field_visibility, name='api_save_field_visibility'),
     
     path('categories/', views.category_list, name='category_list'),
     path('categories/create/', views.category_create, name='category_create'),

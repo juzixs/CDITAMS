@@ -236,7 +236,7 @@ class Device(models.Model):
         db_table = 'devices'
         verbose_name = '设备'
         verbose_name_plural = '设备'
-        ordering = ['-created_at']
+        ordering = ['id']
 
     def __str__(self):
         return f"{self.asset_no} - {self.name}"

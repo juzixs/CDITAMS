@@ -18,26 +18,10 @@
 <div class="card mb-4">
     <div class="card-body">
         <form method="get" class="row g-3">
+            <div class="col-md-5">
+                <input type="text" name="search" class="form-control" placeholder="搜索所有信息..." value="{{ request.GET.search }}">
+            </div>
             <div class="col-md-3">
-                <input type="text" name="search" class="form-control" placeholder="搜索资产编号/设备名称/序列号" value="{{ request.GET.search }}">
-            </div>
-            <div class="col-md-2">
-                <select name="category" class="form-select">
-                    <option value="">全部分类</option>
-                    {% for cat in categories %}
-                    <option value="{{ cat.id }}" {% if request.GET.category == cat.id|stringformat:"s" %}selected{% endif %}>{{ cat.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-2">
-                <select name="location" class="form-select">
-                    <option value="">全部位置</option>
-                    {% for loc in locations %}
-                    <option value="{{ loc.id }}" {% if request.GET.location == loc.id|stringformat:"s" %}selected{% endif %}>{{ loc.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-2">
                 <select name="status" class="form-select">
                     <option value="">全部状态</option>
                     <option value="normal" {% if request.GET.status == 'normal' %}selected{% endif %}>使用</option>
@@ -46,9 +30,35 @@
                     <option value="unused" {% if request.GET.status == 'unused' %}selected{% endif %}>闲置</option>
                 </select>
             </div>
-            <div class="col-md-3">
-                <button type="submit" class="btn btn-primary">搜索</button>
-                <a href="{% url 'device_list' %}" class="btn btn-outline-secondary">重置</a>
+            <div class="col-md-4">
+                <div class="btn-group">
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-search me-1"></i>搜索</button>
+                    <a href="{% url 'device_list' %}" class="btn btn-outline-secondary">重置</a>
+                    <div class="dropdown">
+                        <button class="btn btn-outline-info dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-columns me-1"></i>显示字段
+                        </button>
+                        <div class="dropdown-menu p-3" style="width:400px;max-height:400px;overflow-y:auto;">
+                            <div class="row">
+                                {% for field in all_fields %}
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input field-check" type="checkbox" value="{{ field.field_key }}" 
+                                               id="field_{{ field.field_key }}" 
+                                               {% if field in visible_fields %}checked{% endif %}>
+                                        <label class="form-check-label" for="field_{{ field.field_key }}">{{ field.name }}</label>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <hr>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-sm btn-primary" onclick="saveFieldVisibility()">保存</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="resetFields()">重置默认</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </form>
     </div>
@@ -94,7 +104,7 @@
                                     <span class="badge bg-info">闲置</span>
                                     {% endif %}
                                 {% elif field.field_key == 'secret_level' %}
-                                    {% if device.secret_level == 'public' %}公开{% elif device.secret_level == 'internal' %}内部{% elif device.secret_level == 'confidential' %}机密{% elif device.secret_level == 'secret' %}绝密{% else %}-{% endif %}
+                                    {% if device.secret_level == 'public' %}公开{% elif device.secret_level == 'internal' %}内部{% elif device.secret_level == 'confidential' %}秘密{% elif device.secret_level == 'secret' %}机密{% elif device.secret_level == 'top_secret' %}绝密{% elif device.secret_level == 'commercial_secret' %}商密{% else %}-{% endif %}
                                 {% elif field.field_key == 'user' %}
                                     {{ device.user.realname|default:'-' }}
                                 {% elif field.field_key == 'department' %}
@@ -282,6 +292,46 @@
             }
         });
     }
+    
+    // 字段显示控制
+    function saveFieldVisibility() {
+        const checked = Array.from(document.querySelectorAll('.field-check:checked')).map(cb => cb.value);
+        $.ajax({
+            url: '{% url "api_save_field_visibility" %}',
+            type: 'POST',
+            contentType: 'application/json',
+            headers: {'X-CSRFToken': '{{ csrf_token }}'},
+            data: JSON.stringify({visible_fields: checked}),
+            success: function(res) {
+                if (res.success) {
+                    location.reload();
+                } else {
+                    alert('保存失败: ' + res.message);
+                }
+            }
+        });
+    }
+    
+    function resetFields() {
+        if (!confirm('确定重置为默认显示字段吗？')) return;
+        $.ajax({
+            url: '{% url "api_save_field_visibility" %}',
+            type: 'POST',
+            contentType: 'application/json',
+            headers: {'X-CSRFToken': '{{ csrf_token }}'},
+            data: JSON.stringify({visible_fields: []}),
+            success: function(res) {
+                if (res.success) {
+                    location.reload();
+                }
+            }
+        });
+    }
+    
+    // 阻止下拉菜单关闭
+    document.querySelector('.dropdown-menu').addEventListener('click', function(e) {
+        e.stopPropagation();
+    });
 </script>
 
 <!-- 分配弹窗 -->

@@ -56,7 +56,13 @@ def device_list(request):
             Q(asset_no__icontains=search) | 
             Q(name__icontains=search) | 
             Q(serial_no__icontains=search) |
-            Q(device_no__icontains=search)
+            Q(device_no__icontains=search) |
+            Q(model__icontains=search) |
+            Q(user__realname__icontains=search) |
+            Q(department__name__icontains=search) |
+            Q(mac_address__icontains=search) |
+            Q(ip_address__icontains=search) |
+            Q(remarks__icontains=search)
         )
     if category_id:
         devices = devices.filter(category_id=category_id)
@@ -69,17 +75,39 @@ def device_list(request):
     page = request.GET.get('page', 1)
     devices = paginator.get_page(page)
     
-    categories = AssetCategory.objects.filter(parent__isnull=True).prefetch_related('children')
+    categories = AssetCategory.objects.all().order_by('code')
     locations = AssetLocation.objects.filter(parent__isnull=True).prefetch_related('children')
     
-    visible_fields = DeviceField.objects.filter(is_visible=True).order_by('sort')
+    # 获取用户自定义的字段显示配置
+    visible_field_keys = request.session.get('device_visible_fields', None)
+    if visible_field_keys:
+        visible_fields = DeviceField.objects.filter(field_key__in=visible_field_keys).order_by('sort')
+    else:
+        visible_fields = DeviceField.objects.filter(is_visible=True).order_by('sort')
+    
+    all_fields = DeviceField.objects.all().order_by('sort')
     
     return render(request, 'assets/device_list.html', {
         'devices': devices,
         'categories': categories,
         'locations': locations,
         'visible_fields': visible_fields,
+        'all_fields': all_fields,
     })
+
+
+@login_required
+@csrf_exempt
+def api_save_field_visibility(request):
+    if request.method == 'POST':
+        try:
+            body = json.loads(request.body)
+            field_keys = body.get('visible_fields', [])
+            request.session['device_visible_fields'] = field_keys
+            return JsonResponse({'success': True})
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)})
+    return JsonResponse({'success': False, 'message': '仅支持POST请求'})
 
 
 @login_required
