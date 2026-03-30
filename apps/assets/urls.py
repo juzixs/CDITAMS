@@ -28,6 +28,7 @@ urlpatterns = [
     path('api/devices/unbound/', views.api_devices_unbound, name='api_devices_unbound'),
     path('api/users-by-department/', views.api_users_by_department, name='api_users_by_department'),
     path('api/save-field-visibility/', views.api_save_field_visibility, name='api_save_field_visibility'),
+    path('api/regenerate-all-qrcodes/', views.api_regenerate_all_qrcodes, name='api_regenerate_all_qrcodes'),
     
     path('categories/', views.category_list, name='category_list'),
     path('categories/create/', views.category_create, name='category_create'),
@@ -66,6 +67,10 @@ urlpatterns = [
     path('fields/create/', views.field_create, name='field_create'),
     path('fields/<int:pk>/edit/', views.field_edit, name='field_edit'),
     path('fields/<int:pk>/delete/', views.field_delete, name='field_delete'),
+    
+    path('labels/', views.label_settings, name='label_settings'),
+    path('api/label-templates/', views.api_get_label_templates, name='api_get_label_templates'),
+    path('batch/print/', views.device_batch_print, name='device_batch_print'),
     
     path('software/', views.software_list, name='software_list'),
     path('software/create/', views.software_create, name='software_create'),

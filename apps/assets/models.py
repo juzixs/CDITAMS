@@ -598,3 +598,37 @@ class AssetLog(models.Model):
 
     def __str__(self):
         return f"{self.device.asset_no} - {self.action}"
+
+
+class LabelTemplate(models.Model):
+    SIZE_CHOICES = [
+        ('40x60', '40×60mm'),
+        ('50x80', '50×80mm'),
+        ('custom', '自定义尺寸'),
+    ]
+    
+    name = models.CharField(max_length=100, verbose_name='模板名称')
+    size_type = models.CharField(max_length=20, choices=SIZE_CHOICES, default='50x80', verbose_name='标签尺寸')
+    width = models.IntegerField(default=50, verbose_name='宽度(mm)')
+    height = models.IntegerField(default=80, verbose_name='高度(mm)')
+    
+    fields_config = models.JSONField(default=list, verbose_name='字段配置')
+    layout_config = models.JSONField(default=dict, verbose_name='排版配置')
+    
+    is_default = models.BooleanField(default=False, verbose_name='是否默认')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
+    
+    class Meta:
+        db_table = 'label_templates'
+        verbose_name = '标签模板'
+        verbose_name_plural = '标签模板'
+        ordering = ['-is_default', '-created_at']
+    
+    def __str__(self):
+        return self.name
+    
+    def save(self, *args, **kwargs):
+        if self.is_default:
+            LabelTemplate.objects.filter(is_default=True).exclude(pk=self.pk).update(is_default=False)
+        super().save(*args, **kwargs)

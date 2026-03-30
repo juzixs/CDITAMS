@@ -21,7 +21,7 @@ from .models import (
     Workstation, MapElement, MapBackground, LocationAreaBinding,
     Software, SoftwareCategory, SoftwareLicense,
     Consumable, ConsumableCategory, ConsumableRecord,
-    ServiceType, ServiceRequest, ServiceLog, AssetLog
+    ServiceType, ServiceRequest, ServiceLog, AssetLog, LabelTemplate
 )
 from apps.accounts.models import User, Department
 
@@ -1929,3 +1929,383 @@ def api_device_revoke(request, pk):
         return JsonResponse({'success': True, 'message': '回收成功'})
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)})
+
+
+@login_required
+@csrf_exempt
+def api_regenerate_all_qrcodes(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': '仅支持POST请求'})
+    
+    from django.http import StreamingHttpResponse
+    
+    def generate_progress():
+        devices = Device.objects.all()
+        total = devices.count()
+        processed = 0
+        errors = []
+        
+        yield f'data: {json.dumps({"status": "start", "total": total, "processed": 0})}\n\n'
+        
+        for device in devices:
+            try:
+                qr = qrcode.QRCode(version=1, box_size=10, border=5)
+                qr.add_data(f'/device/scan/{device.id}')
+                qr.make(fit=True)
+                img = qr.make_image(fill_color="black", back_color="white")
+                buffer = BytesIO()
+                img.save(buffer, 'PNG')
+                asset_no = device.asset_no or f'DEV-{device.id}'
+                device.qrcode.save(f'QR-{asset_no}.png', buffer)
+                processed += 1
+                
+                yield f'data: {json.dumps({"status": "processing", "total": total, "processed": processed, "current": asset_no})}\n\n'
+            except Exception as e:
+                errors.append({'device_id': device.id, 'asset_no': device.asset_no, 'error': str(e)})
+                processed += 1
+                yield f'data: {json.dumps({"status": "processing", "total": total, "processed": processed, "current": device.asset_no, "error": str(e)})}\n\n'
+        
+        yield f'data: {json.dumps({"status": "complete", "total": total, "processed": processed, "errors": errors})}\n\n'
+    
+    response = StreamingHttpResponse(generate_progress(), content_type='text/event-stream')
+    response['Cache-Control'] = 'no-cache'
+    return response
+
+
+# 标签管理相关视图
+def get_device_all_fields():
+    """获取设备所有可用字段（系统字段+自定义字段）"""
+    system_fields = [
+        {'field_key': 'asset_no', 'label': '资产编号', 'type': 'text'},
+        {'field_key': 'device_no', 'label': '设备编号', 'type': 'text'},
+        {'field_key': 'serial_no', 'label': '序列号', 'type': 'text'},
+        {'field_key': 'name', 'label': '设备名称', 'type': 'text'},
+        {'field_key': 'model', 'label': '型号', 'type': 'text'},
+        {'field_key': 'brand', 'label': '品牌', 'type': 'text'},
+        {'field_key': 'category', 'label': '资产分类', 'type': 'foreignkey'},
+        {'field_key': 'status', 'label': '设备状态', 'type': 'choice'},
+        {'field_key': 'secret_level', 'label': '密级', 'type': 'choice'},
+        {'field_key': 'user', 'label': '使用人', 'type': 'foreignkey'},
+        {'field_key': 'department', 'label': '所属部门', 'type': 'foreignkey'},
+        {'field_key': 'location', 'label': '所在位置', 'type': 'foreignkey'},
+        {'field_key': 'workstation', 'label': '工位', 'type': 'foreignkey'},
+        {'field_key': 'location_text', 'label': '位置文字描述', 'type': 'text'},
+        {'field_key': 'purchase_date', 'label': '购入日期', 'type': 'date'},
+        {'field_key': 'enable_date', 'label': '启用时间', 'type': 'date'},
+        {'field_key': 'install_date', 'label': '安装时间', 'type': 'date'},
+        {'field_key': 'mac_address', 'label': 'MAC地址', 'type': 'text'},
+        {'field_key': 'ip_address', 'label': 'IP地址', 'type': 'text'},
+        {'field_key': 'os_name', 'label': '操作系统', 'type': 'text'},
+        {'field_key': 'os_version', 'label': '系统版本', 'type': 'text'},
+        {'field_key': 'disk_serial', 'label': '硬盘序列号', 'type': 'text'},
+        {'field_key': 'purpose', 'label': '用途', 'type': 'text'},
+        {'field_key': 'remarks', 'label': '备注', 'type': 'textarea'},
+        {'field_key': 'is_fixed', 'label': '固资在账', 'type': 'boolean'},
+        {'field_key': 'asset_card_no', 'label': '卡片编号', 'type': 'text'},
+        {'field_key': 'is_secret', 'label': '保密台账', 'type': 'boolean'},
+        {'field_key': 'secret_category', 'label': '台账分类', 'type': 'text'},
+        {'field_key': 'qrcode', 'label': '二维码', 'type': 'image'},
+        {'field_key': 'photo', 'label': '设备照片', 'type': 'image'},
+    ]
+    
+    custom_fields = list(DeviceField.objects.all().values('field_key', 'name', 'field_type'))
+    custom_fields = [{'field_key': f['field_key'], 'label': f['name'], 'type': f['field_type']} for f in custom_fields]
+    
+    return system_fields + custom_fields
+
+
+def get_device_field_value(device, field_key):
+    """获取设备字段的值"""
+    if field_key in ['category', 'user', 'department', 'location', 'workstation', 'created_by']:
+        obj = getattr(device, field_key, None)
+        if obj:
+            if hasattr(obj, 'name'):
+                return obj.name
+            elif hasattr(obj, 'realname'):
+                return obj.realname
+            return str(obj)
+        return ''
+    elif field_key in ['purchase_date', 'enable_date', 'install_date', 'created_at', 'updated_at']:
+        value = getattr(device, field_key, None)
+        return value.strftime('%Y-%m-%d') if value else ''
+    elif field_key in ['is_fixed', 'is_secret']:
+        return '是' if getattr(device, field_key, False) else '否'
+    elif field_key == 'status':
+        return device.get_status_display()
+    elif field_key == 'secret_level':
+        return device.get_secret_level_display()
+    else:
+        return str(getattr(device, field_key, '') or '')
+
+
+def get_device_data_dict(device):
+    """获取设备所有字段的值字典"""
+    if not device:
+        return {}
+    
+    data = {}
+    fields = get_device_all_fields()
+    for field in fields:
+        field_key = field['field_key']
+        data[field_key] = get_device_field_value(device, field_key)
+    
+    return data
+
+
+@login_required
+def label_settings(request):
+    """标签管理页面 - 直接编辑默认模板"""
+    # 获取或创建默认模板
+    template = LabelTemplate.objects.filter(is_default=True).first()
+    if not template:
+        template = LabelTemplate.objects.first()
+    
+    # 如果没有模板，自动创建一个默认模板
+    if not template:
+        template = LabelTemplate.objects.create(
+            name='默认标签模板',
+            size_type='40x60',
+            width=60,  # 宽度
+            height=40,  # 高度
+            fields_config=[],  # 将由前端初始化
+            layout_config={'border': True, 'border_width': 1},
+            is_default=True,
+        )
+    
+    # 如果是POST请求，保存模板
+    if request.method == 'POST':
+        template.size_type = request.POST.get('size_type', '40x60')
+        
+        # 根据尺寸类型自动计算宽度和高度
+        size_type = template.size_type
+        if size_type == '40x60':
+            template.width = 60  # 宽度60mm
+            template.height = 40  # 高度40mm
+        elif size_type == '50x80':
+            template.width = 80  # 宽度80mm
+            template.height = 50  # 高度50mm
+        else:
+            template.width = int(request.POST.get('width', 60))
+            template.height = int(request.POST.get('height', 40))
+        
+        # 安全解析 JSON，避免空字符串导致错误
+        fields_config_str = request.POST.get('fields_config', '[]')
+        layout_config_str = request.POST.get('layout_config', '{}')
+        
+        try:
+            template.fields_config = json.loads(fields_config_str) if fields_config_str else []
+        except json.JSONDecodeError:
+            template.fields_config = []
+        
+        try:
+            template.layout_config = json.loads(layout_config_str) if layout_config_str else {}
+        except json.JSONDecodeError:
+            template.layout_config = {}
+        
+        template.save()
+        messages.success(request, '标签模板保存成功')
+        return redirect('label_settings')
+    
+    # 获取随机设备用于预览
+    device = Device.objects.order_by('?').first()
+    
+    all_fields = get_device_all_fields()
+    
+    # 将 JSON 字段转换为字符串，确保前端正确解析
+    fields_config_json = json.dumps(template.fields_config) if template.fields_config else '[]'
+    layout_config_json = json.dumps(template.layout_config) if template.layout_config else '{}'
+    
+    return render(request, 'assets/label_template_form.html', {
+        'template': template,
+        'all_fields': json.dumps(all_fields),
+        'fields_config_json': fields_config_json,
+        'layout_config_json': layout_config_json,
+        'device': device,
+        'device_data': json.dumps(get_device_data_dict(device)) if device else '{}',
+    })
+
+
+@login_required
+def api_get_label_templates(request):
+    templates = LabelTemplate.objects.all().values('id', 'name', 'size_type', 'width', 'height', 'is_default')
+    return JsonResponse({'success': True, 'templates': list(templates)})
+
+
+@login_required
+def device_print_label(request, pk):
+    device = get_object_or_404(Device, pk=pk)
+    template = LabelTemplate.objects.filter(is_default=True).first()
+    
+    if not template:
+        template = LabelTemplate.objects.first()
+    
+    # 如果没有模板，自动创建默认模板
+    if not template:
+        template = LabelTemplate.objects.create(
+            name='默认标签模板',
+            size_type='40x60',
+            width=60,
+            height=40,
+            fields_config=[],
+            layout_config={'border': True, 'border_width': 1},
+            is_default=True,
+        )
+    
+    buffer = generate_label_pdf_buffer([device], template)
+    
+    response = HttpResponse(buffer.read(), content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="label_{device.asset_no}.pdf"'
+    return response
+
+
+@login_required
+def device_batch_print(request):
+    ids_str = request.GET.get('ids', '')
+    if not ids_str:
+        messages.error(request, '请选择要打印的设备')
+        return redirect('device_list')
+    
+    ids = [int(id) for id in ids_str.split(',') if id.isdigit()]
+    devices = Device.objects.filter(id__in=ids)
+    
+    if not devices.exists():
+        messages.error(request, '未找到选中的设备')
+        return redirect('device_list')
+    
+    template_id = request.GET.get('template_id')
+    if template_id:
+        template = get_object_or_404(LabelTemplate, pk=template_id)
+    else:
+        template = LabelTemplate.objects.filter(is_default=True).first()
+        if not template:
+            template = LabelTemplate.objects.first()
+    
+    # 如果没有模板，自动创建默认模板
+    if not template:
+        template = LabelTemplate.objects.create(
+            name='默认标签模板',
+            size_type='40x60',
+            width=60,
+            height=40,
+            fields_config=[],
+            layout_config={'border': True, 'border_width': 1},
+            is_default=True,
+        )
+    
+    if request.method == 'POST':
+        template_id = request.POST.get('template_id')
+        if template_id:
+            template = get_object_or_404(LabelTemplate, pk=template_id)
+    
+    buffer = generate_label_pdf_buffer(devices, template)
+    
+    response = HttpResponse(buffer.read(), content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="labels_batch_{len(devices)}.pdf"'
+    return response
+
+
+def generate_label_pdf_buffer(devices, template):
+    """生成标签PDF并返回Buffer - 与前端预览保持一致"""
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.units import mm
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    from django.contrib.staticfiles import finders
+    
+    # 使用微软雅黑字体（与前端 Microsoft YaHei 一致）
+    font_name = 'Helvetica'  # 后备字体
+    font_bold_name = 'Helvetica-Bold'  # 后备粗体
+    
+    font_path = finders.find('fonts/msyh.ttc')
+    if font_path:
+        try:
+            pdfmetrics.registerFont(TTFont('MsYaHei', font_path))
+            font_name = 'MsYaHei'
+        except:
+            pass
+    
+    font_bold_path = finders.find('fonts/msyhbd.ttc')
+    if font_bold_path:
+        try:
+            pdfmetrics.registerFont(TTFont('MsYaHei-Bold', font_bold_path))
+            font_bold_name = 'MsYaHei-Bold'
+        except:
+            pass
+    
+    # 转换为列表，确保可以多次遍历
+    devices_list = list(devices)
+    
+    buffer = BytesIO()
+    
+    # 前端使用的缩放因子
+    scale = 5
+    # 像素到PDF点的转换 (96DPI -> 72DPI)
+    px_to_pt = 72 / 96
+    
+    # 页面尺寸：与前端canvas一致，然后转换为PDF点
+    # 前端：canvas = width * 5 × height * 5 (像素)
+    page_width = template.width * scale * px_to_pt
+    page_height = template.height * scale * px_to_pt
+    
+    # 始终使用纵向页面（标签是竖向放置的）
+    page_size = (page_width, page_height)
+    
+    c = canvas.Canvas(buffer, pagesize=page_size)
+    
+    for i, device in enumerate(devices_list):
+        # 每个标签一页
+        if i > 0:
+            c.showPage()
+        
+        # 绘制边框
+        border = template.layout_config.get('border', True)
+        if border:
+            border_width = template.layout_config.get('border_width', 1)
+            c.setLineWidth(border_width)
+            c.rect(0, 0, page_width, page_height)
+        
+        # 绘制字段
+        for field_config in template.fields_config:
+            if not field_config.get('show', True):
+                continue
+            
+            field_key = field_config.get('field_key', '')
+            # 坐标：与前端一致 (x * 5 * px_to_pt, y * 5 * px_to_pt)
+            field_x = field_config.get('x', 5) * scale * px_to_pt
+            field_y = field_config.get('y', 10) * scale * px_to_pt
+            
+            if field_key == 'qrcode':
+                if device.qrcode:
+                    # 二维码大小：与前端一致 (size * 5 / 2 * px_to_pt)
+                    qr_size = field_config.get('size', 20) * scale / 2 * px_to_pt
+                    try:
+                        c.drawImage(device.qrcode.path, field_x, field_y, qr_size, qr_size)
+                    except:
+                        pass
+            else:
+                value = get_device_field_value(device, field_key)
+                if value:
+                    # 字体大小：与前端一致 (font_size * scale / 2.5 * px_to_pt)
+                    font_size = field_config.get('font_size', 9) * scale / 2.5 * px_to_pt
+                    bold = field_config.get('bold', False)
+                    
+                    if bold:
+                        c.setFont(font_bold_name, font_size)
+                    else:
+                        c.setFont(font_name, font_size)
+                    
+                    label_prefix = field_config.get('label', '')
+                    show_label = field_config.get('show_label', True)
+                    
+                    if show_label and label_prefix:
+                        text = f"{label_prefix}: {value}"
+                    else:
+                        text = value
+                    
+                    c.drawString(field_x, field_y, text)
+                    
+                    c.drawString(field_x, field_y, text)
+    
+    c.save()
+    buffer.seek(0)
+    return buffer

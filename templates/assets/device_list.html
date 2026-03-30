@@ -12,6 +12,7 @@
         <a href="{% url 'workstation_manage' %}" class="btn btn-outline-secondary" title="工位管理"><i class="fas fa-th"></i> 工位管理</a>
         <a href="{% url 'category_list' %}" class="btn btn-outline-secondary" title="分类管理"><i class="fas fa-tags"></i> 分类管理</a>
         <a href="{% url 'field_list' %}" class="btn btn-outline-secondary" title="字段管理"><i class="fas fa-cog"></i> 字段管理</a>
+        <a href="{% url 'label_settings' %}" class="btn btn-outline-secondary" title="标签管理"><i class="fas fa-tag"></i> 标签管理</a>
     </div>
 </div>
 
@@ -68,12 +69,19 @@
     <div class="card-body">
         <form method="post" id="batchForm">
             {% csrf_token %}
-            <div class="mb-3">
-                <a href="{% url 'device_create' %}" class="btn btn-sm btn-primary"><i class="fas fa-plus"></i> 新增设备</a>
-                <button type="button" class="btn btn-sm btn-danger" onclick="batchDelete()"><i class="fas fa-trash"></i> 批量删除</button>
-                <button type="button" class="btn btn-sm btn-success" onclick="showAssignModal()"><i class="fas fa-user-plus"></i> 批量分配</button>
-                <button type="button" class="btn btn-sm btn-warning" onclick="batchFault()"><i class="fas fa-exclamation-triangle"></i> 批量报障</button>
-                <button type="button" class="btn btn-sm btn-secondary" onclick="batchScrap()"><i class="fas fa-times"></i> 批量报废</button>
+            <div class="mb-3 d-flex justify-content-between">
+                <div>
+                    <button type="button" class="btn btn-sm btn-danger" onclick="batchDelete()"><i class="fas fa-trash"></i> 批量删除</button>
+                    <button type="button" class="btn btn-sm btn-warning" onclick="batchFault()"><i class="fas fa-exclamation-triangle"></i> 批量报障</button>
+                    <button type="button" class="btn btn-sm btn-secondary" onclick="batchScrap()"><i class="fas fa-times"></i> 批量报废</button>
+                    <button type="button" class="btn btn-sm btn-info" onclick="batchPrintLabels()"><i class="fas fa-print"></i> 批量打印标签</button>
+                </div>
+                <div>
+                    <a href="{% url 'device_create' %}" class="btn btn-sm btn-primary"><i class="fas fa-plus"></i> 新增设备</a>
+                    <button type="button" class="btn btn-sm btn-info" onclick="alert('导入设备功能开发中...')"><i class="fas fa-file-import"></i> 导入设备</button>
+                    <button type="button" class="btn btn-sm btn-info" onclick="alert('导出台账功能开发中...')"><i class="fas fa-file-export"></i> 导出台账</button>
+                    <button type="button" class="btn btn-sm btn-dark" onclick="regenerateAllQrcodes()"><i class="fas fa-qrcode"></i> 重新生成二维码</button>
+                </div>
             </div>
             
             <div class="table-responsive">
@@ -129,7 +137,7 @@
                             <td>
                                 <a href="{% url 'device_detail' device.id %}" class="btn btn-sm btn-outline-primary" title="查看详情"><i class="fas fa-eye"></i></a>
                                 <a href="{% url 'device_edit' device.id %}" class="btn btn-sm btn-outline-secondary" title="编辑"><i class="fas fa-edit"></i></a>
-                                <a href="{% url 'device_print_label' device.id %}" class="btn btn-sm btn-outline-info" title="打印标签"><i class="fas fa-print"></i></a>
+                                <a href="{% url 'device_print_label' device.id %}" class="btn btn-sm btn-outline-info" title="打印标签" target="_blank"><i class="fas fa-print"></i></a>
                                 {% if device.user %}
                                 <button type="button" class="btn btn-sm btn-outline-warning" onclick="revokeDevice({{ device.id }})" title="回收"><i class="fas fa-user-minus"></i></button>
                                 {% else %}
@@ -210,11 +218,11 @@
         form.submit();
     }
     
-    function showAssignModal() {
+    function batchPrintLabels() {
         const ids = getSelectedIds();
-        if (ids.length === 0) return alert('请选择要分配的设备');
-        alert('请在用户管理中选择用户后进行分配');
-        window.location.href = '{% url "user_list" %}';
+        if (ids.length === 0) return alert('请选择要打印标签的设备');
+        const url = '{% url "device_batch_print" %}?ids=' + ids.join(',');
+        window.open(url, '_blank');
     }
 
     let currentAssignDeviceId = null;
@@ -332,6 +340,84 @@
     document.querySelector('.dropdown-menu').addEventListener('click', function(e) {
         e.stopPropagation();
     });
+    
+    // 重新生成所有二维码
+    function regenerateAllQrcodes() {
+        if (!confirm('确定要重新生成所有设备的二维码吗？此操作可能需要一些时间。')) return;
+        
+        const modal = new bootstrap.Modal(document.getElementById('progressModal'));
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        const progressStatus = document.getElementById('progressStatus');
+        
+        progressBar.style.width = '0%';
+        progressBar.classList.remove('bg-success');
+        progressBar.classList.add('bg-primary');
+        progressText.textContent = '0%';
+        progressStatus.textContent = '正在初始化...';
+        modal.show();
+        
+        fetch('{% url "api_regenerate_all_qrcodes" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+            },
+        }).then(response => {
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            
+            function readStream() {
+                reader.read().then(({ done, value }) => {
+                    if (done) {
+                        return;
+                    }
+                    
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n');
+                    
+                    lines.forEach(line => {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.substring(6));
+                                
+                                if (data.status === 'start') {
+                                    progressStatus.textContent = `开始处理，共 ${data.total} 台设备`;
+                                } else if (data.status === 'processing') {
+                                    const percent = Math.round((data.processed / data.total) * 100);
+                                    progressBar.style.width = percent + '%';
+                                    progressText.textContent = `${data.processed}/${data.total} (${percent}%)`;
+                                    progressStatus.textContent = `正在处理: ${data.current}`;
+                                    if (data.error) {
+                                        progressStatus.textContent += ` (错误: ${data.error})`;
+                                    }
+                                } else if (data.status === 'complete') {
+                                    progressBar.style.width = '100%';
+                                    progressBar.classList.remove('bg-primary');
+                                    progressBar.classList.add('bg-success');
+                                    progressText.textContent = '100%';
+                                    if (data.errors && data.errors.length > 0) {
+                                        progressStatus.textContent = `完成！成功: ${data.processed - data.errors.length}，失败: ${data.errors.length}`;
+                                    } else {
+                                        progressStatus.textContent = `完成！成功处理 ${data.processed} 台设备`;
+                                    }
+                                }
+                            } catch (e) {
+                                console.error('解析错误:', e);
+                            }
+                        }
+                    });
+                    
+                    readStream();
+                });
+            }
+            
+            readStream();
+        }).catch(error => {
+            progressStatus.textContent = '请求失败: ' + error.message;
+            progressBar.classList.remove('bg-primary');
+            progressBar.classList.add('bg-danger');
+        });
+    }
 </script>
 
 <!-- 分配弹窗 -->
@@ -345,6 +431,30 @@
             <div class="modal-body">
                 <input type="text" id="assignUserInput" class="form-control mb-2" placeholder="搜索工号、姓名或部门...">
                 <div id="assignUserResults" class="list-group" style="max-height:300px;overflow-y:auto;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 进度弹窗 -->
+<div class="modal fade" id="progressModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">重新生成二维码</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="progress mb-3" style="height: 25px;">
+                    <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%;">0%</div>
+                </div>
+                <div class="text-center">
+                    <span id="progressText">0%</span>
+                </div>
+                <div id="progressStatus" class="text-center text-muted mt-2">准备中...</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
             </div>
         </div>
     </div>

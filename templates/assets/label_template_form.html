@@ -1,0 +1,471 @@
+{% extends 'base.html' %}
+
+{% block title %}标签管理 - 驰达IT资产管理系统{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4>标签管理</h4>
+    <div>
+        <a href="{% url 'device_list' %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> 返回设备管理</a>
+    </div>
+</div>
+
+<form method="post" id="templateForm">
+    {% csrf_token %}
+    <input type="hidden" name="fields_config" id="fieldsConfig">
+    <input type="hidden" name="layout_config" id="layoutConfig">
+    
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card mb-3">
+                <div class="card-header">基本设置</div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">标签尺寸</label>
+                        <select name="size_type" id="sizeType" class="form-select">
+                            <option value="40x60" {% if template.size_type == '40x60' %}selected{% endif %}>60×40mm (小标签)</option>
+                            <option value="50x80" {% if template.size_type == '50x80' %}selected{% endif %}>80×50mm (标准标签)</option>
+                            <option value="custom" {% if template.size_type == 'custom' %}selected{% endif %}>自定义尺寸</option>
+                        </select>
+                    </div>
+                    <div class="row" id="customSize" style="display:none;">
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label class="form-label">宽度(mm)</label>
+                                <input type="number" name="width" class="form-control" value="{{ template.width|default:60 }}" min="20" max="200">
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label class="form-label">高度(mm)</label>
+                                <input type="number" name="height" class="form-control" value="{{ template.height|default:40 }}" min="20" max="200">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mb-3">
+                <div class="card-header">排版设置</div>
+                <div class="card-body">
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="borderEnabled" {% if template.layout_config.border %}checked{% endif %}>
+                        <label class="form-check-label" for="borderEnabled">显示边框</label>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">边框宽度</label>
+                        <input type="number" id="borderWidth" class="form-control" value="{{ template.layout_config.border_width|default:1 }}" min="0.5" max="5" step="0.5">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mb-3">
+                <div class="card-header">可用字段</div>
+                <div class="card-body" style="max-height:300px;overflow-y:auto;">
+                    <div class="mb-2">
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="selectAllFields()">全选</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="deselectAllFields()">全不选</button>
+                    </div>
+                    <div id="fieldsList"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>标签预览</span>
+                    <div>
+                        <button type="button" class="btn btn-sm btn-outline-info" onclick="resetLayout()">重置布局</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="labelPreview" class="border position-relative" style="background-color:#f8f9fa;min-height:400px;display:flex;align-items:center;justify-content:center;">
+                        <div id="labelCanvas" class="position-relative bg-white" style="border:2px solid #333;">
+                        </div>
+                    </div>
+                    <div class="mt-3 text-muted small">
+                        <i class="fas fa-info-circle"></i> 提示：选中字段后可在右侧预览区域拖拽调整位置，点击字段可编辑属性。预览使用随机设备的实际数据。
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mt-3" id="fieldEditor" style="display:none;">
+                <div class="card-header">字段属性编辑</div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">显示标签</label>
+                                <input type="text" id="editLabel" class="form-control">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">字体大小</label>
+                                <input type="number" id="editFontSize" class="form-control" min="6" max="24">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">X位置(mm)</label>
+                                <input type="number" id="editX" class="form-control" min="0" max="100">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Y位置(mm)</label>
+                                <input type="number" id="editY" class="form-control" min="0" max="100">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">二维码大小(mm)</label>
+                                <input type="number" id="editQrSize" class="form-control" min="10" max="50">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input type="checkbox" class="form-check-input" id="editBold">
+                        <label class="form-check-label" for="editBold">加粗</label>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input type="checkbox" class="form-check-input" id="editShowLabel" checked>
+                        <label class="form-check-label" for="editShowLabel">显示标签文字</label>
+                    </div>
+                    <button type="button" class="btn btn-primary" onclick="applyFieldEdit()">应用</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="mt-3">
+        <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> 保存设置</button>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const allFields = {{ all_fields|safe }};
+let fieldsConfig = {{ fields_config_json|safe }};
+let layoutConfig = {{ layout_config_json|safe }};
+const deviceData = {{ device_data|safe }};
+let currentEditField = null;
+
+// 默认选中的字段
+const defaultSelectedFields = ['asset_no', 'device_no', 'name', 'secret_level', 'department', 'user', 'location', 'workstation', 'qrcode'];
+
+// 默认位置配置
+const defaultPositions = {
+    'asset_no': {x: 3, y: 35, font_size: 11, bold: true},
+    'device_no': {x: 3, y: 28, font_size: 9, bold: false},
+    'name': {x: 3, y: 21, font_size: 10, bold: false},
+    'secret_level': {x: 3, y: 14, font_size: 9, bold: false},
+    'department': {x: 35, y: 35, font_size: 9, bold: false},
+    'user': {x: 35, y: 28, font_size: 9, bold: false},
+    'location': {x: 35, y: 21, font_size: 8, bold: false},
+    'workstation': {x: 35, y: 14, font_size: 9, bold: false},
+    'qrcode': {x: 35, y: 3, size: 20},
+    'serial_no': {x: 3, y: 7, font_size: 8, bold: false},
+    'model': {x: 35, y: 7, font_size: 8, bold: false},
+    'category': {x: 3, y: 3, font_size: 8, bold: false},
+};
+
+function init() {
+    // 始终初始化配置，确保每个字段都有配置项，默认不勾选
+    allFields.forEach(f => {
+        const existingConfig = fieldsConfig.find(c => c.field_key === f.field_key);
+        if (!existingConfig) {
+            const pos = defaultPositions[f.field_key] || {x: 3, y: 20, font_size: 9, bold: false};
+            fieldsConfig.push({
+                field_key: f.field_key,
+                label: f.label,
+                show: false,
+                font_size: pos.font_size || 9,
+                bold: pos.bold || false,
+                x: pos.x,
+                y: pos.y,
+                size: pos.size || 20,
+                show_label: true,
+                type: f.type
+            });
+        }
+    });
+    
+    updateSize();
+    renderFieldsList();
+    renderPreview();
+}
+
+// 拖拽状态管理
+let dragState = { isDragging: false, element: null, config: null, startX: 0, startY: 0, startLeft: 0, startBottom: 0 };
+
+// 全局拖拽事件监听器（只添加一次）
+document.addEventListener('mousemove', (e) => {
+    if (!dragState.isDragging || !dragState.element) return;
+    
+    const dx = e.clientX - dragState.startX;
+    const dy = e.clientY - dragState.startY;
+    
+    dragState.element.style.left = (dragState.startLeft + dx) + 'px';
+    dragState.element.style.bottom = (dragState.startBottom - dy) + 'px';
+});
+
+document.addEventListener('mouseup', (e) => {
+    if (!dragState.isDragging || !dragState.config) return;
+    
+    const scale = 5;
+    dragState.config.x = Math.round(parseInt(dragState.element.style.left) / scale);
+    dragState.config.y = Math.round(parseInt(dragState.element.style.bottom) / scale);
+    
+    if (dragState.config.x < 0) dragState.config.x = 0;
+    if (dragState.config.y < 0) dragState.config.y = 0;
+    
+    dragState.isDragging = false;
+    dragState.element = null;
+    dragState.config = null;
+});
+
+function updateSize() {
+    const sizeType = document.getElementById('sizeType').value;
+    const customSize = document.getElementById('customSize');
+    customSize.style.display = sizeType === 'custom' ? 'block' : 'none';
+    
+    let width, height;
+    if (sizeType === '40x60') {
+        width = 60; height = 40;  // 60mm宽，40mm高
+    } else if (sizeType === '50x80') {
+        width = 80; height = 50;  // 80mm宽，50mm高
+    } else {
+        width = parseInt(document.querySelector('[name="width"]').value) || 60;
+        height = parseInt(document.querySelector('[name="height"]').value) || 40;
+    }
+    
+    const canvas = document.getElementById('labelCanvas');
+    const scale = 5;
+    canvas.style.width = (width * scale) + 'px';
+    canvas.style.height = (height * scale) + 'px';
+}
+
+function renderFieldsList() {
+    const container = document.getElementById('fieldsList');
+    // 完全清空容器
+    while (container.firstChild) {
+        container.removeChild(container.firstChild);
+    }
+    
+    // 使用 Set 来去重
+    const processedFields = new Set();
+    
+    allFields.forEach(f => {
+        // 跳过已处理的字段
+        if (processedFields.has(f.field_key)) return;
+        processedFields.add(f.field_key);
+        
+        const config = fieldsConfig.find(c => c.field_key === f.field_key);
+        // 如果没有配置，默认不勾选
+        const checked = config ? config.show : false;
+        
+        const div = document.createElement('div');
+        div.className = 'form-check';
+        div.innerHTML = `
+            <input class="form-check-input field-check" type="checkbox" value="${f.field_key}" id="field_${f.field_key}" ${checked ? 'checked' : ''} onchange="toggleField('${f.field_key}')">
+            <label class="form-check-label" for="field_${f.field_key}">${f.label}</label>
+        `;
+        container.appendChild(div);
+    });
+}
+
+function toggleField(fieldKey) {
+    const checkbox = document.getElementById('field_' + fieldKey);
+    let config = fieldsConfig.find(c => c.field_key === fieldKey);
+    
+    if (!config) {
+        const field = allFields.find(f => f.field_key === fieldKey);
+        const pos = defaultPositions[fieldKey] || {x: 3, y: 20, font_size: 9, bold: false};
+        config = {
+            field_key: fieldKey,
+            label: field.label,
+            show: checkbox.checked,
+            font_size: pos.font_size || 9,
+            bold: pos.bold || false,
+            x: pos.x,
+            y: pos.y,
+            size: pos.size || 20,
+            show_label: true,
+            type: field.type
+        };
+        fieldsConfig.push(config);
+    } else {
+        config.show = checkbox.checked;
+    }
+    
+    renderPreview();
+}
+
+function selectAllFields() {
+    document.querySelectorAll('.field-check').forEach(cb => {
+        cb.checked = true;
+        toggleField(cb.value);
+    });
+}
+
+function deselectAllFields() {
+    document.querySelectorAll('.field-check').forEach(cb => {
+        cb.checked = false;
+        toggleField(cb.value);
+    });
+}
+
+function renderPreview() {
+    const canvas = document.getElementById('labelCanvas');
+    canvas.innerHTML = '';
+    
+    // 获取二维码图片URL
+    let qrCodeUrl = '';
+    {% if device and device.qrcode %}
+    qrCodeUrl = '{{ device.qrcode.url }}';
+    {% endif %}
+    
+    fieldsConfig.forEach(config => {
+        if (!config.show) return;
+        
+        const div = document.createElement('div');
+        div.className = 'position-absolute';
+        div.style.cursor = 'move';
+        div.dataset.field = config.field_key;
+        
+        const scale = 5;
+        div.style.left = (config.x * scale) + 'px';
+        div.style.bottom = (config.y * scale) + 'px';
+        
+        if (config.field_key === 'qrcode') {
+            const qrSize = (config.size || 20) * scale / 2;
+            if (qrCodeUrl) {
+                div.innerHTML = `<img src="${qrCodeUrl}" style="width:${qrSize}px;height:${qrSize}px;" alt="QR Code">`;
+            } else {
+                div.innerHTML = `<div style="width:${qrSize}px;height:${qrSize}px;background:#f0f0f0;display:flex;align-items:center;justify-content:center;font-size:10px;color:#999;">QR</div>`;
+            }
+        } else {
+            const fontSize = Math.max(8, (config.font_size || 9) * scale / 2.5);
+            const fontWeight = config.bold ? 'bold' : 'normal';
+            const label = config.show_label ? config.label + ': ' : '';
+            const actualValue = deviceData[config.field_key] || '-';
+            div.innerHTML = `<span style="font-size:${fontSize}px;font-weight:${fontWeight};white-space:nowrap;">${label}${actualValue}</span>`;
+        }
+        
+        div.onclick = (e) => {
+            e.stopPropagation();
+            openFieldEditor(config);
+        };
+        
+        makeDraggable(div, config);
+        canvas.appendChild(div);
+    });
+    
+    const borderEnabled = document.getElementById('borderEnabled').checked;
+    const borderWidth = document.getElementById('borderWidth').value || 1;
+    if (borderEnabled) {
+        canvas.style.border = borderWidth + 'px solid #333';
+    } else {
+        canvas.style.border = '1px dashed #ccc';
+    }
+}
+
+function makeDraggable(element, config) {
+    element.onmousedown = (e) => {
+        dragState.isDragging = true;
+        dragState.element = element;
+        dragState.config = config;
+        dragState.startX = e.clientX;
+        dragState.startY = e.clientY;
+        dragState.startLeft = parseInt(element.style.left) || 0;
+        dragState.startBottom = parseInt(element.style.bottom) || 0;
+        e.preventDefault();
+    };
+}
+
+function openFieldEditor(config) {
+    currentEditField = config;
+    document.getElementById('fieldEditor').style.display = 'block';
+    
+    setTimeout(() => {
+        document.getElementById('editLabel').value = config.label;
+        document.getElementById('editFontSize').value = config.font_size || 9;
+        document.getElementById('editX').value = config.x;
+        document.getElementById('editY').value = config.y;
+        document.getElementById('editQrSize').value = config.size || 20;
+        document.getElementById('editBold').checked = config.bold || false;
+        document.getElementById('editShowLabel').checked = config.show_label !== false;
+        
+        document.getElementById('editQrSize').parentElement.style.display = config.field_key === 'qrcode' ? 'block' : 'none';
+        document.getElementById('editFontSize').parentElement.parentElement.style.display = config.field_key === 'qrcode' ? 'none' : 'block';
+    }, 10);
+}
+
+function applyFieldEdit() {
+    if (!currentEditField) return;
+    
+    currentEditField.label = document.getElementById('editLabel').value;
+    currentEditField.font_size = parseInt(document.getElementById('editFontSize').value) || 9;
+    currentEditField.x = parseInt(document.getElementById('editX').value) || 0;
+    currentEditField.y = parseInt(document.getElementById('editY').value) || 0;
+    currentEditField.size = parseInt(document.getElementById('editQrSize').value) || 20;
+    currentEditField.bold = document.getElementById('editBold').checked;
+    currentEditField.show_label = document.getElementById('editShowLabel').checked;
+    
+    const configIndex = fieldsConfig.findIndex(c => c.field_key === currentEditField.field_key);
+    if (configIndex !== -1) {
+        fieldsConfig[configIndex] = currentEditField;
+    }
+    
+    setTimeout(() => {
+        renderPreview();
+    }, 10);
+    
+    document.getElementById('fieldEditor').style.display = 'none';
+    currentEditField = null;
+}
+
+function resetLayout() {
+    fieldsConfig.forEach(config => {
+        const pos = defaultPositions[config.field_key] || {x: 3, y: 20, font_size: 9, bold: false};
+        config.x = pos.x;
+        config.y = pos.y;
+        config.font_size = pos.font_size || 9;
+        config.bold = pos.bold || false;
+        config.size = pos.size || 20;
+    });
+    renderPreview();
+}
+
+// 边框设置变化时更新预览
+document.getElementById('borderEnabled').addEventListener('change', renderPreview);
+document.getElementById('borderWidth').addEventListener('change', renderPreview);
+
+// 尺寸选择变化时更新预览
+document.getElementById('sizeType').addEventListener('change', function() {
+    updateSize();
+    renderPreview();
+});
+
+// 自定义尺寸输入变化时更新预览
+const widthInput = document.querySelector('[name="width"]');
+const heightInput = document.querySelector('[name="height"]');
+if (widthInput) widthInput.addEventListener('change', function() { updateSize(); renderPreview(); });
+if (heightInput) heightInput.addEventListener('change', function() { updateSize(); renderPreview(); });
+
+document.getElementById('templateForm').onsubmit = function() {
+    document.getElementById('fieldsConfig').value = JSON.stringify(fieldsConfig);
+    document.getElementById('layoutConfig').value = JSON.stringify({
+        border: document.getElementById('borderEnabled').checked,
+        border_width: parseFloat(document.getElementById('borderWidth').value)
+    });
+};
+
+init();
+</script>
+{% endblock %}

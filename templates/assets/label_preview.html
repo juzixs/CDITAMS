@@ -1,0 +1,133 @@
+{% extends 'base.html' %}
+
+{% block title %}标签预览 - 驰达IT资产管理系统{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4>标签预览 - {{ template.name }}</h4>
+    <div>
+        <a href="{% url 'label_template_edit' template.pk %}" class="btn btn-outline-primary"><i class="fas fa-edit"></i> 编辑模板</a>
+        <a href="{% url 'label_settings' %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> 返回标签设置</a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">模板信息</div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tr>
+                        <th>模板名称</th>
+                        <td>{{ template.name }}</td>
+                    </tr>
+                    <tr>
+                        <th>标签尺寸</th>
+                        <td>
+                            {% if template.size_type == '40x60' %}
+                                40×60mm
+                            {% elif template.size_type == '50x80' %}
+                                50×80mm
+                            {% else %}
+                                {{ template.width }}×{{ template.height }}mm
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>是否默认</th>
+                        <td>{% if template.is_default %}<span class="badge bg-success">默认</span>{% else %}-{% endif %}</td>
+                    </tr>
+                    <tr>
+                        <th>启用字段</th>
+                        <td>{{ template.fields_config|length }} 个</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">预览效果</div>
+            <div class="card-body text-center">
+                {% if device %}
+                <div id="labelPreview" class="d-inline-block bg-white p-3" style="border:2px solid #333;">
+                    <div id="labelCanvas" class="position-relative" style="width:{{ template.width|default:50 }}0px;height:{{ template.height|default:80 }}0px;">
+                        {% for field in template.fields_config %}
+                        {% if field.show %}
+                        <div class="position-absolute" style="left:{{ field.x|default:5 }}0px;bottom:{{ field.y|default:10 }}0px;">
+                            {% if field.field_key == 'qrcode' %}
+                                {% if device.qrcode %}
+                                <img src="{{ device.qrcode.url }}" style="width:{{ field.size|default:25 }}0px;height:{{ field.size|default:25 }}0px;">
+                                {% else %}
+                                <div style="width:{{ field.size|default:25 }}0px;height:{{ field.size|default:25 }}0px;background:#f0f0f0;display:flex;align-items:center;justify-content:center;">无二维码</div>
+                                {% endif %}
+                            {% else %}
+                                <span style="font-size:{{ field.font_size|default:9 }}px;{% if field.bold %}font-weight:bold;{% endif %}white-space:nowrap;">
+                                    {% if field.show_label %}{{ field.label }}: {% endif %}
+                                    {% if field.field_key == 'asset_no' %}{{ device.asset_no }}
+                                    {% elif field.field_key == 'name' %}{{ device.name }}
+                                    {% elif field.field_key == 'device_no' %}{{ device.device_no|default:"-" }}
+                                    {% elif field.field_key == 'serial_no' %}{{ device.serial_no|default:"-" }}
+                                    {% elif field.field_key == 'model' %}{{ device.model|default:"-" }}
+                                    {% elif field.field_key == 'brand' %}{{ device.brand|default:"-" }}
+                                    {% elif field.field_key == 'category' %}{{ device.category.name }}
+                                    {% elif field.field_key == 'status' %}{{ device.get_status_display }}
+                                    {% elif field.field_key == 'user' %}{{ device.user.realname|default:"-" }}
+                                    {% elif field.field_key == 'department' %}{{ device.department.name|default:"-" }}
+                                    {% elif field.field_key == 'location' %}{{ device.location.get_full_path|default:"-" }}
+                                    {% elif field.field_key == 'location_text' %}{{ device.location_text|default:"-" }}
+                                    {% elif field.field_key == 'mac_address' %}{{ device.mac_address|default:"-" }}
+                                    {% elif field.field_key == 'ip_address' %}{{ device.ip_address|default:"-" }}
+                                    {% elif field.field_key == 'os_name' %}{{ device.os_name|default:"-" }}
+                                    {% else %}-
+                                    {% endif %}
+                                </span>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                {% else %}
+                <div class="text-muted">暂无设备数据用于预览</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mt-3">
+    <div class="card-header">字段配置详情</div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>字段</th>
+                        <th>标签</th>
+                        <th>显示</th>
+                        <th>字体大小</th>
+                        <th>加粗</th>
+                        <th>X位置</th>
+                        <th>Y位置</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for field in template.fields_config %}
+                    <tr>
+                        <td>{{ field.field_key }}</td>
+                        <td>{{ field.label }}</td>
+                        <td>{% if field.show %}<span class="badge bg-success">是</span>{% else %}<span class="badge bg-secondary">否</span>{% endif %}</td>
+                        <td>{{ field.font_size|default:9 }}</td>
+                        <td>{% if field.bold %}<span class="badge bg-success">是</span>{% else %}否{% endif %}</td>
+                        <td>{{ field.x|default:5 }}mm</td>
+                        <td>{{ field.y|default:10 }}mm</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
