@@ -77,6 +77,7 @@
                                     {% elif field.field_key == 'department' %}{{ device.department.name|default:"-" }}
                                     {% elif field.field_key == 'location' %}{{ device.location.get_full_path|default:"-" }}
                                     {% elif field.field_key == 'location_text' %}{{ device.location_text|default:"-" }}
+                                    {% elif field.field_key == 'workstation' %}{{ device.workstation.workstation_code|default:"-" }}
                                     {% elif field.field_key == 'mac_address' %}{{ device.mac_address|default:"-" }}
                                     {% elif field.field_key == 'ip_address' %}{{ device.ip_address|default:"-" }}
                                     {% elif field.field_key == 'os_name' %}{{ device.os_name|default:"-" }}

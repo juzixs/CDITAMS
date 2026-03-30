@@ -2023,7 +2023,7 @@ def get_device_field_value(device, field_key):
     elif field_key == 'workstation':
         obj = getattr(device, 'workstation', None)
         if obj:
-            return obj.name if hasattr(obj, 'name') else str(obj)
+            return obj.workstation_code if hasattr(obj, 'workstation_code') else str(obj)
         return ''
     elif field_key in ['category', 'user', 'department', 'created_by']:
         obj = getattr(device, field_key, None)
