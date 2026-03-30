@@ -153,12 +153,14 @@ def device_create(request):
             device.workstation.status = 'occupied'
             device.workstation.save()
         
-        qr = qrcode.QRCode(version=1, box_size=10, border=5)
+        qr = qrcode.QRCode(version=1, box_size=10, border=1)
         qr.add_data(f'/device/scan/{device.id}')
         qr.make(fit=True)
         img = qr.make_image(fill_color="black", back_color="white")
         buffer = BytesIO()
         img.save(buffer, 'PNG')
+        if device.qrcode:
+            device.qrcode.delete(save=False)
         device.qrcode.save(f'QR-{asset_no}.png', buffer)
         
         if request.FILES.get('photo'):
@@ -1949,13 +1951,15 @@ def api_regenerate_all_qrcodes(request):
         
         for device in devices:
             try:
-                qr = qrcode.QRCode(version=1, box_size=10, border=5)
+                qr = qrcode.QRCode(version=1, box_size=10, border=1)
                 qr.add_data(f'/device/scan/{device.id}')
                 qr.make(fit=True)
                 img = qr.make_image(fill_color="black", back_color="white")
                 buffer = BytesIO()
                 img.save(buffer, 'PNG')
                 asset_no = device.asset_no or f'DEV-{device.id}'
+                if device.qrcode:
+                    device.qrcode.delete(save=False)
                 device.qrcode.save(f'QR-{asset_no}.png', buffer)
                 processed += 1
                 
