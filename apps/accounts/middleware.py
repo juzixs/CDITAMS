@@ -10,10 +10,11 @@ class LoginRequiredMiddleware:
             '/login/',
             '/api/permissions/',
             '/api/menu/',
+            '/assets/view/',
         ]
 
     def __call__(self, request):
-        if request.path in self.exempt_urls or request.path.startswith('/static/') or request.path.startswith('/media/'):
+        if any(request.path.startswith(url) for url in self.exempt_urls) or request.path.startswith('/static/') or request.path.startswith('/media/'):
             return self.get_response(request)
         
         if not request.user.is_authenticated:
