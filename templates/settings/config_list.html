@@ -2,8 +2,100 @@
 {% block title %}系统配置 - 驰达IT资产管理系统{% endblock %}
 {% block content %}
 <h4 class="mb-4">系统配置</h4>
-<div class="card"><div class="card-body">
-<table class="table table-hover"><thead><tr><th>配置键</th><th>配置值</th><th>分组</th><th>说明</th><th>操作</th></tr></thead>
-<tbody>{% for c in configs %}<tr><td>{{ c.config_key }}</td><td>{{ c.config_value }}</td><td>{{ c.get_config_group_display }}</td><td>{{ c.description|default:'-' }}</td>
-<td>{% if not c.is_system %}<a href="{% url 'config_edit' c.id %}" class="btn btn-sm btn-outline-secondary">编辑</a>{% endif %}</td></tr>{% empty %}<tr><td colspan="5" class="text-center text-muted">暂无配置</td></tr>{% endfor %}</tbody></table>
-</div></div>{% endblock %}
+
+<form method="post" action="{% url 'config_save' %}">
+    {% csrf_token %}
+    
+    <div class="mb-3">
+        <div class="btn-group" role="group">
+            {% for code, name in groups %}
+            <a href="?group={{ code }}" class="btn btn-outline-primary {% if current_group == code %}active{% endif %}">{{ name }}</a>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            {% for code, name in groups %}
+                {% if current_group == code %}{{ name }}{% endif %}
+            {% endfor %}
+        </div>
+        <div class="card-body">
+            {% for config in configs %}
+            <div class="row mb-3 align-items-center">
+                <div class="col-md-3">
+                    <label class="form-label mb-0">
+                        <strong>{{ config.description|default:config.config_key }}</strong>
+                    </label>
+                    <div class="form-text">{{ config.config_key }}</div>
+                </div>
+                <div class="col-md-7">
+                    {% if config.is_system %}
+                        <span class="text-muted">{{ config.config_value|default:'-' }}</span>
+                    {% elif config.value_type == 'boolean' %}
+                        <div class="form-check form-switch">
+                            <input type="hidden" name="config_value_{{ config.id }}" value="false">
+                            <input class="form-check-input" type="checkbox" 
+                                   name="config_value_{{ config.id }}" 
+                                   value="true" 
+                                   id="config_{{ config.id }}"
+                                   {% if config.config_value == 'true' %}checked{% endif %}>
+                            <label class="form-check-label" for="config_{{ config.id }}">
+                                {% if config.config_value == 'true' %}
+                                    <span class="text-success">已启用</span>
+                                {% else %}
+                                    <span class="text-secondary">已禁用</span>
+                                {% endif %}
+                            </label>
+                        </div>
+                    {% elif config.value_type == 'int' %}
+                        <input type="number" 
+                               name="config_value_{{ config.id }}" 
+                               class="form-control" 
+                               value="{{ config.config_value }}" 
+                               min="0">
+                    {% elif config.value_type == 'json' %}
+                        <textarea name="config_value_{{ config.id }}" 
+                                  class="form-control" 
+                                  rows="3">{{ config.config_value }}</textarea>
+                    {% else %}
+                        <input type="text" 
+                               name="config_value_{{ config.id }}" 
+                               class="form-control" 
+                               value="{{ config.config_value }}">
+                    {% endif %}
+                </div>
+            </div>
+            {% if not forloop.last %}<hr>{% endif %}
+            {% empty %}
+            <div class="text-center text-muted py-4">暂无配置</div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <button type="submit" class="btn btn-primary">
+            <i class="fas fa-save me-1"></i>保存设置
+        </button>
+        <a href="{% url 'config_list' %}?group={{ current_group }}" class="btn btn-outline-secondary ms-2">
+            <i class="fas fa-redo me-1"></i>重置
+        </a>
+    </div>
+</form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 更新开关标签文本
+    document.querySelectorAll('.form-check-input[type="checkbox"]').forEach(function(checkbox) {
+        checkbox.addEventListener('change', function() {
+            var label = this.nextElementSibling;
+            if (this.checked) {
+                label.innerHTML = '<span class="text-success">已启用</span>';
+            } else {
+                label.innerHTML = '<span class="text-secondary">已禁用</span>';
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

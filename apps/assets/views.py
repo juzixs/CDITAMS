@@ -24,6 +24,7 @@ from .models import (
     ServiceType, ServiceRequest, ServiceLog, AssetLog, LabelTemplate
 )
 from apps.accounts.models import User, Department
+from apps.settings.views import get_config_value
 
 
 def build_location_tree(location):
@@ -116,7 +117,14 @@ def device_create(request):
         category_id = request.POST.get('category')
         category = AssetCategory.objects.get(pk=category_id)
         
-        asset_no = request.POST.get('asset_no', '').strip() or generate_asset_no(category)
+        asset_no_input = request.POST.get('asset_no', '').strip()
+        auto_number = get_config_value('asset_auto_number', True)
+        if asset_no_input:
+            asset_no = asset_no_input
+        elif auto_number:
+            asset_no = generate_asset_no(category)
+        else:
+            asset_no = ''
         
         user_id = request.POST.get('user') or None
         device = Device.objects.create(
@@ -153,8 +161,9 @@ def device_create(request):
             device.workstation.status = 'occupied'
             device.workstation.save()
         
+        app_url = get_config_value('app_url', 'http://127.0.0.1:8000').rstrip('/')
         qr = qrcode.QRCode(version=1, box_size=10, border=1)
-        qr.add_data(f'/device/scan/{device.id}')
+        qr.add_data(f'{app_url}/device/scan/{device.id}')
         qr.make(fit=True)
         img = qr.make_image(fill_color="black", back_color="white")
         buffer = BytesIO()
@@ -1949,10 +1958,11 @@ def api_regenerate_all_qrcodes(request):
         
         yield f'data: {json.dumps({"status": "start", "total": total, "processed": 0})}\n\n'
         
+        app_url = get_config_value('app_url', 'http://127.0.0.1:8000').rstrip('/')
         for device in devices:
             try:
                 qr = qrcode.QRCode(version=1, box_size=10, border=1)
-                qr.add_data(f'/device/scan/{device.id}')
+                qr.add_data(f'{app_url}/device/scan/{device.id}')
                 qr.make(fit=True)
                 img = qr.make_image(fill_color="black", back_color="white")
                 buffer = BytesIO()

@@ -12,7 +12,6 @@ class SystemConfig(models.Model):
         ('basic', '基础设置'),
         ('security', '安全设置'),
         ('asset', '资产设置'),
-        ('wechat', '微信设置'),
     ]
     
     config_key = models.CharField(max_length=64, unique=True, verbose_name='配置键')

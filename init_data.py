@@ -282,9 +282,15 @@ def init_service_types():
 def init_system_config():
     print("初始化系统配置...")
     configs = [
-        {'config_key': 'company_name', 'config_value': '驰达', 'config_group': 'basic', 'description': '企业名称'},
-        {'config_key': 'items_per_page', 'config_value': '20', 'value_type': 'int', 'config_group': 'basic', 'description': '默认分页数'},
-        {'config_key': 'asset_code_prefix', 'config_value': 'DJ', 'config_group': 'asset', 'description': '资产编号前缀'},
+        # 基础设置
+        {'config_key': 'system_name', 'config_value': '驰达IT资产管理系统', 'config_group': 'basic', 'description': '系统名称'},
+        {'config_key': 'app_url', 'config_value': 'http://127.0.0.1:8000', 'config_group': 'basic', 'description': '应用URL（用于生成二维码等外部链接）'},
+        # 安全设置
+        {'config_key': 'password_expire_days', 'config_value': '90', 'value_type': 'int', 'config_group': 'security', 'description': '密码过期天数（0表示永不过期）'},
+        {'config_key': 'login_lock_attempts', 'config_value': '5', 'value_type': 'int', 'config_group': 'security', 'description': '登录失败锁定次数（0表示不锁定）'},
+        {'config_key': 'session_timeout_minutes', 'config_value': '120', 'value_type': 'int', 'config_group': 'security', 'description': '会话超时时间（分钟）'},
+        # 资产设置
+        {'config_key': 'asset_auto_number', 'config_value': 'true', 'value_type': 'boolean', 'config_group': 'asset', 'description': '资产自动编号开关'},
     ]
     
     for c in configs:

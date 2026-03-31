@@ -11,30 +11,70 @@ from datetime import datetime
 from .models import SystemConfig, Organization
 
 
+def get_config_value(key, default=None):
+    """获取配置值，自动根据类型转换"""
+    try:
+        config = SystemConfig.objects.get(config_key=key)
+        value = config.config_value
+        if config.value_type == 'int':
+            return int(value) if value else default
+        elif config.value_type == 'boolean':
+            return value.lower() in ('true', '1', 'yes')
+        elif config.value_type == 'json':
+            import json
+            return json.loads(value) if value else default
+        return value if value else default
+    except (SystemConfig.DoesNotExist, ValueError):
+        return default
+
+
 @login_required
 def config_list(request):
-    group = request.GET.get('group', '')
-    configs = SystemConfig.objects.all()
-    if group:
-        configs = configs.filter(config_group=group)
-    return render(request, 'settings/config_list.html', {'configs': configs})
+    group = request.GET.get('group', 'basic')
+    groups = SystemConfig.GROUP_CHOICES
+    configs = SystemConfig.objects.filter(config_group=group)
+    return render(request, 'settings/config_list.html', {
+        'configs': configs,
+        'groups': groups,
+        'current_group': group
+    })
 
 
 @login_required
-def config_edit(request, pk):
-    config = get_object_or_404(SystemConfig, pk=pk)
-    
+def config_save(request):
     if request.method == 'POST':
-        if config.is_system:
-            messages.error(request, '系统级配置不能修改')
-            return redirect('config_list')
+        updated_count = 0
+        for key, value in request.POST.items():
+            if key.startswith('config_value_'):
+                pk = key.replace('config_value_', '')
+                try:
+                    config = SystemConfig.objects.get(pk=pk, is_system=False)
+                    if config.value_type == 'boolean':
+                        # 处理布尔值（checkbox 提交时，如果未勾选则值为 'false'，勾选则有两个值）
+                        checkbox_values = request.POST.getlist(key)
+                        config.config_value = 'true' if 'true' in checkbox_values else 'false'
+                    else:
+                        config.config_value = value
+                    config.save()
+                    updated_count += 1
+                except (SystemConfig.DoesNotExist, ValueError):
+                    pass
         
-        config.config_value = request.POST.get('config_value')
-        config.save()
-        messages.success(request, '配置更新成功')
-        return redirect('config_list')
+        if updated_count > 0:
+            messages.success(request, f'配置保存成功，已更新 {updated_count} 项配置')
+        else:
+            messages.info(request, '没有配置项被修改')
     
-    return render(request, 'settings/config_form.html', {'config': config})
+    # 获取当前分组并重定向
+    referer = request.META.get('HTTP_REFERER', '')
+    if 'group=' in referer:
+        import re
+        match = re.search(r'group=(\w+)', referer)
+        if match:
+            group = match.group(1)
+            return redirect(f'/settings/configs/?group={group}')
+    
+    return redirect('config_list')
 
 
 @login_required
