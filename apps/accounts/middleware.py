@@ -11,6 +11,7 @@ class LoginRequiredMiddleware:
             '/api/permissions/',
             '/api/menu/',
             '/assets/view/',
+            '/assets/api/map-data/',
         ]
 
     def __call__(self, request):

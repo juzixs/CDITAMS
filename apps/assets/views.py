@@ -1214,7 +1214,6 @@ def location_tree(request):
     return JsonResponse({'data': tree_data})
 
 
-@login_required
 def map_data(request, pk):
     location = get_object_or_404(AssetLocation, pk=pk)
     
