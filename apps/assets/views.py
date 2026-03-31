@@ -163,7 +163,7 @@ def device_create(request):
         
         app_url = get_config_value('app_url', 'http://127.0.0.1:8000').rstrip('/')
         qr = qrcode.QRCode(version=1, box_size=10, border=1)
-        qr.add_data(f'{app_url}/device/scan/{device.id}')
+        qr.add_data(f'{app_url}/assets/view/{device.asset_no}')
         qr.make(fit=True)
         img = qr.make_image(fill_color="black", back_color="white")
         buffer = BytesIO()
@@ -310,6 +310,22 @@ def device_detail(request, pk):
     
     return render(request, 'assets/device_detail.html', {
         'device': device, 'logs': logs, 'all_fields': all_fields,
+        'ws_location_id': ws_location_id, 'ws_id': ws_id,
+    })
+
+
+def asset_view(request, asset_no):
+    device = get_object_or_404(Device.objects.select_related('category', 'location', 'user', 'department', 'workstation'), asset_no=asset_no)
+    all_fields = DeviceField.objects.all().order_by('sort')
+    
+    ws_location_id = None
+    ws_id = None
+    if device.workstation_id:
+        ws_id = device.workstation_id
+        ws_location_id = device.workstation.location_id
+    
+    return render(request, 'assets/asset_view.html', {
+        'device': device, 'all_fields': all_fields,
         'ws_location_id': ws_location_id, 'ws_id': ws_id,
     })
 
@@ -1962,7 +1978,7 @@ def api_regenerate_all_qrcodes(request):
         for device in devices:
             try:
                 qr = qrcode.QRCode(version=1, box_size=10, border=1)
-                qr.add_data(f'{app_url}/device/scan/{device.id}')
+                qr.add_data(f'{app_url}/assets/view/{device.asset_no}')
                 qr.make(fit=True)
                 img = qr.make_image(fill_color="black", back_color="white")
                 buffer = BytesIO()
