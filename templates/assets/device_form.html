@@ -4,6 +4,7 @@
 
 {% block extra_css %}
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" rel="stylesheet" />
 <style>
     .select2-container--default .select2-selection--single { height: 38px; border: 1px solid #ced4da; border-radius: 4px; }
     .select2-container--default .select2-selection--single .select2-selection__rendered { line-height: 38px; padding-left: 12px; }
@@ -206,7 +207,7 @@
                 </div>
                 <div class="col-12 col-md-6">
                     <label class="form-label">安装时间</label>
-                    <input type="date" name="install_date" class="form-control" value="{{ device.install_date|default:'' }}">
+                    <input type="date" name="install_date" class="form-control" value="{{ device.install_date|date:'Y-m-d'|default:'' }}">
                 </div>
             </div>
             <!-- sort 17: 硬盘序列号 -->
@@ -220,11 +221,11 @@
             <div class="row g-2 g-md-3">
                 <div class="col-12 col-md-6">
                     <label class="form-label">购入日期</label>
-                    <input type="date" name="purchase_date" class="form-control" value="{{ device.purchase_date|default:'' }}">
+                    <input type="date" name="purchase_date" class="form-control" value="{{ device.purchase_date|date:'Y-m-d'|default:'' }}">
                 </div>
                 <div class="col-12 col-md-6">
                     <label class="form-label">启用时间</label>
-                    <input type="date" name="enable_date" class="form-control" value="{{ device.enable_date|default:'' }}">
+                    <input type="date" name="enable_date" class="form-control" value="{{ device.enable_date|date:'Y-m-d'|default:'' }}">
                 </div>
             </div>
         </div>
@@ -369,6 +370,8 @@
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/i18n/zh-CN.js"></script>
 <script src="https://unpkg.com/konva@9/konva.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/zh.js"></script>
 <script>
 let categoriesData = [];
 let categoriesLoaded = false;
@@ -779,9 +782,15 @@ function loadUsersByDepartment() {
 $(document).ready(function() {
     loadCategories();
     initLocationCascade();
-    
+
+    flatpickr('input[name="install_date"], input[name="purchase_date"], input[name="enable_date"]', {
+        locale: 'zh',
+        dateFormat: 'Y-m-d',
+        allowInput: true
+    });
+
     $('#location-select').on('change', onLocationChange);
-    
+
     loadUsersByDepartment();
     
     if (currentLocationId) {

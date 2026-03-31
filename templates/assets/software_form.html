@@ -1,5 +1,8 @@
 {% extends 'base.html' %}
 {% block title %}新增软件 - 驰达IT资产管理系统{% endblock %}
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" rel="stylesheet" />
+{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4"><h4>新增软件</h4></div>
 <div class="card"><div class="card-body">
@@ -22,4 +25,12 @@
 </div>
 <div class="mb-3"><label class="form-label">描述</label><textarea name="description" class="form-control" rows="2"></textarea></div>
 <div class="mt-4"><button type="submit" class="btn btn-primary">保存</button><a href="{% url 'software_list' %}" class="btn btn-outline-secondary">返回</a></div>
-</form></div></div>{% endblock %}
+</form></div></div>
+{% endblock %}
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/zh.js"></script>
+<script>
+flatpickr('input[name="purchase_date"], input[name="expire_date"]', { locale: 'zh', dateFormat: 'Y-m-d', allowInput: true });
+</script>
+{% endblock %}
