@@ -78,7 +78,7 @@
                 </div>
                 <div>
                     <a href="{% url 'device_create' %}" class="btn btn-sm btn-primary"><i class="fas fa-plus"></i> 新增设备</a>
-                    <button type="button" class="btn btn-sm btn-info" onclick="alert('导入设备功能开发中...')"><i class="fas fa-file-import"></i> 导入设备</button>
+                    <a href="{% url 'device_import' %}" class="btn btn-sm btn-info"><i class="fas fa-file-import"></i> 导入设备</a>
                     <button type="button" class="btn btn-sm btn-info" onclick="alert('导出台账功能开发中...')"><i class="fas fa-file-export"></i> 导出台账</button>
                     <button type="button" class="btn btn-sm btn-dark" onclick="regenerateAllQrcodes()"><i class="fas fa-qrcode"></i> 重新生成二维码</button>
                 </div>

@@ -81,4 +81,8 @@ urlpatterns = [
     
     path('services/', views.service_list, name='service_list'),
     path('services/create/', views.service_create, name='service_create'),
+    
+    path('import/', views.device_import, name='device_import'),
+    path('import-progress/', views.device_import_progress_api, name='device_import_progress_api'),
+    path('download-template/', views.device_download_template, name='device_download_template'),
 ]

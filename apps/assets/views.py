@@ -15,6 +15,8 @@ import uuid
 from io import BytesIO
 import random
 from datetime import datetime
+import threading
+import time
 
 from .models import (
     Device, AssetCategory, AssetLocation, DeviceField, DeviceFieldValue,
@@ -25,6 +27,9 @@ from .models import (
 )
 from apps.accounts.models import User, Department
 from apps.settings.views import get_config_value
+
+# 全局变量存储导入进度
+device_import_progress = {}
 
 
 def build_location_tree(location):
@@ -2347,3 +2352,245 @@ def generate_label_pdf_buffer(devices, template):
     c.save()
     buffer.seek(0)
     return buffer
+
+
+# 设备导入相关视图
+@login_required
+def device_download_template(request):
+    import openpyxl
+    
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = '设备导入模板'
+    
+    headers = ['资产编号', '设备编号', '设备名称', '型号', '序列号', '密级', 'MAC地址', 'IP地址', '操作系统', '安装时间', '硬盘序列号', '购入日期', '启用时间', '用途', '备注', '固资在账', '卡片编号', '保密台账', '台账分类']
+    ws.append(headers)
+    
+    for col in ws.columns:
+        max_length = 0
+        column = col[0].column_letter
+        for cell in col:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        ws.column_dimensions[column].width = max(max_length + 2, 10)
+    
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="device_import_template.xlsx"'
+    wb.save(response)
+    return response
+
+
+def process_device_import_task(task_id, file_content, update_existing, user_id):
+    """后台处理设备导入任务"""
+    import openpyxl
+    from io import BytesIO
+    
+    progress = device_import_progress[task_id]
+    
+    try:
+        wb = openpyxl.load_workbook(BytesIO(file_content))
+        ws = wb.active
+    except Exception as e:
+        progress['status'] = 'error'
+        progress['errors'].append(f'文件读取失败: {str(e)}')
+        return
+    
+    rows = list(ws.iter_rows(min_row=2, values_only=True))
+    progress['total'] = len(rows)
+    
+    app_url = get_config_value('app_url', 'http://127.0.0.1:8000').rstrip('/')
+    user = User.objects.filter(pk=user_id).first()
+    
+    secret_level_map = {
+        '公开': 'public', '内部': 'internal', '秘密': 'confidential',
+        '机密': 'secret', '绝密': 'top_secret', '商密': 'commercial_secret',
+    }
+    
+    for idx, row in enumerate(rows, start=2):
+        progress['current'] = idx - 1
+        
+        asset_no = str(row[0]).strip() if row[0] else ''
+        device_no = str(row[1]).strip() if row[1] else ''
+        name = str(row[2]).strip() if row[2] else ''
+        model = str(row[3]).strip() if row[3] else ''
+        serial_no = str(row[4]).strip() if row[4] else ''
+        secret_level_text = str(row[5]).strip() if row[5] else ''
+        mac_address = str(row[6]).strip() if row[6] else ''
+        ip_address = str(row[7]).strip() if row[7] else ''
+        os_name = str(row[8]).strip() if row[8] else ''
+        install_date = row[9] if row[9] else None
+        disk_serial = str(row[10]).strip() if row[10] else ''
+        purchase_date = row[11] if row[11] else None
+        enable_date = row[12] if row[12] else None
+        purpose = str(row[13]).strip() if row[13] else ''
+        remarks = str(row[14]).strip() if row[14] else ''
+        is_fixed_text = str(row[15]).strip() if row[15] else ''
+        asset_card_no = str(row[16]).strip() if row[16] else ''
+        is_secret_text = str(row[17]).strip() if row[17] else ''
+        secret_category = str(row[18]).strip() if row[18] else ''
+        
+        progress['current_asset_no'] = asset_no
+        
+        if not asset_no:
+            progress['error'] += 1
+            progress['errors'].append(f'第{idx}行：资产编号不能为空')
+            continue
+        
+        if not name:
+            progress['error'] += 1
+            progress['errors'].append(f'第{idx}行：设备名称不能为空')
+            continue
+        
+        # 根据资产编号自动匹配资产分类
+        parts = asset_no.split('-')
+        category = None
+        if len(parts) >= 2:
+            prefix = '-'.join(parts[:-1])
+            category = AssetCategory.find_by_asset_prefix(prefix)
+        
+        if not category:
+            progress['error'] += 1
+            progress['errors'].append(f'第{idx}行：未找到匹配的资产分类（资产编号：{asset_no}）')
+            continue
+        
+        # 处理密级
+        secret_level = secret_level_map.get(secret_level_text, 'public')
+        
+        # 处理日期
+        if isinstance(install_date, datetime):
+            install_date = install_date.date()
+        if isinstance(purchase_date, datetime):
+            purchase_date = purchase_date.date()
+        if isinstance(enable_date, datetime):
+            enable_date = enable_date.date()
+        
+        # 处理布尔值
+        is_fixed = is_fixed_text in ['是', '1', 'true', 'True', 'Y', 'y']
+        is_secret = is_secret_text in ['是', '1', 'true', 'True', 'Y', 'y']
+        
+        # 检查设备是否已存在
+        device = Device.objects.filter(asset_no=asset_no).first()
+        
+        if device:
+            if update_existing:
+                device.device_no = device_no or device.device_no
+                device.name = name or device.name
+                device.model = model or device.model
+                device.serial_no = serial_no or device.serial_no
+                device.secret_level = secret_level
+                device.mac_address = mac_address or device.mac_address
+                device.ip_address = ip_address or device.ip_address
+                device.os_name = os_name or device.os_name
+                device.install_date = install_date or device.install_date
+                device.disk_serial = disk_serial or device.disk_serial
+                device.purchase_date = purchase_date or device.purchase_date
+                device.enable_date = enable_date or device.enable_date
+                device.purpose = purpose or device.purpose
+                device.remarks = remarks or device.remarks
+                device.is_fixed = is_fixed
+                device.asset_card_no = asset_card_no or device.asset_card_no
+                device.is_secret = is_secret
+                device.secret_category = secret_category or device.secret_category
+                device.category = category
+                device.save()
+                progress['update'] += 1
+            else:
+                progress['skip'] += 1
+        else:
+            try:
+                device = Device.objects.create(
+                    asset_no=asset_no,
+                    device_no=device_no,
+                    name=name,
+                    model=model,
+                    serial_no=serial_no,
+                    category=category,
+                    secret_level=secret_level,
+                    mac_address=mac_address,
+                    ip_address=ip_address,
+                    os_name=os_name,
+                    install_date=install_date,
+                    disk_serial=disk_serial,
+                    purchase_date=purchase_date,
+                    enable_date=enable_date,
+                    purpose=purpose,
+                    remarks=remarks,
+                    is_fixed=is_fixed,
+                    asset_card_no=asset_card_no,
+                    is_secret=is_secret,
+                    secret_category=secret_category,
+                    status='unused',
+                    created_by=user,
+                )
+                
+                # 生成二维码
+                qr = qrcode.QRCode(version=1, box_size=10, border=1)
+                qr.add_data(f'{app_url}/assets/view/{device.asset_no}')
+                qr.make(fit=True)
+                img = qr.make_image(fill_color="black", back_color="white")
+                buffer = BytesIO()
+                img.save(buffer, 'PNG')
+                device.qrcode.save(f'QR-{asset_no}.png', buffer)
+                
+                progress['success'] += 1
+            except Exception as e:
+                progress['error'] += 1
+                progress['errors'].append(f'第{idx}行：创建失败 - {str(e)}')
+        
+        time.sleep(0.01)
+    
+    progress['current'] = progress['total']
+    progress['status'] = 'completed'
+
+
+@login_required
+@csrf_exempt
+def device_import(request):
+    if request.method == 'POST':
+        import openpyxl
+        
+        file = request.FILES.get('file')
+        if not file:
+            return JsonResponse({'success': False, 'message': '请选择要导入的文件'})
+        
+        if not file.name.endswith(('.xlsx', '.xls')):
+            return JsonResponse({'success': False, 'message': '请上传Excel文件(.xlsx或.xls)'})
+        
+        update_existing = request.POST.get('update_existing') == 'true'
+        
+        task_id = str(uuid.uuid4())[:8]
+        file_content = file.read()
+        
+        device_import_progress[task_id] = {
+            'status': 'processing',
+            'total': 0,
+            'current': 0,
+            'success': 0,
+            'update': 0,
+            'skip': 0,
+            'error': 0,
+            'errors': [],
+            'current_asset_no': ''
+        }
+        
+        thread = threading.Thread(
+            target=process_device_import_task,
+            args=(task_id, file_content, update_existing, request.user.id)
+        )
+        thread.daemon = True
+        thread.start()
+        
+        return JsonResponse({'success': True, 'task_id': task_id})
+    
+    return render(request, 'assets/device_import.html')
+
+
+@login_required
+def device_import_progress_api(request):
+    task_id = request.GET.get('task_id')
+    if task_id and task_id in device_import_progress:
+        return JsonResponse(device_import_progress[task_id])
+    return JsonResponse({'status': 'not_found'})

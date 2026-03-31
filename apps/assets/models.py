@@ -579,6 +579,7 @@ class AssetLog(models.Model):
         ('transfer', '转移'),
         ('repair', '维修'),
         ('scrap', '报废'),
+        ('revoke', '回收'),
     ]
     
     device = models.ForeignKey(Device, on_delete=models.CASCADE, related_name='logs', verbose_name='设备')
