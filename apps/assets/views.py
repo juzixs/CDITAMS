@@ -565,7 +565,7 @@ def category_edit(request, pk):
 
 @login_required
 def category_delete(request, pk):
-    if request.method == 'POST':
+    if request.method in ['POST', 'GET']:
         category = get_object_or_404(AssetCategory, pk=pk)
         if category.children.exists() or category.devices.exists():
             messages.error(request, '该分类下有子分类或设备，无法删除')
