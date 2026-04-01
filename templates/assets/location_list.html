@@ -51,6 +51,7 @@
 <th>地图</th>
 <th>工位数</th>
 <th>设备数</th>
+<th>排序</th>
 <th style="width:180px;">操作</th>
 </tr>
 </thead>
@@ -60,7 +61,7 @@
 {% include 'assets/location_tree_rows.html' %}
 {% endwith %}
 {% empty %}
-<tr><td colspan="8" class="text-center text-muted">暂无数据</td></tr>
+<tr><td colspan="9" class="text-center text-muted">暂无数据</td></tr>
 {% endfor %}
 </tbody>
 </table>

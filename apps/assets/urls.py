@@ -40,6 +40,7 @@ urlpatterns = [
     path('locations/create/', views.location_create, name='location_create'),
     path('locations/<int:pk>/edit/', views.location_edit, name='location_edit'),
     path('locations/<int:pk>/delete/', views.location_delete, name='location_delete'),
+    path('api/locations/reorder/', views.api_location_reorder, name='api_location_reorder'),
     path('map/', views.device_map, name='device_map'),
     path('workstations/', views.workstation_manage, name='workstation_manage'),
     path('locations/<int:pk>/map/', views.location_map, name='location_map'),

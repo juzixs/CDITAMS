@@ -798,6 +798,25 @@ def location_delete(request, pk):
 
 
 @login_required
+@csrf_exempt
+@require_POST
+def api_location_reorder(request):
+    """批量更新位置排序"""
+    try:
+        data = json.loads(request.body)
+        order_list = data.get('order', [])
+        
+        for item in order_list:
+            location_id = item.get('id')
+            sort_order = item.get('sort', 0)
+            AssetLocation.objects.filter(pk=location_id).update(sort=sort_order)
+        
+        return JsonResponse({'success': True, 'message': '排序保存成功'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+
+@login_required
 def device_map(request):
     # Get all locations with hierarchy
     all_locs = AssetLocation.objects.select_related('parent__parent', 'parent').prefetch_related('workstations', 'devices')

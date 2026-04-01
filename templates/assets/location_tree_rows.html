@@ -20,6 +20,7 @@
 <td>{% if root.has_map %}<span class="badge bg-success"><i class="fas fa-check"></i> 有地图</span>{% else %}<span class="badge bg-secondary">无</span>{% endif %}</td>
 <td>{{ root.workstations.count }}</td>
 <td>{{ root.devices.count }}</td>
+<td>{{ root.sort }}</td>
 <td>
 {% if root.level == 3 %}
     {% if root.has_map %}
