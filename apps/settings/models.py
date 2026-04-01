@@ -1,4 +1,5 @@
 from django.db import models
+import json
 
 
 class SystemConfig(models.Model):
@@ -7,6 +8,7 @@ class SystemConfig(models.Model):
         ('int', '整数'),
         ('boolean', '布尔值'),
         ('json', 'JSON'),
+        ('select', '下拉选择'),
     ]
     GROUP_CHOICES = [
         ('basic', '基础设置'),
@@ -19,6 +21,7 @@ class SystemConfig(models.Model):
     value_type = models.CharField(max_length=16, choices=TYPE_CHOICES, default='string', verbose_name='值类型')
     config_group = models.CharField(max_length=32, choices=GROUP_CHOICES, default='basic', verbose_name='配置分组')
     description = models.CharField(max_length=256, blank=True, verbose_name='说明')
+    options = models.TextField(blank=True, verbose_name='选项(JSON)')
     is_system = models.BooleanField(default=False, verbose_name='系统级配置')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
@@ -31,6 +34,15 @@ class SystemConfig(models.Model):
 
     def __str__(self):
         return self.config_key
+
+    def get_options_list(self):
+        """获取选项列表，返回 [(value, label), ...] 格式"""
+        if self.value_type == 'select' and self.options:
+            try:
+                return json.loads(self.options)
+            except:
+                return []
+        return []
 
 
 class Organization(models.Model):

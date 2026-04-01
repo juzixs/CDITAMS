@@ -2525,8 +2525,14 @@ def device_export(request):
                 pass
         ws.column_dimensions[column].width = min(max(max_length + 2, 8), 40)
     
-    # 生成文件名带时间码和随机码
-    now = tz.now()
+    # 生成文件名带时间码和随机码（使用系统配置的时区）
+    try:
+        import pytz
+        timezone_str = get_config_value('timezone', 'Asia/Shanghai')
+        local_tz = pytz.timezone(timezone_str)
+        now = tz.now().astimezone(local_tz)
+    except:
+        now = tz.localtime(tz.now())
     random_code = ''.join(random.choices(string.ascii_letters + string.digits, k=4))
     filename = f'device-export-{now.strftime("%Y%m%d")}-{now.strftime("%H%M%S")}-{random_code}.xlsx'
     

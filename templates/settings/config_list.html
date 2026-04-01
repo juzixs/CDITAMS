@@ -58,6 +58,12 @@
                         <textarea name="config_value_{{ config.id }}" 
                                   class="form-control" 
                                   rows="3">{{ config.config_value }}</textarea>
+                    {% elif config.value_type == 'select' %}
+                        <select name="config_value_{{ config.id }}" class="form-select">
+                            {% for value, label in config.get_options_list %}
+                            <option value="{{ value }}" {% if config.config_value == value %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
                     {% else %}
                         <input type="text" 
                                name="config_value_{{ config.id }}" 
