@@ -55,6 +55,9 @@ def device_list(request):
     category_id = request.GET.get('category', '')
     location_id = request.GET.get('location', '')
     status = request.GET.get('status', '')
+    is_fixed = request.GET.get('is_fixed', '')
+    is_secret = request.GET.get('is_secret', '')
+    secret_category = request.GET.get('secret_category', '')
     
     devices = Device.objects.select_related('category', 'location', 'user', 'department').order_by('id').all()
     
@@ -77,6 +80,12 @@ def device_list(request):
         devices = devices.filter(location_id=location_id)
     if status:
         devices = devices.filter(status=status)
+    if is_fixed:
+        devices = devices.filter(is_fixed=True)
+    if is_secret:
+        devices = devices.filter(is_secret=True)
+    if secret_category:
+        devices = devices.filter(secret_category=secret_category)
     
     paginator = Paginator(devices, 20)
     page = request.GET.get('page', 1)
@@ -84,6 +93,12 @@ def device_list(request):
     
     categories = AssetCategory.objects.all().order_by('code')
     locations = AssetLocation.objects.filter(parent__isnull=True).prefetch_related('children')
+    
+    # 获取台账分类选项
+    secret_categories = Device.objects.filter(
+        is_secret=True, 
+        secret_category__isnull=False
+    ).exclude(secret_category='').values_list('secret_category', flat=True).distinct().order_by('secret_category')
     
     # 获取用户自定义的字段显示配置
     visible_field_keys = request.session.get('device_visible_fields', None)
@@ -100,6 +115,7 @@ def device_list(request):
         'locations': locations,
         'visible_fields': visible_fields,
         'all_fields': all_fields,
+        'secret_categories': secret_categories,
     })
 
 
