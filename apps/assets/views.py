@@ -179,6 +179,8 @@ def device_create(request):
         
         if request.FILES.get('photo'):
             save_photo_with_asset_no(device, request.FILES.get('photo'))
+            device.photo_updated_at = timezone.now()
+            device.save(update_fields=['photo', 'photo_updated_at'])
         
         AssetLog.objects.create(
             device=device,
@@ -257,9 +259,11 @@ def device_edit(request, pk):
             if device.photo:
                 device.photo.delete(save=False)
             save_photo_with_asset_no(device, request.FILES.get('photo'))
+            device.photo_updated_at = timezone.now()
         elif request.POST.get('photo_clear') == '1':
             device.photo.delete(save=False)
             device.photo = ''
+            device.photo_updated_at = None
         
         device.save()
         

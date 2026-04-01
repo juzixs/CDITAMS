@@ -324,6 +324,9 @@
                     {% if device.photo %}
                     <div class="mb-2">
                         <img src="{{ device.photo.url }}" class="photo-preview" alt="设备照片">
+                        {% if device.photo_updated_at %}
+                        <div class="text-muted small mt-1">照片更新时间：{{ device.photo_updated_at|date:"Y年n月j日 H:i" }}</div>
+                        {% endif %}
                     </div>
                     {% endif %}
                     <input type="file" name="photo" class="form-control" accept="image/*">
