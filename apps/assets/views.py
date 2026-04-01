@@ -639,7 +639,7 @@ def location_create(request):
         elif level == 3:
             prefix = parent.code if parent and parent.code else "LOC"
             max_floor = AssetLocation.objects.filter(parent=parent).count() if parent else 0
-            code = f"{prefix}-{max_floor + 1:02d}"
+            code = f"{prefix}{max_floor + 1:02d}"
         elif level == 4:
             prefix = parent.code if parent and parent.code else "LOC"
             code = f"{prefix}-{room_code}" if room_code else f"{prefix}-{AssetLocation.objects.count() + 1:03d}"
@@ -775,6 +775,80 @@ def location_edit(request, pk):
         location.description = request.POST.get('description', '')
         location.sort = int(request.POST.get('sort', 0))
         location.save()
+        
+        # 如果是2级设施，根据新的楼层数生成缺失的3级楼层
+        if location.level == 2 and (location.floor_count > 0 or location.basement_count > 0 or location.has_rooftop):
+            existing_floors = location.children.filter(level=3)
+            existing_count = existing_floors.count()
+            
+            # 计算需要的总楼层数
+            total_needed = location.basement_count + location.floor_count + (1 if location.has_rooftop else 0)
+            
+            # 如果现有楼层数少于需要的楼层数，则生成新的楼层
+            if existing_count < total_needed:
+                sort_order = existing_count
+                park_code = location.park_code or ''
+                building_code = location.building_code or ''
+                
+                # 生成地下楼层
+                for i in range(1, location.basement_count + 1):
+                    floor_name = f"B{i}层"
+                    floor_code_val = f"B{i}"
+                    floor_code_full = f"{location.code}{floor_code_val}"
+                    # 检查是否已存在
+                    if not AssetLocation.objects.filter(parent=location, floor_code=floor_code_val).exists():
+                        sort_order += 1
+                        AssetLocation.objects.create(
+                            name=floor_name,
+                            code=floor_code_full,
+                            parent=location,
+                            level=3,
+                            park_code=park_code,
+                            building_code=building_code,
+                            floor_code=floor_code_val,
+                            description=f"{location.name} {floor_name}",
+                            sort=sort_order
+                        )
+                
+                # 生成地上楼层
+                for i in range(1, location.floor_count + 1):
+                    floor_name = f"{i}楼"
+                    floor_code_val = f"{i:02d}"
+                    floor_code_full = f"{location.code}{floor_code_val}"
+                    # 检查是否已存在
+                    if not AssetLocation.objects.filter(parent=location, floor_code=floor_code_val).exists():
+                        sort_order += 1
+                        AssetLocation.objects.create(
+                            name=floor_name,
+                            code=floor_code_full,
+                            parent=location,
+                            level=3,
+                            park_code=park_code,
+                            building_code=building_code,
+                            floor_code=floor_code_val,
+                            description=f"{location.name} {floor_name}",
+                            sort=sort_order
+                        )
+                
+                # 生成天台
+                if location.has_rooftop:
+                    floor_code_val = "RT"
+                    if not AssetLocation.objects.filter(parent=location, floor_code=floor_code_val).exists():
+                        floor_name = "天台"
+                        floor_code_full = f"{location.code}{floor_code_val}"
+                        sort_order += 1
+                        AssetLocation.objects.create(
+                            name=floor_name,
+                            code=floor_code_full,
+                            parent=location,
+                            level=3,
+                            park_code=park_code,
+                            building_code=building_code,
+                            floor_code=floor_code_val,
+                            description=f"{location.name} {floor_name}",
+                            sort=sort_order
+                        )
+        
         messages.success(request, '位置更新成功')
         return redirect('location_list')
     
