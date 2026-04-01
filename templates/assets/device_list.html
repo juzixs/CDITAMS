@@ -18,7 +18,7 @@
 
 <div class="card mb-4">
     <div class="card-body">
-        <form method="get" class="row g-3 align-items-center">
+        <form method="get" class="row g-2 align-items-center">
             <div class="col-md-3">
                 <input type="text" name="search" class="form-control" placeholder="搜索所有信息..." value="{{ request.GET.search }}">
             </div>
@@ -31,20 +31,21 @@
                     <option value="unused" {% if request.GET.status == 'unused' %}selected{% endif %}>闲置</option>
                 </select>
             </div>
-            <div class="col-md-3">
-                <div class="d-flex gap-2 mt-1">
-                    <div class="form-check">
+            <div class="col-auto">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="form-check mb-0">
                         <input class="form-check-input" type="checkbox" name="is_fixed" value="1" 
                                id="filter_is_fixed" {% if request.GET.is_fixed == '1' %}checked{% endif %}>
                         <label class="form-check-label" for="filter_is_fixed">固资在账</label>
                     </div>
-                    <div class="form-check">
+                    <div class="form-check mb-0">
                         <input class="form-check-input" type="checkbox" name="is_secret" value="1" 
                                id="filter_is_secret" {% if request.GET.is_secret == '1' %}checked{% endif %}
                                onchange="toggleSecretCategory(this)">
                         <label class="form-check-label" for="filter_is_secret">保密台账</label>
                     </div>
-                    <select name="secret_category" class="form-select form-select-sm" style="width:auto;" id="secret_category_filter" {% if request.GET.is_secret != '1' %}style="display:none"{% endif %}>
+                    <select name="secret_category" class="form-select" id="secret_category_select" 
+                            {% if request.GET.is_secret != '1' %}style="display:none;width:120px;"{% else %}style="width:120px;"{% endif %}>
                         <option value="">台账分类</option>
                         {% for cat in secret_categories %}
                         <option value="{{ cat }}" {% if request.GET.secret_category == cat %}selected{% endif %}>{{ cat }}</option>
@@ -52,7 +53,7 @@
                     </select>
                 </div>
             </div>
-            <div class="col-md-5">
+            <div class="col-auto">
                 <div class="btn-group">
                     <button type="submit" class="btn btn-primary"><i class="fas fa-search me-1"></i>搜索</button>
                     <a href="{% url 'device_list' %}" class="btn btn-outline-secondary">重置</a>
@@ -214,12 +215,12 @@
 <script>
     // 切换台账分类筛选显示
     function toggleSecretCategory(checkbox) {
-        const categoryFilter = document.getElementById('secret_category_filter');
-        categoryFilter.style.display = checkbox.checked ? 'inline-block' : 'none';
-        if (!checkbox.checked) {
-            // 取消勾选时清空台账分类选择
-            const select = categoryFilter.querySelector('select');
-            if (select) select.value = '';
+        const categorySelect = document.getElementById('secret_category_select');
+        if (categorySelect) {
+            categorySelect.style.display = checkbox.checked ? 'inline-block' : 'none';
+            if (!checkbox.checked) {
+                categorySelect.value = '';
+            }
         }
     }
 
