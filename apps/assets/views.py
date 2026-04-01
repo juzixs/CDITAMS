@@ -12,6 +12,7 @@ import json
 import qrcode
 import os
 import uuid
+import string
 from io import BytesIO
 import random
 from datetime import datetime
@@ -2383,6 +2384,154 @@ def device_download_template(request):
     
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = 'attachment; filename="device_import_template.xlsx"'
+    wb.save(response)
+    return response
+
+
+@login_required
+def device_export(request):
+    import openpyxl
+    from django.utils import timezone as tz
+    
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = '设备台账'
+    
+    headers = [
+        '资产分类', '资产编号', '设备编号', '设备名称', '型号', '序列号', '密级',
+        '所属部门', '使用人', '位置', '工位', '设备状态', 'MAC地址', 'IP地址',
+        '操作系统', '安装时间', '硬盘序列号', '购入日期', '启用时间', '用途',
+        '备注', '固资在账', '卡片编号', '保密台账', '台账分类'
+    ]
+    ws.append(headers)
+    
+    # 设置表头样式
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+    header_font = Font(bold=True, size=11)
+    header_fill = PatternFill(start_color='D9E1F2', end_color='D9E1F2', fill_type='solid')
+    thin_border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    
+    for cell in ws[1]:
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+        cell.border = thin_border
+    
+    # 获取设备数据
+    devices = Device.objects.select_related(
+        'category', 'location', 'user', 'department', 'workstation'
+    ).order_by('id')
+    
+    # 获取搜索条件
+    search = request.GET.get('search', '')
+    category_id = request.GET.get('category', '')
+    location_id = request.GET.get('location', '')
+    status = request.GET.get('status', '')
+    
+    if search:
+        devices = devices.filter(
+            Q(asset_no__icontains=search) | 
+            Q(name__icontains=search) | 
+            Q(serial_no__icontains=search) |
+            Q(device_no__icontains=search) |
+            Q(model__icontains=search) |
+            Q(user__realname__icontains=search) |
+            Q(department__name__icontains=search) |
+            Q(mac_address__icontains=search) |
+            Q(ip_address__icontains=search) |
+            Q(remarks__icontains=search)
+        )
+    if category_id:
+        devices = devices.filter(category_id=category_id)
+    if location_id:
+        devices = devices.filter(location_id=location_id)
+    if status:
+        devices = devices.filter(status=status)
+    
+    # 密级映射
+    secret_level_map = {
+        'public': '公开',
+        'internal': '内部',
+        'confidential': '秘密',
+        'secret': '机密',
+        'top_secret': '绝密',
+        'commercial_secret': '商密',
+    }
+    
+    # 状态映射
+    status_map = {
+        'normal': '使用',
+        'fault': '故障',
+        'scrapped': '报废',
+        'unused': '闲置',
+    }
+    
+    # 写入数据
+    for device in devices:
+        row = [
+            device.category.name if device.category else '',
+            device.asset_no or '',
+            device.device_no or '',
+            device.name or '',
+            device.model or '',
+            device.serial_no or '',
+            secret_level_map.get(device.secret_level, device.secret_level or ''),
+            device.department.name if device.department else '',
+            device.user.realname if device.user else '',
+            device.location.get_full_path() if device.location else '',
+            device.workstation.workstation_code if device.workstation else '',
+            status_map.get(device.status, device.status or ''),
+            device.mac_address or '',
+            device.ip_address or '',
+            device.os_name or '',
+            device.install_date.strftime('%Y-%m-%d') if device.install_date else '',
+            device.disk_serial or '',
+            device.purchase_date.strftime('%Y-%m-%d') if device.purchase_date else '',
+            device.enable_date.strftime('%Y-%m-%d') if device.enable_date else '',
+            device.purpose or '',
+            device.remarks or '',
+            '是' if device.is_fixed else '否',
+            device.asset_card_no or '',
+            '是' if device.is_secret else '否',
+            device.secret_category or '',
+        ]
+        ws.append(row)
+    
+    # 设置数据区域边框和对齐
+    for row in ws.iter_rows(min_row=2, max_row=ws.max_row, max_col=len(headers)):
+        for cell in row:
+            cell.border = thin_border
+            cell.alignment = Alignment(vertical='center')
+    
+    # 自动调整列宽
+    for col in ws.columns:
+        max_length = 0
+        column = col[0].column_letter
+        for cell in col:
+            try:
+                cell_len = len(str(cell.value or ''))
+                # 中文字符按2计算宽度
+                for char in str(cell.value or ''):
+                    if '\u4e00' <= char <= '\u9fff':
+                        cell_len += 1
+                if cell_len > max_length:
+                    max_length = cell_len
+            except:
+                pass
+        ws.column_dimensions[column].width = min(max(max_length + 2, 8), 40)
+    
+    # 生成文件名带时间码和随机码
+    now = tz.now()
+    random_code = ''.join(random.choices(string.ascii_letters + string.digits, k=4))
+    filename = f'device-export-{now.strftime("%Y%m%d")}-{now.strftime("%H%M%S")}-{random_code}.xlsx'
+    
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
     wb.save(response)
     return response
 
