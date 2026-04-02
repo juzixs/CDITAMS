@@ -380,6 +380,17 @@ tr.on('transformend', function() {
     saveH();
 });
 
+// 设置所有元素的拖拽状态
+function setElementsDraggable(draggable) {
+    [elL, objL].forEach(function(layer) {
+        layer.getChildren().forEach(function(node) {
+            if (node._d) {  // 只对有数据的元素设置
+                node.draggable(draggable);
+            }
+        });
+    });
+}
+
 // ========== TOOL BUTTONS ==========
 var toolNames = ['select', 'boxselect', 'line', 'dashed', 'rect', 'door', 'workstation', 'region', 'text'];
 for (var ti = 0; ti < toolNames.length; ti++) {
@@ -393,6 +404,8 @@ for (var ti = 0; ti < toolNames.length; ti++) {
             polyP = [];
             if (tmpN) { tmpN.destroy(); tmpN = null; uiL.draw(); }
             setBgSelected(false);
+            // 设置元素拖拽状态：只有选择工具时才允许拖拽
+            setElementsDraggable(tname === 'select');
         });
     })(toolNames[ti]);
 }
@@ -573,6 +586,8 @@ document.addEventListener('keydown', function(e) {
         for (var j = 0; j < toolNames.length; j++) document.getElementById('t-' + toolNames[j]).classList.toggle('on', toolNames[j] === tool);
         stage.container().style.cursor = tool === 'select' ? 'default' : 'crosshair';
         polyP = []; if (tmpN) { tmpN.destroy(); tmpN = null; uiL.draw(); }
+        // 设置元素拖拽状态：只有选择工具时才允许拖拽
+        setElementsDraggable(tool === 'select');
     }
     if (k === 'g') { gOn = !gOn; drawGrid(); }
     if (k === 's') { sOn = !sOn; document.getElementById('btnSnap').classList.toggle('on', sOn); }
@@ -649,7 +664,41 @@ document.getElementById('btnSave').addEventListener('click', function() {
         layer.getChildren().forEach(function(node) {
             if (node._d) {
                 var d = {}; for (var k in node._d) d[k] = node._d[k];
-                if (node instanceof Konva.Group) { d.x = node.x(); d.y = node.y(); }
+                if (node instanceof Konva.Group) {
+                    // 对于区域类型，需要更新 points 坐标
+                    if (d.t === 'region' && d.pt) {
+                        var pts = JSON.parse(d.pt);
+                        var gx = node.x(), gy = node.y();
+                        // 将 Group 的位置加到每个顶点坐标上
+                        for (var i = 0; i < pts.length; i++) {
+                            pts[i].x += gx;
+                            pts[i].y += gy;
+                        }
+                        d.pt = JSON.stringify(pts);
+                        // 重置 Group 的位置为 (0, 0)
+                        node.position({ x: 0, y: 0 });
+                        // 更新内部 Line 的坐标
+                        var line = node.findOne('Line');
+                        if (line) {
+                            var newPoints = [];
+                            for (var j = 0; j < pts.length; j++) {
+                                newPoints.push(pts[j].x, pts[j].y);
+                            }
+                            line.points(newPoints);
+                        }
+                        // 更新内部 Text 的坐标
+                        var text = node.findOne('Text');
+                        if (text && pts.length > 0) {
+                            var cx = 0, cy = 0;
+                            for (var m = 0; m < pts.length; m++) { cx += pts[m].x; cy += pts[m].y; }
+                            cx /= pts.length; cy /= pts.length;
+                            text.x(cx - 30);
+                            text.y(cy - 7);
+                        }
+                    }
+                    d.x = node.x();
+                    d.y = node.y();
+                }
                 all.push(d);
             }
         });
