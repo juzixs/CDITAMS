@@ -80,6 +80,7 @@ class AssetLocation(models.Model):
     default_snap_threshold = models.FloatField(default=10, verbose_name='默认吸附阈值')
     default_snap_enabled = models.BooleanField(default=True, verbose_name='默认启用吸附')
     description = models.TextField(blank=True, verbose_name='位置描述')
+    area_points = models.TextField(blank=True, verbose_name='区域坐标点(JSON)')
     sort = models.IntegerField(default=0, verbose_name='排序')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
@@ -243,21 +244,16 @@ class Device(models.Model):
         return f"{self.asset_no} - {self.name}"
 
     def save(self, *args, **kwargs):
-        if self.workstation_id:
-            self.location = self.workstation.location
+        # location 设置逻辑已移至视图函数处理
+        # 这里只负责更新 location_text
+        if self.location_id:
             parts = []
             loc = self.location
             while loc:
                 parts.insert(0, loc.name)
                 loc = loc.parent
-            parts.append(self.workstation.workstation_code)
-            self.location_text = '-'.join(parts)
-        elif self.location_id:
-            parts = []
-            loc = self.location
-            while loc:
-                parts.insert(0, loc.name)
-                loc = loc.parent
+            if self.workstation_id and self.workstation:
+                parts.append(self.workstation.workstation_code)
             self.location_text = '-'.join(parts)
         super().save(*args, **kwargs)
 
@@ -276,6 +272,7 @@ class Workstation(models.Model):
     y = models.FloatField(default=0, verbose_name='地图Y坐标')
     width = models.FloatField(default=30, verbose_name='工位宽度')
     height = models.FloatField(default=20, verbose_name='工位高度')
+    area = models.ForeignKey(AssetLocation, on_delete=models.SET_NULL, null=True, blank=True, related_name='area_workstations', verbose_name='所属区域')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='available', verbose_name='状态')
     description = models.TextField(blank=True, verbose_name='描述')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')

@@ -18,7 +18,7 @@
 <td><code>{{ root.code|default:'-' }}</code></td>
 <td><span class="badge bg-{% if root.level == 1 %}warning text-dark{% elif root.level == 2 %}primary{% elif root.level == 3 %}info{% else %}success{% endif %} level-badge">{{ root.level }}级</span></td>
 <td>{% if root.has_map %}<span class="badge bg-success"><i class="fas fa-check"></i> 有地图</span>{% else %}<span class="badge bg-secondary">无</span>{% endif %}</td>
-<td>{{ root.workstations.count }}</td>
+<td>{% if root.level == 4 %}{{ root.area_workstations.count }}{% else %}{{ root.workstations.count }}{% endif %}</td>
 <td>{{ root.devices.count }}</td>
 <td>{{ root.sort }}</td>
 <td>
@@ -30,6 +30,7 @@
     <a href="{% url 'workstation_list' root.id %}" class="btn btn-sm btn-outline-info btn-map" title="工位管理"><i class="fas fa-th"></i></a>
 {% elif root.level == 4 %}
     <a href="{% url 'location_map' root.parent.id %}" class="btn btn-sm btn-outline-success btn-map" title="查看平面图"><i class="fas fa-map"></i></a>
+    <a href="{% url 'workstation_list' root.id %}" class="btn btn-sm btn-outline-info btn-map" title="工位管理"><i class="fas fa-th"></i></a>
 {% endif %}
 <a href="{% url 'location_edit' root.id %}" class="btn btn-sm btn-outline-secondary btn-map" title="编辑"><i class="fas fa-edit"></i></a>
 <form method="post" action="{% url 'location_delete' root.id %}" style="display:inline;" onsubmit="return confirm('确定要删除位置「{{ root.name }}」吗？{% if root.children.exists %}该位置下有子位置，无法删除{% elif root.devices.exists %}该位置下有设备，无法删除{% endif %}');">

@@ -33,6 +33,51 @@ from apps.settings.views import get_config_value
 device_import_progress = {}
 
 
+def is_point_in_polygon(x, y, points):
+    """使用射线法判断点是否在多边形内"""
+    n = len(points)
+    if n < 3:
+        return False
+    inside = False
+    p1x, p1y = points[0]['x'], points[0]['y']
+    for i in range(1, n + 1):
+        p2x, p2y = points[i % n]['x'], points[i % n]['y']
+        if y > min(p1y, p2y):
+            if y <= max(p1y, p2y):
+                if x <= max(p1x, p2x):
+                    if p1y != p2y:
+                        xinters = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
+                    if p1x == p2x or x <= xinters:
+                        inside = not inside
+        p1x, p1y = p2x, p2y
+    return inside
+
+
+def update_workstation_area(workstation):
+    """更新工位的区域关联"""
+    if not workstation.location_id or workstation.location.level != 3:
+        return
+    
+    # 获取当前位置下的所有区域
+    regions = AssetLocation.objects.filter(parent=workstation.location, level=4).exclude(area_points='')
+    
+    for region in regions:
+        try:
+            points = json.loads(region.area_points)
+            if is_point_in_polygon(workstation.x, workstation.y, points):
+                if workstation.area_id != region.id:
+                    workstation.area = region
+                    workstation.save(update_fields=['area'])
+                return
+        except:
+            continue
+    
+    # 如果不在任何区域内，清空area字段
+    if workstation.area_id:
+        workstation.area = None
+        workstation.save(update_fields=['area'])
+
+
 def build_location_tree(location):
     children = location.children.all().order_by('sort', 'code')
     return {
@@ -182,6 +227,14 @@ def device_create(request):
         if device.workstation_id:
             device.workstation.status = 'occupied'
             device.workstation.save()
+            # 根据工位的area_id更新设备位置
+            if device.workstation.area_id:
+                # 工位关联在4级内，设备位置记录4级位置
+                device.location = device.workstation.area
+            else:
+                # 工位没有关联区域，设备位置记录工位的location（3级楼层）
+                device.location = device.workstation.location
+            device.save(update_fields=['location'])
         
         app_url = get_config_value('app_url', 'http://127.0.0.1:8000').rstrip('/')
         qr = qrcode.QRCode(version=1, box_size=10, border=1)
@@ -283,6 +336,16 @@ def device_edit(request, pk):
             device.photo_updated_at = None
         
         device.save()
+        
+        # 根据工位的area_id更新设备位置
+        if device.workstation_id:
+            if device.workstation.area_id:
+                # 工位关联在4级内，设备位置记录4级位置
+                device.location = device.workstation.area
+            else:
+                # 工位没有关联区域，设备位置记录工位的location（3级楼层）
+                device.location = device.workstation.location
+            device.save(update_fields=['location'])
         
         if device.workstation_id != old_workstation_id:
             if device.workstation_id:
@@ -866,6 +929,12 @@ def location_delete(request, pk):
     if location.children.exists() or location.devices.exists() or location.workstations.exists():
         messages.error(request, f'该位置下有子位置、设备或工位，无法删除')
     else:
+        # 删除对应的MapElement
+        if location.level == 4:
+            MapElement.objects.filter(location=location.parent, element_type='region', label=location.name).delete()
+            # 清空关联工位的area字段
+            Workstation.objects.filter(area=location).update(area=None)
+        
         location.delete()
         messages.success(request, '位置删除成功')
     return redirect('location_list')
@@ -1317,6 +1386,7 @@ def location_tree(request):
             'name': location.name,
             'code': location.code,
             'level': location.level,
+            'parent_id': location.parent_id,
             'park_code': location.park_code,
             'building_code': location.building_code,
             'floor_code': location.floor_code,
@@ -1366,6 +1436,7 @@ def map_data(request, pk):
             'width': ws.width,
             'height': ws.height,
             'status': ws.status,
+            'area_id': ws.area_id,
             'devices': [
                 {
                     'id': d.id,
@@ -1409,6 +1480,8 @@ def map_data(request, pk):
 @csrf_exempt
 @login_required
 def map_element_save(request):
+    from apps.assets.models import Workstation
+    
     if request.method == 'POST':
         location_id = request.POST.get('location_id')
         
@@ -1420,77 +1493,144 @@ def map_element_save(request):
             except json.JSONDecodeError:
                 return JsonResponse({'success': False, 'message': '数据格式错误'})
             
-            saved_ids = []
-            for el_data in elements_list:
-                el_id = el_data.get('id')
-                data = {
-                    'location_id': location_id,
-                    'element_type': {'line': 'wall', 'dashed': 'window'}.get(el_data.get('type', 'wall'), el_data.get('type', 'wall')),
-                    'x': float(el_data.get('x', 0)),
-                    'y': float(el_data.get('y', 0)),
-                    'x2': float(el_data.get('x2')) if el_data.get('x2') else None,
-                    'y2': float(el_data.get('y2')) if el_data.get('y2') else None,
-                    'width': float(el_data.get('width', 0)),
-                    'height': float(el_data.get('height', 0)),
-                    'rotation': float(el_data.get('rotation', 0)),
-                    'color': el_data.get('color', '#000000'),
-                    'thickness': int(el_data.get('thickness', 2)),
-                    'points': el_data.get('points', ''),
-                    'properties': el_data.get('properties', ''),
-                    'label': el_data.get('label', ''),
-                    'sort_order': int(el_data.get('sort_order', 0)),
-                    'door_direction': el_data.get('door_direction', 'right'),
-                    'door_width': float(el_data.get('door_width', 60)),
-                    'door_open_angle': int(el_data.get('door_open_angle', 90)),
-                    'doorstop_width': float(el_data.get('doorstop_width', 15)),
-                    'auto_doorstop': el_data.get('auto_doorstop', True),
-                    'snap_enabled': el_data.get('snap_enabled', True),
-                    'snap_threshold': float(el_data.get('snap_threshold', 10)),
-                }
-                
-                if el_id:
-                    element = MapElement.objects.filter(pk=el_id).first()
-                    if element:
-                        for key, value in data.items():
-                            setattr(element, key, value)
-                        element.save()
+            try:
+                saved_ids = []
+                for el_data in elements_list:
+                    el_id = el_data.get('id')
+                    data = {
+                        'location_id': location_id,
+                        'element_type': {'line': 'wall', 'dashed': 'window'}.get(el_data.get('type', 'wall'), el_data.get('type', 'wall')),
+                        'x': float(el_data.get('x', 0)),
+                        'y': float(el_data.get('y', 0)),
+                        'x2': float(el_data.get('x2')) if el_data.get('x2') else None,
+                        'y2': float(el_data.get('y2')) if el_data.get('y2') else None,
+                        'width': float(el_data.get('width', 0)),
+                        'height': float(el_data.get('height', 0)),
+                        'rotation': float(el_data.get('rotation', 0)),
+                        'color': el_data.get('color', '#000000'),
+                        'thickness': int(el_data.get('thickness', 2)),
+                        'points': el_data.get('points', ''),
+                        'properties': el_data.get('properties', ''),
+                        'label': el_data.get('label', ''),
+                        'sort_order': int(el_data.get('sort_order', 0)),
+                        'door_direction': el_data.get('door_direction', 'right'),
+                        'door_width': float(el_data.get('door_width', 60)),
+                        'door_open_angle': int(el_data.get('door_open_angle', 90)),
+                        'doorstop_width': float(el_data.get('doorstop_width', 15)),
+                        'auto_doorstop': el_data.get('auto_doorstop', True),
+                        'snap_enabled': el_data.get('snap_enabled', True),
+                        'snap_threshold': float(el_data.get('snap_threshold', 10)),
+                    }
+                    
+                    if el_id:
+                        try:
+                            el_id_int = int(el_id)
+                            element = MapElement.objects.filter(pk=el_id_int).first()
+                            if element:
+                                for key, value in data.items():
+                                    setattr(element, key, value)
+                                element.save()
+                                saved_ids.append(element.id)
+                        except (ValueError, TypeError):
+                            pass  # 忽略无效的 ID
+                    else:
+                        element = MapElement.objects.create(**data)
                         saved_ids.append(element.id)
-                else:
-                    element = MapElement.objects.create(**data)
-                    saved_ids.append(element.id)
+                    
+                    # Handle region type - create 4-level location
+                    if data['element_type'] == 'region' and data['points']:
+                        parent_location = AssetLocation.objects.filter(pk=location_id).first()
+                        if parent_location and parent_location.level == 3:
+                            region_name = data['label'] or '区域'
+                            # Check if location already exists
+                            existing_location = AssetLocation.objects.filter(parent=parent_location, level=4, name=region_name).first()
+                            if existing_location:
+                                # Update area points
+                                existing_location.area_points = data['points']
+                                existing_location.save()
+                            else:
+                                # Generate new code
+                                max_num = AssetLocation.objects.filter(parent=parent_location, level=4).count()
+                                new_code = f"{parent_location.code}-{max_num + 1:03d}"
+                                # Create new 4-level location
+                                new_location = AssetLocation.objects.create(
+                                    name=region_name,
+                                    code=new_code,
+                                    parent=parent_location,
+                                    level=4,
+                                    park_code=parent_location.park_code,
+                                    building_code=parent_location.building_code,
+                                    floor_code=parent_location.floor_code,
+                                    area_points=data['points'],
+                                    description=f"{parent_location.name} {region_name}",
+                                    sort=max_num + 1
+                                )
+                            # 更新所有已存在的工位的区域关联
+                            all_workstations = Workstation.objects.filter(location=parent_location)
+                            for ws in all_workstations:
+                                update_workstation_area(ws)
+                    
+                    # Sync workstation to Workstation table
+                    if data['element_type'] == 'workstation':
+                        location = AssetLocation.objects.filter(pk=location_id).first()
+                        if location:
+                            ws, created = Workstation.objects.get_or_create(
+                                location=location,
+                                workstation_code=data['label'] or f'WS-{element.id}',
+                                defaults={
+                                    'x': data['x'],
+                                    'y': data['y'],
+                                    'width': data['width'] or 60,
+                                    'height': data['height'] or 40,
+                                    'status': 'available',
+                                }
+                            )
+                            if not created:
+                                ws.x = data['x']
+                                ws.y = data['y']
+                                ws.width = data['width'] or 60
+                                ws.height = data['height'] or 40
+                                ws.save()
+                            # 更新工位区域关联
+                            update_workstation_area(ws)
                 
-                # Sync workstation to Workstation table
-                if data['element_type'] == 'workstation':
-                    from apps.assets.models import Workstation
-                    location = AssetLocation.objects.filter(pk=location_id).first()
-                    if location:
-                        ws, created = Workstation.objects.get_or_create(
-                            location=location,
-                            workstation_code=data['label'] or f'WS-{element.id}',
-                            defaults={
-                                'x': data['x'],
-                                'y': data['y'],
-                                'width': data['width'] or 60,
-                                'height': data['height'] or 40,
-                                'status': 'available',
-                            }
-                        )
-                        if not created:
-                            ws.x = data['x']
-                            ws.y = data['y']
-                            ws.width = data['width'] or 60
-                            ws.height = data['height'] or 40
-                            ws.save()
-            
-            existing_ids = [int(el.get('id')) for el in elements_list if el.get('id')]
-            # Delete workstations that correspond to deleted workstation-type elements
-            deleted_ws_elements = MapElement.objects.filter(location_id=location_id, element_type='workstation').exclude(id__in=saved_ids)
-            deleted_ws_labels = [e.label for e in deleted_ws_elements if e.label]
-            if deleted_ws_labels:
-                Workstation.objects.filter(location_id=location_id, workstation_code__in=deleted_ws_labels).delete()
-            MapElement.objects.filter(location_id=location_id).exclude(id__in=saved_ids).delete()
-            
-            return JsonResponse({'success': True, 'message': f'保存成功，共 {len(saved_ids)} 个元素', 'saved_ids': saved_ids})
+                # 安全地构建 existing_ids
+                existing_ids = []
+                for el in elements_list:
+                    el_id = el.get('id')
+                    if el_id:
+                        try:
+                            existing_ids.append(int(el_id))
+                        except (ValueError, TypeError):
+                            pass  # 忽略无效的 ID
+                
+                # Delete workstations that correspond to deleted workstation-type elements
+                deleted_ws_elements = MapElement.objects.filter(location_id=location_id, element_type='workstation').exclude(id__in=saved_ids)
+                deleted_ws_labels = [e.label for e in deleted_ws_elements if e.label and e.label.strip()]
+                if deleted_ws_labels:
+                    try:
+                        Workstation.objects.filter(location_id=location_id, workstation_code__in=deleted_ws_labels).delete()
+                    except Exception:
+                        pass  # 忽略删除失败的异常
+                
+                # Handle deleted region elements - clear area association and delete 4-level location
+                deleted_region_elements = MapElement.objects.filter(location_id=location_id, element_type='region').exclude(id__in=saved_ids)
+                for region_el in deleted_region_elements:
+                    # Find and delete corresponding 4-level location
+                    parent_location = AssetLocation.objects.filter(pk=location_id).first()
+                    if parent_location:
+                        region_location = AssetLocation.objects.filter(parent=parent_location, level=4, name=region_el.label).first()
+                        if region_location:
+                            # Clear area association for workstations
+                            Workstation.objects.filter(area=region_location).update(area=None)
+                            # Delete the 4-level location
+                            region_location.delete()
+                
+                MapElement.objects.filter(location_id=location_id).exclude(id__in=saved_ids).delete()
+                
+                return JsonResponse({'success': True, 'message': f'保存成功，共 {len(saved_ids)} 个元素', 'saved_ids': saved_ids})
+            except Exception as e:
+                return JsonResponse({'success': False, 'message': f'保存失败: {str(e)}'})
         
         element_id = request.POST.get('element_id')
         
@@ -1581,7 +1721,14 @@ def map_background_upload(request, pk):
 @login_required
 def workstation_list(request, pk):
     location = get_object_or_404(AssetLocation, pk=pk)
-    workstations = Workstation.objects.filter(location=location).prefetch_related('devices__category', 'devices__user', 'devices__department')
+    
+    # 根据位置级别使用不同的查询条件
+    if location.level == 4:
+        # 4级区域：查询area字段
+        workstations = Workstation.objects.filter(area=location).prefetch_related('devices__category', 'devices__user', 'devices__department')
+    else:
+        # 3级楼层：查询location字段
+        workstations = Workstation.objects.filter(location=location).prefetch_related('devices__category', 'devices__user', 'devices__department')
     
     ws_data = []
     for ws in workstations:
@@ -1616,7 +1763,7 @@ def workstation_list(request, pk):
 @login_required
 def api_workstations_by_location(request, location_id):
     location = get_object_or_404(AssetLocation, pk=location_id)
-    workstations = Workstation.objects.filter(location=location).values('id', 'name', 'workstation_code')
+    workstations = Workstation.objects.filter(location=location).values('id', 'name', 'workstation_code', 'area_id')
     return JsonResponse({
         'success': True,
         'workstations': list(workstations)
@@ -1755,9 +1902,15 @@ def api_device_bind_workstation(request):
         if workstation_id:
             workstation = get_object_or_404(Workstation, pk=workstation_id)
             device.workstation = workstation
-            device.location = workstation.location
-            parts = []
-            loc = workstation.location
+            # 根据工位区域自动更新设备位置
+            if workstation.area_id:
+                device.location = workstation.area
+                parts = []
+                loc = workstation.area
+            else:
+                device.location = workstation.location
+                parts = []
+                loc = workstation.location
             while loc:
                 parts.insert(0, loc.name)
                 loc = loc.parent
@@ -1969,9 +2122,15 @@ def api_workstation_bind_device(request, pk):
         device_id = body.get('device_id')
         device = get_object_or_404(Device, pk=device_id)
         device.workstation = workstation
-        device.location = workstation.location
-        parts = []
-        loc = workstation.location
+        # 根据工位区域自动更新设备位置
+        if workstation.area_id:
+            device.location = workstation.area
+            parts = []
+            loc = workstation.area
+        else:
+            device.location = workstation.location
+            parts = []
+            loc = workstation.location
         while loc:
             parts.insert(0, loc.name)
             loc = loc.parent

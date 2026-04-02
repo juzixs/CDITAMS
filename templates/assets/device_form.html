@@ -451,6 +451,9 @@ function loadCategories() {
         });
 }
 
+// 全局变量保存工位数据
+var workstationsData = {};
+
 function loadWorkstations(locationId, selectedWorkstationId) {
     const select = $('#workstation-select');
     select.empty();
@@ -460,16 +463,29 @@ function loadWorkstations(locationId, selectedWorkstationId) {
         return;
     }
     
+    // 如果选择的是4级区域，使用其父级（3级楼层）来加载工位
+    var selectedOption = $('#location-select option:selected');
+    var level = selectedOption.data('level');
+    var wsLocationId = locationId;
+    
+    if (level === 4 || level === '4') {
+        // 4级区域，获取父级ID
+        wsLocationId = selectedOption.data('parent-id') || locationId;
+    }
+    
     select.append($('<option>').text('加载中...'));
     
-    fetch('/assets/api/location/' + locationId + '/workstations/')
+    fetch('/assets/api/location/' + wsLocationId + '/workstations/')
         .then(r => r.json())
         .then(data => {
             select.empty();
             select.append($('<option>').val('').text('请选择工位'));
             
+            // 保存工位数据
+            workstationsData = {};
             if (data.workstations) {
                 data.workstations.forEach(ws => {
+                    workstationsData[ws.id] = ws;
                     select.append($('<option>')
                         .val(ws.id)
                         .text(ws.name + ' (' + ws.workstation_code + ')'));
@@ -480,7 +496,7 @@ function loadWorkstations(locationId, selectedWorkstationId) {
                 select.val(selectedWorkstationId);
             }
             
-            // Load location map
+            // Load location map - 使用原始的locationId（可能是4级区域）
             loadLocationMap(locationId, selectedWorkstationId);
         })
         .catch(() => {
@@ -497,6 +513,18 @@ function loadLocationMap(locationId, workstationId) {
     if (!locationId) {
         wrapper.style.display = 'none';
         return;
+    }
+    
+    // 如果选择的是4级区域，使用其父级（3级楼层）来加载地图
+    var selectedOption = $('#location-select option:selected');
+    var level = selectedOption.data('level');
+    var mapLocationId = locationId;
+    var selectedAreaId = null;
+    
+    if (level === 4 || level === '4') {
+        // 4级区域，获取父级ID
+        mapLocationId = selectedOption.data('parent-id') || locationId;
+        selectedAreaId = locationId;
     }
     
     wrapper.style.display = 'block';
@@ -522,7 +550,7 @@ function loadLocationMap(locationId, workstationId) {
         stage.batchDraw();
     });
 
-    fetch('/assets/api/map-data/' + locationId + '/')
+    fetch('/assets/api/map-data/' + mapLocationId + '/')
         .then(function(r) { return r.json(); })
         .then(function(data) {
             var mapW = data.location.map_width || 1200;
@@ -535,9 +563,42 @@ function loadLocationMap(locationId, workstationId) {
             for (var x = 0; x <= mapW; x += 30) bgLayer.add(new Konva.Line({ points: [x, 0, x, mapH], stroke: '#eee', strokeWidth: 0.5 }));
             for (var y = 0; y <= mapH; y += 30) bgLayer.add(new Konva.Line({ points: [0, y, mapW, y], stroke: '#eee', strokeWidth: 0.5 }));
 
-            // Elements
+            // Elements - draw regions
             (data.elements || []).forEach(function(el) {
-                if (el.element_type === 'wall' || el.element_type === 'line') {
+                if (el.element_type === 'region') {
+                    // Draw region
+                    var pts = el.points ? JSON.parse(el.points) : [];
+                    if (pts.length >= 3) {
+                        var points = [];
+                        for (var i = 0; i < pts.length; i++) {
+                            points.push(pts[i].x, pts[i].y);
+                        }
+                        var isSelectedArea = selectedAreaId && data.area_bindings && data.area_bindings.some(function(ab) {
+                            return ab.area_name === el.label && ab.id == selectedAreaId;
+                        });
+                        var regionGroup = new Konva.Group();
+                        regionGroup.add(new Konva.Line({
+                            points: points,
+                            closed: true,
+                            fill: isSelectedArea ? 'rgba(40, 167, 69, 0.3)' : 'rgba(52, 152, 219, 0.2)',
+                            stroke: isSelectedArea ? '#28a745' : '#3498db',
+                            strokeWidth: isSelectedArea ? 3 : 2
+                        }));
+                        // Add label
+                        var cx = 0, cy = 0;
+                        for (var j = 0; j < pts.length; j++) { cx += pts[j].x; cy += pts[j].y; }
+                        cx /= pts.length; cy /= pts.length;
+                        regionGroup.add(new Konva.Text({
+                            x: cx - 30, y: cy - 7,
+                            text: el.label || '',
+                            fontSize: 12,
+                            fill: isSelectedArea ? '#28a745' : '#333',
+                            width: 60,
+                            align: 'center'
+                        }));
+                        elLayer.add(regionGroup);
+                    }
+                } else if (el.element_type === 'wall' || el.element_type === 'line') {
                     elLayer.add(new Konva.Line({ points: [el.x, el.y, el.x2 || el.x + el.width, el.y2 || el.y], stroke: el.color || '#333', strokeWidth: el.thickness || 2, lineCap: 'round' }));
                 } else if (el.element_type === 'door') {
                     var g = new Konva.Group({ x: el.x, y: el.y, rotation: el.rotation || 0 });
@@ -560,6 +621,7 @@ function loadLocationMap(locationId, workstationId) {
                 var group = new Konva.Group({ x: ws.x, y: ws.y });
                 group.setAttr('wsId', ws.id);
                 group.setAttr('wsCode', ws.workstation_code);
+                group.setAttr('areaId', ws.area_id);
                 group.add(new Konva.Rect({
                     width: w, height: h,
                     fill: isTarget ? '#d4edda' : '#e3f2fd',
@@ -582,24 +644,62 @@ function loadLocationMap(locationId, workstationId) {
                     e.cancelBubble = true;
                     var clickedWsId = this.getAttr('wsId');
                     var clickedWsCode = this.getAttr('wsCode');
+                    var clickedAreaId = this.getAttr('areaId');
                     if (!clickedWsId) return;
-                    // Update select
-                    var select = document.getElementById('workstation-select');
-                    select.value = clickedWsId;
-                    // Update map highlight
-                    wsLayer.getChildren().forEach(function(g) {
-                        var rect = g.findOne('Rect');
-                        var txt = g.findOne('Text');
-                        if (!rect || !txt) return;
-                        if (g.getAttr('wsId') === clickedWsId) {
-                            rect.fill('#d4edda').stroke('#28a745').strokeWidth(3).shadowColor('#28a745').shadowBlur(8).shadowOpacity(0.5);
-                            txt.fill('#28a745').fontStyle('bold');
-                        } else {
-                            rect.fill('#e3f2fd').stroke('#1976D2').strokeWidth(1).shadowColor('transparent').shadowBlur(0);
-                            txt.fill('#333').fontStyle('normal');
+                    
+                    var locationSelect = $('#location-select');
+                    var currentLocationId = locationSelect.val();
+                    var currentLevel = locationSelect.find('option:selected').data('level');
+                    
+                    // 确定是否需要切换位置
+                    var needSwitchLocation = false;
+                    var newLocationId = null;
+                    
+                    if (clickedAreaId) {
+                        // 工位在4级区域内
+                        // 如果当前不是这个4级区域，需要切换
+                        if (currentLocationId != clickedAreaId) {
+                            needSwitchLocation = true;
+                            newLocationId = clickedAreaId;
                         }
-                    });
-                    wsLayer.draw();
+                    } else {
+                        // 工位不在4级区域内
+                        if (currentLevel === 4 || currentLevel === '4') {
+                            // 当前是4级区域，需要切换回3级楼层
+                            var parentId = locationSelect.find('option:selected').data('parent-id');
+                            if (parentId) {
+                                needSwitchLocation = true;
+                                newLocationId = parentId;
+                            }
+                        }
+                    }
+                    
+                    if (needSwitchLocation) {
+                        // 需要切换位置，重新加载地图
+                        locationSelect.val(newLocationId).trigger('change');
+                        $('#location-input').val(newLocationId);
+                        loadWorkstations(newLocationId, clickedWsId);
+                    } else {
+                        // 不需要切换位置，只更新工位选择框和高亮
+                        var wsSelect = document.getElementById('workstation-select');
+                        wsSelect.value = clickedWsId;
+                        $('#location-input').val(locationSelect.val());
+                        
+                        // Update map highlight
+                        wsLayer.getChildren().forEach(function(g) {
+                            var rect = g.findOne('Rect');
+                            var txt = g.findOne('Text');
+                            if (!rect || !txt) return;
+                            if (g.getAttr('wsId') === clickedWsId) {
+                                rect.fill('#d4edda').stroke('#28a745').strokeWidth(3).shadowColor('#28a745').shadowBlur(8).shadowOpacity(0.5);
+                                txt.fill('#28a745').fontStyle('bold');
+                            } else {
+                                rect.fill('#e3f2fd').stroke('#1976D2').strokeWidth(1).shadowColor('transparent').shadowBlur(0);
+                                txt.fill('#333').fontStyle('normal');
+                            }
+                        });
+                        wsLayer.draw();
+                    }
                 });
                 
                 group.on('mouseenter', function() { stage.container().style.cursor = 'pointer'; });
@@ -707,6 +807,7 @@ function renderLocationOptions(locations, level) {
         select.append($('<option>')
             .val(loc.id)
             .attr('data-level', loc.level)
+            .attr('data-parent-id', loc.parent_id || '')
             .text(loc.name));
         
         if (loc.children && loc.children.length > 0) {
@@ -793,6 +894,37 @@ $(document).ready(function() {
     });
 
     $('#location-select').on('change', onLocationChange);
+
+    // 工位选择框变化事件
+    $('#workstation-select').on('change', function() {
+        var wsId = $(this).val();
+        if (!wsId) return;
+        
+        var ws = workstationsData[wsId];
+        if (!ws) return;
+        
+        var locationSelect = $('#location-select');
+        var currentLevel = locationSelect.find('option:selected').data('level');
+        var currentLocationId = locationSelect.val();
+        
+        if (ws.area_id) {
+            // 工位在4级区域内，位置换为4级区域
+            if (currentLocationId != ws.area_id) {
+                locationSelect.val(ws.area_id).trigger('change');
+                $('#location-input').val(ws.area_id);
+            }
+        } else {
+            // 工位不在4级区域，位置换为3级楼层
+            if (currentLevel === 4 || currentLevel === '4') {
+                // 当前是4级区域，需要切换回3级楼层
+                var parentId = locationSelect.find('option:selected').data('parent-id');
+                if (parentId) {
+                    locationSelect.val(parentId).trigger('change');
+                    $('#location-input').val(parentId);
+                }
+            }
+        }
+    });
 
     loadUsersByDepartment();
     

@@ -614,12 +614,33 @@ document.getElementById('iG').addEventListener('change', function() { gSize = pa
 document.getElementById('iS').addEventListener('change', function() { sTh = parseInt(this.value) || 10; });
 
 // Layer toggles
-var layerMap = { 'chk-bg': bgL, 'chk-el': elL, 'chk-ws': objL, 'chk-rg': objL, 'chk-lb': objL };
+var layerMap = { 'chk-bg': bgL, 'chk-el': elL, 'chk-lb': objL };
 for (var cid in layerMap) {
     (function(id, layer) {
         document.getElementById(id).addEventListener('change', function() { layer.visible(this.checked); layer.draw(); });
     })(cid, layerMap[cid]);
 }
+
+// 工位和区域分别控制
+document.getElementById('chk-ws').addEventListener('change', function() {
+    var visible = this.checked;
+    objL.getChildren().forEach(function(node) {
+        if (node._d && node._d.t === 'workstation') {
+            node.visible(visible);
+        }
+    });
+    objL.draw();
+});
+
+document.getElementById('chk-rg').addEventListener('change', function() {
+    var visible = this.checked;
+    objL.getChildren().forEach(function(node) {
+        if (node._d && node._d.t === 'region') {
+            node.visible(visible);
+        }
+    });
+    objL.draw();
+});
 
 // Save
 document.getElementById('btnSave').addEventListener('click', function() {
