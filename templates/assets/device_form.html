@@ -453,6 +453,28 @@ function loadCategories() {
 
 // 全局变量保存工位数据
 var workstationsData = {};
+// 全局变量保存当前地图的工位图层
+var currentWsLayer = null;
+
+// 更新地图上工位的高亮状态
+function highlightWorkstationOnMap(wsId) {
+    if (!currentWsLayer) return;
+    
+    currentWsLayer.getChildren().forEach(function(g) {
+        var rect = g.findOne('Rect');
+        var txt = g.findOne('Text');
+        if (!rect || !txt) return;
+        
+        if (g.getAttr('wsId') == wsId) {
+            rect.fill('#d4edda').stroke('#28a745').strokeWidth(3).shadowColor('#28a745').shadowBlur(8).shadowOpacity(0.5);
+            txt.fill('#28a745').fontStyle('bold');
+        } else {
+            rect.fill('#e3f2fd').stroke('#1976D2').strokeWidth(1).shadowColor('transparent').shadowBlur(0);
+            txt.fill('#333').fontStyle('normal');
+        }
+    });
+    currentWsLayer.draw();
+}
 
 function loadWorkstations(locationId, selectedWorkstationId) {
     const select = $('#workstation-select');
@@ -534,6 +556,8 @@ function loadLocationMap(locationId, workstationId) {
     var bgLayer = new Konva.Layer();
     var elLayer = new Konva.Layer();
     var wsLayer = new Konva.Layer();
+    // 保存工位图层到全局变量
+    currentWsLayer = wsLayer;
     stage.add(bgLayer, elLayer, wsLayer);
 
     // Mouse wheel zoom
@@ -899,6 +923,9 @@ $(document).ready(function() {
     $('#workstation-select').on('change', function() {
         var wsId = $(this).val();
         if (!wsId) return;
+        
+        // 更新地图上工位的高亮状态
+        highlightWorkstationOnMap(wsId);
         
         var ws = workstationsData[wsId];
         if (!ws) return;
