@@ -85,7 +85,6 @@
         {% if location.has_map %}
         <a href="{% url 'location_map' location.id %}" class="btn btn-success"><i class="fas fa-map"></i> 查看平面图</a>
         <a href="{% url 'location_map_edit' location.id %}" class="btn btn-primary"><i class="fas fa-edit"></i> 编辑平面图</a>
-        <a href="{% url 'location_area_binding' location.id %}" class="btn btn-warning"><i class="fas fa-draw-polygon"></i> 绑定房间区域</a>
         {% endif %}
         <a href="{% url 'workstation_list' location.id %}" class="btn btn-info"><i class="fas fa-th"></i> 工位管理</a>
     {% elif location.level == 4 %}

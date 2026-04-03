@@ -6,8 +6,8 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h4><i class="fas fa-trash-alt me-2 text-secondary"></i>报废设备</h4>
-    <div class="btn-group">
-        <a href="{% url 'device_list' %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left me-1"></i> 返回设备管理</a>
+    <div>
+        <a href="{% url 'device_list' %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> 返回设备管理</a>
     </div>
 </div>
 
@@ -86,10 +86,16 @@
 
 <div class="card">
     <div class="card-body">
-        <div class="table-responsive">
+        <form method="post" id="batchForm">
+            {% csrf_token %}
+            <div class="mb-3">
+                <button type="button" class="btn btn-sm btn-danger" onclick="batchDelete()"><i class="fas fa-trash"></i> 批量删除</button>
+            </div>
+            <div class="table-responsive">
             <table class="table table-hover">
                 <thead>
                     <tr>
+                        <th style="width:30px;"><input type="checkbox" id="selectAll" onclick="toggleSelectAll()"></th>
                         {% for field in visible_fields %}
                         <th>{{ field.name }}</th>
                         {% endfor %}
@@ -100,6 +106,7 @@
                 <tbody>
                     {% for device in devices %}
                     <tr>
+                        <td><input type="checkbox" name="device_ids" value="{{ device.id }}"></td>
                         {% for field in visible_fields %}
                         <td>
                             {% if field.field_key == 'status' %}
@@ -142,16 +149,18 @@
                             <a href="{% url 'device_detail' device.id %}" class="btn btn-sm btn-outline-primary" title="查看详情"><i class="fas fa-eye"></i></a>
                             <a href="{% url 'device_edit' device.id %}" class="btn btn-sm btn-outline-secondary" title="编辑"><i class="fas fa-edit"></i></a>
                             <button type="button" class="btn btn-sm btn-outline-warning" onclick="recallDevice({{ device.id }})" title="撤回"><i class="fas fa-undo"></i></button>
+                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteDevice({{ device.id }})" title="删除"><i class="fas fa-trash"></i></button>
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="{{ visible_fields|length|add:2 }}" class="text-center text-muted">暂无报废设备</td>
+                        <td colspan="{{ visible_fields|length|add:3 }}" class="text-center text-muted">暂无报废设备</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
-        </div>
+        </form>
+    </div>
         
         {% if devices.has_other_pages %}
         <nav>
@@ -181,6 +190,66 @@
         const params = new URLSearchParams(formData);
         params.set('page', pageNum);
         window.location.href = '?' + params.toString();
+    }
+    
+    function getSelectedIds() {
+        const checkboxes = document.querySelectorAll('input[name="device_ids"]:checked');
+        return Array.from(checkboxes).map(cb => cb.value);
+    }
+    
+    function toggleSelectAll() {
+        const selectAll = document.getElementById('selectAll');
+        const checkboxes = document.querySelectorAll('input[name="device_ids"]');
+        checkboxes.forEach(cb => cb.checked = selectAll.checked);
+    }
+    
+    function deleteDevice(deviceId) {
+        if (!confirm('确定要彻底删除该设备吗？此操作不可恢复！')) return;
+        
+        function getCookie(name) {
+            var cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                var cookies = document.cookie.split(';');
+                for (var i = 0; i < cookies.length; i++) {
+                    var cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        var csrftoken = getCookie('csrftoken');
+        
+        fetch('/assets/' + deviceId + '/delete/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrftoken,
+            }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                alert('删除成功');
+                location.reload();
+            } else {
+                alert('删除失败: ' + data.message);
+            }
+        });
+    }
+    
+    function batchDelete() {
+        const ids = getSelectedIds();
+        if (ids.length === 0) return alert('请选择要删除的设备');
+        if (!confirm('确定要彻底删除选中的 ' + ids.length + ' 台设备吗？此操作不可恢复！')) return;
+        
+        const form = document.createElement('form');
+        form.method = 'post';
+        form.action = '{% url "device_batch_delete" %}';
+        form.innerHTML = '{% csrf_token %}<input type="hidden" name="ids" value="' + ids.join(',') + '">';
+        document.body.appendChild(form);
+        form.submit();
     }
 
     let currentRecallDeviceId = null;
