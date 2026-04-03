@@ -7,7 +7,16 @@ django.setup()
 
 from django.contrib.auth import get_user_model
 from apps.accounts.models import Department, Role, Permission
-from apps.assets.models import AssetCategory, AssetLocation, ServiceType, DeviceField
+from apps.assets.models import (
+    AssetCategory, AssetLocation, ServiceType, DeviceField,
+    Workstation, MapElement, MapBackground, LocationAreaBinding,
+    Software, SoftwareCategory, SoftwareLicense,
+    Consumable, ConsumableCategory, ConsumableRecord,
+    AssetLog, LabelTemplate
+)
+from apps.inventory.models import InventoryPlan, InventoryTask, InventoryRecord
+from apps.todos.models import Todo, Notification
+from apps.logs.models import LoginLog
 from apps.settings.models import SystemConfig, Organization
 
 
@@ -15,24 +24,65 @@ def init_permissions():
     print("初始化权限...")
     
     permission_data = [
+        # 首页
         {'name': '首页', 'code': 'dashboard', 'type': 'menu', 'module': '首页', 'sort': 1},
+        
+        # 资产管理
         {'name': '资产管理', 'code': 'asset', 'type': 'menu', 'module': '资产', 'sort': 10},
         {'name': '设备管理', 'code': 'device', 'type': 'menu', 'module': '资产', 'parent_code': 'asset', 'sort': 11},
         {'name': '设备新增', 'code': 'device_create', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 1},
         {'name': '设备编辑', 'code': 'device_edit', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 2},
         {'name': '设备删除', 'code': 'device_delete', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 3},
-        {'name': '分类管理', 'code': 'category', 'type': 'menu', 'module': '资产', 'parent_code': 'asset', 'sort': 12},
-        {'name': '位置管理', 'code': 'location', 'type': 'menu', 'module': '资产', 'parent_code': 'asset', 'sort': 13},
-        {'name': '盘点管理', 'code': 'inventory', 'type': 'menu', 'module': '盘点', 'sort': 20},
-        {'name': '盘点计划', 'code': 'plan', 'type': 'menu', 'module': '盘点', 'parent_code': 'inventory', 'sort': 21},
-        {'name': '盘点任务', 'code': 'task', 'type': 'menu', 'module': '盘点', 'parent_code': 'inventory', 'sort': 22},
-        {'name': '组织管理', 'code': 'organization', 'type': 'menu', 'module': '组织', 'sort': 30},
-        {'name': '用户管理', 'code': 'user', 'type': 'menu', 'module': '组织', 'parent_code': 'organization', 'sort': 31},
-        {'name': '部门管理', 'code': 'department', 'type': 'menu', 'module': '组织', 'parent_code': 'organization', 'sort': 32},
-        {'name': '角色管理', 'code': 'role', 'type': 'menu', 'module': '组织', 'parent_code': 'organization', 'sort': 33},
-        {'name': '待办管理', 'code': 'todo', 'type': 'menu', 'module': '待办', 'sort': 40},
-        {'name': '日志管理', 'code': 'log', 'type': 'menu', 'module': '日志', 'sort': 50},
-        {'name': '系统设置', 'code': 'settings', 'type': 'menu', 'module': '设置', 'sort': 60},
+        {'name': '设备查看', 'code': 'device_view', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 4},
+        {'name': '设备导入', 'code': 'device_import', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 5},
+        {'name': '设备导出', 'code': 'device_export', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 6},
+        {'name': '报障', 'code': 'device_fault', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 7},
+        {'name': '维修', 'code': 'device_repair', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 8},
+        {'name': '报废', 'code': 'device_scrap', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 9},
+        {'name': '批量报废', 'code': 'device_batch_scrap', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 10},
+        {'name': '撤回', 'code': 'device_recall', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 11},
+        {'name': '打印标签', 'code': 'device_print', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 12},
+        {'name': '分配', 'code': 'device_assign', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 13},
+        {'name': '回收', 'code': 'device_revoke', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 14},
+        
+        # 故障设备
+        {'name': '故障设备', 'code': 'device_fault_list', 'type': 'menu', 'module': '资产', 'parent_code': 'asset', 'sort': 15},
+        # 报废设备
+        {'name': '报废设备', 'code': 'device_scrap_list', 'type': 'menu', 'module': '资产', 'parent_code': 'asset', 'sort': 16},
+        
+        # 分类管理
+        {'name': '分类管理', 'code': 'category', 'type': 'menu', 'module': '资产', 'parent_code': 'asset', 'sort': 20},
+        {'name': '分类新增', 'code': 'category_create', 'type': 'button', 'module': '资产', 'parent_code': 'category', 'sort': 1},
+        {'name': '分类编辑', 'code': 'category_edit', 'type': 'button', 'module': '资产', 'parent_code': 'category', 'sort': 2},
+        {'name': '分类删除', 'code': 'category_delete', 'type': 'button', 'module': '资产', 'parent_code': 'category', 'sort': 3},
+        
+        # 位置管理
+        {'name': '位置管理', 'code': 'location', 'type': 'menu', 'module': '资产', 'parent_code': 'asset', 'sort': 30},
+        {'name': '位置新增', 'code': 'location_create', 'type': 'button', 'module': '资产', 'parent_code': 'location', 'sort': 1},
+        {'name': '位置编辑', 'code': 'location_edit', 'type': 'button', 'module': '资产', 'parent_code': 'location', 'sort': 2},
+        {'name': '位置删除', 'code': 'location_delete', 'type': 'button', 'module': '资产', 'parent_code': 'location', 'sort': 3},
+        {'name': '地图编辑', 'code': 'location_map', 'type': 'button', 'module': '资产', 'parent_code': 'location', 'sort': 4},
+        {'name': '工位管理', 'code': 'workstation_manage', 'type': 'button', 'module': '资产', 'parent_code': 'location', 'sort': 5},
+        
+        # 盘点管理
+        {'name': '盘点管理', 'code': 'inventory', 'type': 'menu', 'module': '盘点', 'sort': 40},
+        {'name': '盘点计划', 'code': 'plan', 'type': 'menu', 'module': '盘点', 'parent_code': 'inventory', 'sort': 41},
+        {'name': '盘点任务', 'code': 'task', 'type': 'menu', 'module': '盘点', 'parent_code': 'inventory', 'sort': 42},
+        
+        # 组织管理
+        {'name': '组织管理', 'code': 'organization', 'type': 'menu', 'module': '组织', 'sort': 50},
+        {'name': '用户管理', 'code': 'user', 'type': 'menu', 'module': '组织', 'parent_code': 'organization', 'sort': 51},
+        {'name': '部门管理', 'code': 'department', 'type': 'menu', 'module': '组织', 'parent_code': 'organization', 'sort': 52},
+        {'name': '角色管理', 'code': 'role', 'type': 'menu', 'module': '组织', 'parent_code': 'organization', 'sort': 53},
+        
+        # 待办管理
+        {'name': '待办管理', 'code': 'todo', 'type': 'menu', 'module': '待办', 'sort': 60},
+        
+        # 日志管理
+        {'name': '日志管理', 'code': 'log', 'type': 'menu', 'module': '日志', 'sort': 70},
+        
+        # 系统设置
+        {'name': '系统设置', 'code': 'settings', 'type': 'menu', 'module': '设置', 'sort': 80},
     ]
     
     created = {}
@@ -56,7 +106,8 @@ def init_roles():
         code='admin',
         defaults={
             'name': '超级管理员',
-            'description': '拥有系统所有权限'
+            'description': '拥有系统所有权限',
+            'sort': 1,
         }
     )
     admin_role.permissions.set(permissions)
@@ -66,10 +117,13 @@ def init_roles():
         code='user',
         defaults={
             'name': '普通用户',
-            'description': '普通用户基本权限'
+            'description': '普通用户基本权限',
+            'sort': 2,
         }
     )
-    basic_perms = Permission.objects.filter(code__in=['dashboard', 'device', 'device_create', 'device_edit'])
+    basic_perms = Permission.objects.filter(code__in=[
+        'dashboard', 'device', 'device_create', 'device_edit', 'device_view'
+    ])
     user_role.permissions.set(basic_perms)
     
     return admin_role
@@ -291,6 +345,8 @@ def init_system_config():
         {'config_key': 'session_timeout_minutes', 'config_value': '120', 'value_type': 'int', 'config_group': 'security', 'description': '会话超时时间（分钟）'},
         # 资产设置
         {'config_key': 'asset_auto_number', 'config_value': 'true', 'value_type': 'boolean', 'config_group': 'asset', 'description': '资产自动编号开关'},
+        # 时区设置
+        {'config_key': 'timezone', 'config_value': 'Asia/Shanghai', 'value_type': 'select', 'config_group': 'basic', 'description': '系统时区', 'options': '[["Asia/Shanghai", "Asia/Shanghai (UTC+8)"], ["UTC", "UTC (UTC+0)"], ["America/New_York", "America/New_York (UTC-5)"]]'},
     ]
     
     for c in configs:
@@ -345,7 +401,7 @@ def init_device_fields():
         {'name': '使用人', 'field_key': 'user', 'field_type': 'text', 'is_system': True, 'is_visible': True, 'sort': 9},
         {'name': '位置', 'field_key': 'location', 'field_type': 'text', 'is_system': True, 'is_visible': True, 'sort': 10},
         {'name': '工位', 'field_key': 'workstation', 'field_type': 'text', 'is_system': True, 'is_visible': True, 'sort': 11},
-        {'name': '设备状态', 'field_key': 'status', 'field_type': 'select', 'is_system': True, 'is_visible': True, 'sort': 12, 'options': '["normal", "fault", "repairing", "scrapped", "unused"]'},
+        {'name': '设备状态', 'field_key': 'status', 'field_type': 'select', 'is_system': True, 'is_visible': True, 'sort': 12, 'options': '["normal", "fault", "scrapped", "unused"]'},
         {'name': 'MAC地址', 'field_key': 'mac_address', 'field_type': 'text', 'is_system': True, 'is_visible': False, 'sort': 13},
         {'name': 'IP地址', 'field_key': 'ip_address', 'field_type': 'text', 'is_system': True, 'is_visible': False, 'sort': 14},
         {'name': '操作系统', 'field_key': 'os_name', 'field_type': 'text', 'is_system': True, 'is_visible': False, 'sort': 15},
