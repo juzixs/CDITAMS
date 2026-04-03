@@ -24,7 +24,8 @@
     <h4><i class="fas fa-edit"></i> 编辑地图 - {{ location.name }}</h4>
     <div>
         <button class="btn btn-success" id="btnSave"><i class="fas fa-save"></i> 保存</button>
-        <a href="{% url 'location_map' location.id %}" class="btn btn-outline-secondary ms-2">返回查看</a>
+        <a href="{% url 'location_map' location.id %}" class="btn btn-outline-info ms-2"><i class="fas fa-eye"></i> 返回查看</a>
+        <a href="{% url 'device_list' %}" class="btn btn-outline-secondary ms-2"><i class="fas fa-arrow-left"></i> 返回设备管理</a>
     </div>
 </div>
 <div id="tb">

@@ -30,9 +30,10 @@
     <h4><i class="fas fa-map-marked-alt"></i> 设备地图</h4>
     <div>
         <a href="{% url 'location_map_edit' location.id %}" class="btn btn-primary"><i class="fas fa-edit"></i> 编辑地图</a>
+        <a href="{% url 'device_list' %}" class="btn btn-outline-secondary ms-1"><i class="fas fa-desktop"></i> 设备管理</a>
+        <a href="{% url 'location_list' %}" class="btn btn-outline-secondary ms-1"><i class="fas fa-sitemap"></i> 位置管理</a>
         <a href="{% url 'workstation_list' location.id %}" class="btn btn-outline-secondary ms-1"><i class="fas fa-th"></i> 工位管理</a>
-        <a href="{% url 'device_map' %}" class="btn btn-outline-secondary ms-1"><i class="fas fa-map"></i> 设备地图</a>
-        <a href="{% url 'location_list' %}" class="btn btn-outline-secondary ms-1">返回位置</a>
+        <a href="{% url 'device_map' %}" class="btn btn-outline-secondary ms-1"><i class="fas fa-arrow-left"></i> 返回设备地图</a>
     </div>
 </div>
 <div class="row">
