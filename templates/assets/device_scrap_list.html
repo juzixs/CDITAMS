@@ -1,0 +1,307 @@
+{% extends 'base.html' %}
+{% load asset_tags %}
+
+{% block title %}报废设备 - 驰达IT资产管理系统{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4><i class="fas fa-trash-alt me-2 text-secondary"></i>报废设备</h4>
+    <div class="btn-group">
+        <a href="{% url 'device_list' %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left me-1"></i> 返回设备管理</a>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-2 align-items-center">
+            <div class="col-md-3">
+                <input type="text" name="search" class="form-control" placeholder="搜索所有信息..." value="{{ request.GET.search }}">
+            </div>
+            <div class="col-md-1">
+                <select name="secret_level" class="form-select">
+                    <option value="">全部密级</option>
+                    <option value="public" {% if request.GET.secret_level == 'public' %}selected{% endif %}>公开</option>
+                    <option value="internal" {% if request.GET.secret_level == 'internal' %}selected{% endif %}>内部</option>
+                    <option value="confidential" {% if request.GET.secret_level == 'confidential' %}selected{% endif %}>秘密</option>
+                    <option value="secret" {% if request.GET.secret_level == 'secret' %}selected{% endif %}>机密</option>
+                    <option value="top_secret" {% if request.GET.secret_level == 'top_secret' %}selected{% endif %}>绝密</option>
+                    <option value="commercial_secret" {% if request.GET.secret_level == 'commercial_secret' %}selected{% endif %}>商密</option>
+                </select>
+            </div>
+            <div class="col-auto">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="form-check mb-0">
+                        <input class="form-check-input" type="checkbox" name="is_fixed" value="1" 
+                               id="filter_is_fixed" {% if request.GET.is_fixed == '1' %}checked{% endif %}>
+                        <label class="form-check-label" for="filter_is_fixed">固资在账</label>
+                    </div>
+                    <div class="form-check mb-0">
+                        <input class="form-check-input" type="checkbox" name="is_secret" value="1" 
+                               id="filter_is_secret" {% if request.GET.is_secret == '1' %}checked{% endif %}
+                               onchange="toggleSecretCategory(this)">
+                        <label class="form-check-label" for="filter_is_secret">保密台账</label>
+                    </div>
+                    <select name="secret_category" class="form-select" id="secret_category_select" 
+                            {% if request.GET.is_secret != '1' %}style="display:none;width:120px;"{% else %}style="width:120px;"{% endif %}>
+                        <option value="">台账分类</option>
+                        {% for cat in secret_categories %}
+                        <option value="{{ cat }}" {% if request.GET.secret_category == cat %}selected{% endif %}>{{ cat }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="col-auto">
+                <div class="btn-group">
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-search me-1"></i>搜索</button>
+                    <a href="{% url 'device_scrap_list' %}" class="btn btn-outline-secondary">重置</a>
+                    <div class="dropdown">
+                        <button class="btn btn-outline-info dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-columns me-1"></i>显示字段
+                        </button>
+                        <div class="dropdown-menu p-3" style="width:400px;max-height:400px;overflow-y:auto;">
+                            <div class="row">
+                                {% for field in all_fields %}
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input field-check" type="checkbox" value="{{ field.field_key }}" 
+                                               id="field_{{ field.field_key }}" 
+                                               {% if field in visible_fields %}checked{% endif %}>
+                                        <label class="form-check-label" for="field_{{ field.field_key }}">{{ field.name }}</label>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <hr>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-sm btn-primary" onclick="saveFieldVisibility()">保存</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="resetFields()">重置默认</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        {% for field in visible_fields %}
+                        <th>{{ field.name }}</th>
+                        {% endfor %}
+                        <th>报废时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for device in devices %}
+                    <tr>
+                        {% for field in visible_fields %}
+                        <td>
+                            {% if field.field_key == 'status' %}
+                                {% if device.status == 'normal' %}
+                                    <span class="badge bg-success">使用</span>
+                                {% elif device.status == 'fault' %}
+                                    <span class="badge bg-danger">故障</span>
+                                {% elif device.status == 'scrapped' %}
+                                    <span class="badge bg-secondary">报废</span>
+                                {% else %}
+                                    <span class="badge bg-info">闲置</span>
+                                {% endif %}
+                            {% elif field.field_key == 'category' %}
+                                {{ device.category.name }}
+                            {% elif field.field_key == 'department' %}
+                                {{ device.pre_department.name|default:'-' }}
+                            {% elif field.field_key == 'user' %}
+                                {{ device.pre_user.realname|default:'-' }}
+                            {% elif field.field_key == 'location' %}
+                                {% if device.pre_location %}{{ device.pre_location.get_full_path }}{% if device.pre_workstation %} / {{ device.pre_workstation.workstation_code }}{% endif %}{% else %}-{% endif %}
+                            {% elif field.field_key == 'workstation' %}
+                                {{ device.pre_workstation.workstation_code|default:'-' }}
+                            {% elif field.field_key == 'secret_level' %}
+                                {{ device.get_secret_level_display }}
+                            {% elif field.field_key == 'is_fixed' %}
+                                {% if device.is_fixed %}是{% else %}否{% endif %}
+                            {% elif field.field_key == 'is_secret' %}
+                                {% if device.is_secret %}是{% else %}否{% endif %}
+                            {% elif field.field_key == 'photo' %}
+                                {% if device.photo %}
+                                <a href="{{ device.photo.url }}" target="_blank"><img src="{{ device.photo.url }}" class="img-thumbnail" style="max-width:60px;max-height:60px;"></a>
+                                {% else %}-{% endif %}
+                            {% else %}
+                                {{ device|getattr:field.field_key|default:'-' }}
+                            {% endif %}
+                        </td>
+                        {% endfor %}
+                        <td>{{ device.scrap_date|date:"Y-m-d H:i"|default:'-' }}</td>
+                        <td>
+                            <a href="{% url 'device_detail' device.id %}" class="btn btn-sm btn-outline-primary" title="查看详情"><i class="fas fa-eye"></i></a>
+                            <a href="{% url 'device_edit' device.id %}" class="btn btn-sm btn-outline-secondary" title="编辑"><i class="fas fa-edit"></i></a>
+                            <button type="button" class="btn btn-sm btn-outline-warning" onclick="recallDevice({{ device.id }})" title="撤回"><i class="fas fa-undo"></i></button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="{{ visible_fields|length|add:2 }}" class="text-center text-muted">暂无报废设备</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        {% if devices.has_other_pages %}
+        <nav>
+            <ul class="pagination justify-content-center">
+                {% if devices.has_previous %}
+                <li class="page-item"><a class="page-link" href="#" onclick="goToPage({{ devices.previous_page_number }}); return false;">上一页</a></li>
+                {% endif %}
+                {% for num in devices.paginator.page_range %}
+                <li class="page-item {% if devices.number == num %}active{% endif %}"><a class="page-link" href="#" onclick="goToPage({{ num }}); return false;">{{ num }}</a></li>
+                {% endfor %}
+                {% if devices.has_next %}
+                <li class="page-item"><a class="page-link" href="#" onclick="goToPage({{ devices.next_page_number }}); return false;">下一页</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // 分页跳转保持筛选条件
+    function goToPage(pageNum) {
+        const form = document.querySelector('form[method="get"]');
+        const formData = new FormData(form);
+        const params = new URLSearchParams(formData);
+        params.set('page', pageNum);
+        window.location.href = '?' + params.toString();
+    }
+
+    let currentRecallDeviceId = null;
+    
+    function recallDevice(deviceId) {
+        currentRecallDeviceId = deviceId;
+        document.getElementById('recallReason').value = '';
+        $('#recallModal').modal('show');
+    }
+    
+    function submitRecall() {
+        const reason = document.getElementById('recallReason').value;
+        
+        function getCookie(name) {
+            var cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                var cookies = document.cookie.split(';');
+                for (var i = 0; i < cookies.length; i++) {
+                    var cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        var csrftoken = getCookie('csrftoken');
+        
+        const formData = new FormData();
+        formData.append('recall_reason', reason);
+        
+        fetch('/assets/' + currentRecallDeviceId + '/recall/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrftoken,
+            },
+            body: formData,
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                alert('撤回成功');
+                location.reload();
+            } else {
+                alert('撤回失败: ' + data.message);
+            }
+        });
+    }
+
+    // 字段显示控制
+    function saveFieldVisibility() {
+        const checked = Array.from(document.querySelectorAll('.field-check:checked')).map(cb => cb.value);
+        $.ajax({
+            url: '{% url "api_save_field_visibility" %}',
+            type: 'POST',
+            contentType: 'application/json',
+            headers: {'X-CSRFToken': '{{ csrf_token }}'},
+            data: JSON.stringify({visible_fields: checked}),
+            success: function(res) {
+                if (res.success) {
+                    location.reload();
+                } else {
+                    alert('保存失败: ' + res.message);
+                }
+            }
+        });
+    }
+    
+    function resetFields() {
+        if (!confirm('确定重置为默认显示字段吗？')) return;
+        $.ajax({
+            url: '{% url "api_save_field_visibility" %}',
+            type: 'POST',
+            contentType: 'application/json',
+            headers: {'X-CSRFToken': '{{ csrf_token }}'},
+            data: JSON.stringify({visible_fields: []}),
+            success: function(res) {
+                if (res.success) {
+                    location.reload();
+                }
+            }
+        });
+    }
+    
+    // 阻止下拉菜单关闭
+    document.querySelector('.dropdown-menu').addEventListener('click', function(e) {
+        e.stopPropagation();
+    });
+    
+    // 切换台账分类筛选显示
+    function toggleSecretCategory(checkbox) {
+        const categorySelect = document.getElementById('secret_category_select');
+        if (categorySelect) {
+            categorySelect.style.display = checkbox.checked ? 'inline-block' : 'none';
+            if (!checkbox.checked) {
+                categorySelect.value = '';
+            }
+        }
+    }
+</script>
+
+<!-- 撤回弹窗 -->
+<div class="modal fade" id="recallModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title"><i class="fas fa-undo me-2"></i>撤回报废</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">撤回原因（选填）</label>
+                    <textarea class="form-control" id="recallReason" rows="3" placeholder="请输入撤回原因..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-warning" onclick="submitRecall()"><i class="fas fa-check me-1"></i>确认撤回</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

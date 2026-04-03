@@ -105,7 +105,7 @@ def device_list(request):
     is_secret = request.GET.get('is_secret', '')
     secret_category = request.GET.get('secret_category', '')
     
-    devices = Device.objects.select_related('category', 'location', 'user', 'department', 'workstation').order_by('id').all()
+    devices = Device.objects.select_related('category', 'location', 'user', 'department', 'workstation').exclude(status='scrapped').order_by('id').all()
     
     if search:
         devices = devices.filter(
@@ -293,6 +293,173 @@ def device_repair(request, pk):
     )
     
     return JsonResponse({'success': True, 'message': '维修成功'})
+
+
+@login_required
+def device_scrap_list(request):
+    search = request.GET.get('search', '')
+    category_id = request.GET.get('category', '')
+    location_id = request.GET.get('location', '')
+    secret_level = request.GET.get('secret_level', '')
+    is_fixed = request.GET.get('is_fixed', '')
+    is_secret = request.GET.get('is_secret', '')
+    secret_category = request.GET.get('secret_category', '')
+    
+    devices = Device.objects.filter(status='scrapped').order_by('id')
+    
+    if search:
+        devices = devices.filter(
+            Q(asset_no__icontains=search) | 
+            Q(name__icontains=search) | 
+            Q(serial_no__icontains=search) |
+            Q(device_no__icontains=search) |
+            Q(model__icontains=search) |
+            Q(mac_address__icontains=search) |
+            Q(ip_address__icontains=search) |
+            Q(remarks__icontains=search) |
+            Q(category__name__icontains=search)
+        ).distinct()
+    if category_id:
+        devices = devices.filter(category_id=category_id)
+    if location_id:
+        devices = devices.filter(location_id=location_id)
+    if secret_level:
+        devices = devices.filter(secret_level=secret_level)
+    if is_fixed:
+        devices = devices.filter(is_fixed=True)
+    if is_secret:
+        devices = devices.filter(is_secret=True)
+    if secret_category:
+        devices = devices.filter(secret_category=secret_category)
+    
+    devices_list = list(devices.select_related('category'))
+    for device in devices_list:
+        device.pre_department = None
+        device.pre_user = None
+        device.pre_location = None
+        device.pre_workstation = None
+        
+        if device.scrap_pre_scrap_data:
+            try:
+                pre_data = json.loads(device.scrap_pre_scrap_data)
+                if pre_data.get('department_id'):
+                    device.pre_department = Department.objects.filter(id=pre_data['department_id']).first()
+                if pre_data.get('user_id'):
+                    device.pre_user = User.objects.filter(id=pre_data['user_id']).first()
+                if pre_data.get('location_id'):
+                    device.pre_location = AssetLocation.objects.filter(id=pre_data['location_id']).first()
+                if pre_data.get('workstation_id'):
+                    device.pre_workstation = Workstation.objects.filter(id=pre_data['workstation_id']).first()
+            except:
+                pass
+    
+    paginator = Paginator(devices_list, 20)
+    page = request.GET.get('page', 1)
+    devices = paginator.get_page(page)
+    
+    categories = AssetCategory.objects.all().order_by('code')
+    locations = AssetLocation.objects.filter(parent__isnull=True).prefetch_related('children')
+    secret_categories = Device.objects.filter(
+        is_secret=True, 
+        secret_category__isnull=False
+    ).exclude(secret_category='').values_list('secret_category', flat=True).distinct().order_by('secret_category')
+    
+    visible_field_keys = request.session.get('device_visible_fields', None)
+    if visible_field_keys:
+        visible_fields = DeviceField.objects.filter(field_key__in=visible_field_keys).order_by('sort')
+    else:
+        visible_fields = DeviceField.objects.filter(is_visible=True).order_by('sort')
+    
+    all_fields = DeviceField.objects.all().order_by('sort')
+    
+    return render(request, 'assets/device_scrap_list.html', {
+        'devices': devices,
+        'categories': categories,
+        'locations': locations,
+        'visible_fields': visible_fields,
+        'all_fields': all_fields,
+        'secret_categories': secret_categories,
+    })
+
+
+@csrf_exempt
+@login_required
+@require_http_methods(["POST"])
+def device_scrap(request, pk):
+    device = get_object_or_404(Device, pk=pk)
+    
+    pre_scrap_data = {
+        'department_id': device.department_id,
+        'user_id': device.user_id,
+        'location_id': device.location_id,
+        'workstation_id': device.workstation_id,
+    }
+    
+    old_status = device.status
+    device.status = 'scrapped'
+    device.scrap_date = timezone.now()
+    device.scrap_pre_scrap_data = json.dumps(pre_scrap_data)
+    device.department_id = None
+    device.user_id = None
+    device.location_id = None
+    device.workstation_id = None
+    device.save()
+    
+    if pre_scrap_data.get('workstation_id'):
+        Workstation.objects.filter(id=pre_scrap_data['workstation_id']).update(status='available')
+    
+    AssetLog.objects.create(
+        device=device,
+        user=request.user,
+        action='scrap',
+        field_name='status',
+        old_value=old_status,
+        new_value='scrapped',
+    )
+    
+    return JsonResponse({'success': True, 'message': '报废成功'})
+
+
+@csrf_exempt
+@login_required
+@require_http_methods(["POST"])
+def device_recall(request, pk):
+    device = get_object_or_404(Device, pk=pk)
+    recall_reason = request.POST.get('recall_reason', '')
+    
+    pre_scrap_data = {}
+    if device.scrap_pre_scrap_data:
+        try:
+            pre_scrap_data = json.loads(device.scrap_pre_scrap_data)
+        except:
+            pre_scrap_data = {}
+    
+    old_status = device.status
+    new_status = 'normal' if pre_scrap_data.get('user_id') else 'unused'
+    
+    device.status = new_status
+    device.scrap_date = None
+    device.scrap_pre_scrap_data = ''
+    device.department_id = pre_scrap_data.get('department_id')
+    device.user_id = pre_scrap_data.get('user_id')
+    device.location_id = pre_scrap_data.get('location_id')
+    device.workstation_id = pre_scrap_data.get('workstation_id')
+    device.save()
+    
+    if pre_scrap_data.get('workstation_id'):
+        Workstation.objects.filter(id=pre_scrap_data['workstation_id']).update(status='occupied')
+    
+    AssetLog.objects.create(
+        device=device,
+        user=request.user,
+        action='revoke',
+        field_name='status',
+        old_value=old_status,
+        new_value=new_status,
+        remarks=recall_reason
+    )
+    
+    return JsonResponse({'success': True, 'message': '撤回成功'})
 
 
 @login_required
@@ -519,6 +686,20 @@ def device_edit(request, pk):
 @login_required
 def device_detail(request, pk):
     device = get_object_or_404(Device.objects.select_related('category', 'location', 'user', 'department', 'workstation'), pk=pk)
+    
+    if device.status == 'scrapped' and device.scrap_pre_scrap_data:
+        try:
+            pre_data = json.loads(device.scrap_pre_scrap_data)
+            device.pre_department = Department.objects.filter(id=pre_data.get('department_id')).first() if pre_data.get('department_id') else None
+            device.pre_user = User.objects.filter(id=pre_data.get('user_id')).first() if pre_data.get('user_id') else None
+            device.pre_location = AssetLocation.objects.filter(id=pre_data.get('location_id')).first() if pre_data.get('location_id') else None
+            device.pre_workstation = Workstation.objects.filter(id=pre_data.get('workstation_id')).first() if pre_data.get('workstation_id') else None
+        except:
+            device.pre_department = None
+            device.pre_user = None
+            device.pre_location = None
+            device.pre_workstation = None
+    
     logs = device.logs.all()[:20]
     all_fields = DeviceField.objects.all().order_by('sort')
     
@@ -536,6 +717,20 @@ def device_detail(request, pk):
 
 def asset_view(request, asset_no):
     device = get_object_or_404(Device.objects.select_related('category', 'location', 'user', 'department', 'workstation'), asset_no=asset_no)
+    
+    if device.status == 'scrapped' and device.scrap_pre_scrap_data:
+        try:
+            pre_data = json.loads(device.scrap_pre_scrap_data)
+            device.pre_department = Department.objects.filter(id=pre_data.get('department_id')).first() if pre_data.get('department_id') else None
+            device.pre_user = User.objects.filter(id=pre_data.get('user_id')).first() if pre_data.get('user_id') else None
+            device.pre_location = AssetLocation.objects.filter(id=pre_data.get('location_id')).first() if pre_data.get('location_id') else None
+            device.pre_workstation = Workstation.objects.filter(id=pre_data.get('workstation_id')).first() if pre_data.get('workstation_id') else None
+        except:
+            device.pre_department = None
+            device.pre_user = None
+            device.pre_location = None
+            device.pre_workstation = None
+    
     all_fields = DeviceField.objects.all().order_by('sort')
     
     ws_location_id = None
@@ -625,18 +820,42 @@ def device_batch_scrap(request):
         device_ids = [int(i) for i in ids if i]
         
         devices = Device.objects.filter(id__in=device_ids)
+        workstation_ids = []
         for device in devices:
+            pre_scrap_data = {
+                'department_id': device.department_id,
+                'user_id': device.user_id,
+                'location_id': device.location_id,
+                'workstation_id': device.workstation_id,
+            }
+            
+            old_status = device.status
             device.status = 'scrapped'
+            device.scrap_date = timezone.now()
+            device.scrap_pre_scrap_data = json.dumps(pre_scrap_data)
+            device.department_id = None
+            device.user_id = None
+            device.location_id = None
+            device.workstation_id = None
             device.save()
+            
+            if pre_scrap_data.get('workstation_id'):
+                workstation_ids.append(pre_scrap_data['workstation_id'])
+            
             AssetLog.objects.create(
                 device=device,
                 user=request.user,
                 action='scrap',
-                new_value='标记为报废',
+                field_name='status',
+                old_value=old_status,
+                new_value='scrapped',
             )
         
-        messages.success(request, f'已标记 {len(device_ids)} 台设备为报废')
-    return redirect('device_list')
+        if workstation_ids:
+            Workstation.objects.filter(id__in=workstation_ids).update(status='available')
+        
+        messages.success(request, f'已报废 {len(device_ids)} 台设备')
+    return redirect('device_scrap_list')
 
 
 @login_required
@@ -2225,11 +2444,18 @@ def api_devices_unbound(request):
 @login_required
 def api_devices_search(request):
     q = request.GET.get('q', '').strip()
-    if not q:
+    ids_param = request.GET.get('ids', '').strip()
+    
+    if ids_param:
+        ids = [int(i) for i in ids_param.split(',') if i]
+        devices = Device.objects.filter(id__in=ids).select_related('category', 'user', 'workstation')
+    elif q:
+        devices = Device.objects.filter(
+            Q(asset_no__icontains=q) | Q(name__icontains=q) | Q(serial_no__icontains=q)
+        ).select_related('category', 'user', 'workstation')[:20]
+    else:
         return JsonResponse({'success': True, 'devices': []})
-    devices = Device.objects.filter(
-        Q(asset_no__icontains=q) | Q(name__icontains=q) | Q(serial_no__icontains=q)
-    ).select_related('category', 'user', 'workstation')[:20]
+    
     data = [{
         'id': d.id,
         'asset_no': d.asset_no,
@@ -2239,6 +2465,7 @@ def api_devices_search(request):
         'category': d.category.name if d.category else '',
         'user': d.user.realname if d.user else '',
         'workstation_id': d.workstation_id,
+        'asset_card_no': d.asset_card_no or '',
     } for d in devices]
     return JsonResponse({'success': True, 'devices': data})
 
@@ -2824,7 +3051,7 @@ def device_export(request):
     # 获取设备数据
     devices = Device.objects.select_related(
         'category', 'location', 'user', 'department', 'workstation'
-    ).order_by('id')
+    ).exclude(status='scrapped').order_by('id')
     
     # 获取搜索条件
     search = request.GET.get('search', '')

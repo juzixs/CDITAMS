@@ -230,6 +230,8 @@ class Device(models.Model):
     qrcode = models.ImageField(upload_to='qrcodes/', blank=True, verbose_name='二维码')
     photo = models.ImageField(upload_to='device_photos/', blank=True, verbose_name='设备照片')
     photo_updated_at = models.DateTimeField(null=True, blank=True, verbose_name='照片更新时间')
+    scrap_date = models.DateTimeField(null=True, blank=True, verbose_name='报废时间')
+    scrap_pre_scrap_data = models.TextField(blank=True, verbose_name='报废前关联数据')
     
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_devices', verbose_name='创建人')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')

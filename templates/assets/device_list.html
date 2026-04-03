@@ -37,9 +37,8 @@
                 <select name="status" class="form-select">
                     <option value="">全部状态</option>
                     <option value="normal" {% if request.GET.status == 'normal' %}selected{% endif %}>使用</option>
-                    <option value="fault" {% if request.GET.status == 'fault' %}selected{% endif %}>故障</option>
-                    <option value="scrapped" {% if request.GET.status == 'scrapped' %}selected{% endif %}>报废</option>
                     <option value="unused" {% if request.GET.status == 'unused' %}selected{% endif %}>闲置</option>
+                    <option value="fault" {% if request.GET.status == 'fault' %}selected{% endif %}>故障</option>
                 </select>
             </div>
             <div class="col-auto">
@@ -96,7 +95,7 @@
             </div>
             <div class="col-auto ms-auto">
                 <a href="{% url 'device_fault_list' %}" class="btn btn-sm btn-warning"><i class="fas fa-exclamation-triangle"></i> 故障设备</a>
-                <a href="#" class="btn btn-sm btn-secondary"><i class="fas fa-times"></i> 报废设备</a>
+                <a href="{% url 'device_scrap_list' %}" class="btn btn-sm btn-secondary"><i class="fas fa-trash-alt"></i> 报废设备</a>
             </div>
         </form>
     </div>
@@ -200,7 +199,7 @@
                                 {% else %}
                                 <button type="button" class="btn btn-sm btn-outline-warning" onclick="faultDevice({{ device.id }})" title="报障"><i class="fas fa-exclamation-triangle"></i></button>
                                 {% endif %}
-                                <button type="button" class="btn btn-sm btn-outline-danger" onclick="alert('报废功能开发中...')" title="报废"><i class="fas fa-times"></i></button>
+                                <button type="button" class="btn btn-sm btn-outline-danger" onclick="scrapDevice({{ device.id }}, '{{ device.asset_no }}', '{{ device.name }}', {% if device.is_fixed %}'{{ device.asset_card_no }}'{% else %}null{% endif %})" title="报废"><i class="fas fa-times"></i></button>
                             </td>
                         </tr>
                         {% empty %}
@@ -301,7 +300,9 @@
     
     function batchScrap() {
         const ids = getSelectedIds();
-        if (ids.length === 0) return alert('请选择要标记的设备');
+        if (ids.length === 0) return alert('请选择要报废的设备');
+        if (!confirm('确定要报废选中的 ' + ids.length + ' 台设备吗？报废后将清空所有关联信息。')) return;
+        
         const form = document.createElement('form');
         form.method = 'post';
         form.action = '{% url "device_batch_scrap" %}';
@@ -397,6 +398,7 @@
     
     let currentFaultDeviceId = null;
     let currentRepairDeviceId = null;
+    let currentScrapDeviceId = null;
     
     function faultDevice(deviceId) {
         currentFaultDeviceId = deviceId;
@@ -450,6 +452,78 @@
                 alert('维修失败: ' + data.message);
             }
         });
+    }
+    
+    function scrapDevice(deviceId, assetNo, deviceName, assetCardNo) {
+        currentScrapDeviceId = deviceId;
+        let info = assetNo + ' · ' + deviceName;
+        if (assetCardNo) {
+            info += ' · ' + assetCardNo;
+        }
+        document.getElementById('scrapDeviceInfo').textContent = info;
+        $('#scrapModal').modal('show');
+    }
+    
+    function submitScrap() {
+        $.ajax({
+            url: '/assets/' + currentScrapDeviceId + '/scrap/',
+            type: 'POST',
+            contentType: 'application/json',
+            headers: {'X-CSRFToken': '{{ csrf_token }}'},
+            success: function(res) {
+                if (res.success) {
+                    $('#scrapModal').modal('hide');
+                    alert('报废成功');
+                    location.reload();
+                } else {
+                    alert('报废失败: ' + res.message);
+                }
+            }
+        });
+    }
+    
+    let currentScrapDeviceIds = [];
+    
+    function batchScrap() {
+        const ids = getSelectedIds();
+        if (ids.length === 0) return alert('请选择要报废的设备');
+        
+        currentScrapDeviceIds = ids;
+        document.getElementById('scrapCount').textContent = ids.length;
+        
+        const tbody = document.getElementById('scrapDeviceListBody');
+        tbody.innerHTML = '<tr><td colspan="3" class="text-center">加载中...</td></tr>';
+        
+        fetch('/assets/api/devices/search/?ids=' + ids.join(','), {
+            method: 'GET',
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.devices && data.devices.length > 0) {
+                let html = '';
+                data.devices.forEach(function(d) {
+                    html += '<tr><td>' + d.asset_no + '</td><td>' + d.name + '</td><td>' + (d.asset_card_no || '-') + '</td></tr>';
+                });
+                tbody.innerHTML = html;
+            } else {
+                tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">未找到设备信息</td></tr>';
+            }
+        })
+        .catch(function() {
+            tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">加载失败</td></tr>';
+        });
+        
+        $('#batchScrapModal').modal('show');
+    }
+    
+    function submitBatchScrap() {
+        const form = document.createElement('form');
+        form.method = 'post';
+        form.action = '{% url "device_batch_scrap" %}';
+        form.innerHTML = '{% csrf_token %}<input type="hidden" name="ids" value="' + currentScrapDeviceIds.join(',') + '">';
+        document.body.appendChild(form);
+        $('#batchScrapModal').modal('hide');
+        form.submit();
     }
     
     // 字段显示控制
@@ -650,6 +724,61 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
                 <button type="button" class="btn btn-success" onclick="submitRepair()"><i class="fas fa-check me-1"></i>提交</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 报废弹窗 -->
+<div class="modal fade" id="scrapModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger">
+                <h5 class="modal-title"><i class="fas fa-times me-2"></i>报废</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-1"></i>报废后将清空所属部门、使用人、位置和工位信息。
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">报废设备信息</label>
+                    <div id="scrapDeviceInfo" class="form-control" style="min-height:60px;white-space:pre-wrap;"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger" onclick="submitScrap()"><i class="fas fa-check me-1"></i>确认报废</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 批量报废弹窗 -->
+<div class="modal fade" id="batchScrapModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-danger">
+                <h5 class="modal-title"><i class="fas fa-times me-2"></i>批量报废</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-1"></i>报废后将清空所有选中设备的所属部门、使用人、位置和工位信息。
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">待报废设备（共 <span id="scrapCount">0</span> 台）</label>
+                    <div id="scrapDeviceList" class="table-responsive" style="max-height:400px;overflow-y:auto;">
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-light"><tr><th>资产编号</th><th>设备名称</th><th>资产卡片号</th></tr></thead>
+                            <tbody id="scrapDeviceListBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger" onclick="submitBatchScrap()"><i class="fas fa-check me-1"></i>确认报废</button>
             </div>
         </div>
     </div>
