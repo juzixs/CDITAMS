@@ -172,6 +172,130 @@ def device_list(request):
 
 
 @login_required
+def device_fault_list(request):
+    search = request.GET.get('search', '')
+    category_id = request.GET.get('category', '')
+    location_id = request.GET.get('location', '')
+    secret_level = request.GET.get('secret_level', '')
+    is_fixed = request.GET.get('is_fixed', '')
+    is_secret = request.GET.get('is_secret', '')
+    secret_category = request.GET.get('secret_category', '')
+    
+    devices = Device.objects.select_related('category', 'location', 'user', 'department', 'workstation').filter(status='fault').order_by('id')
+    
+    if search:
+        devices = devices.filter(
+            Q(asset_no__icontains=search) | 
+            Q(name__icontains=search) | 
+            Q(serial_no__icontains=search) |
+            Q(device_no__icontains=search) |
+            Q(model__icontains=search) |
+            Q(user__realname__icontains=search) |
+            Q(department__name__icontains=search) |
+            Q(mac_address__icontains=search) |
+            Q(ip_address__icontains=search) |
+            Q(remarks__icontains=search) |
+            Q(category__name__icontains=search) |
+            Q(location__name__icontains=search) |
+            Q(location_text__icontains=search) |
+            Q(workstation__workstation_code__icontains=search)
+        ).distinct()
+    if category_id:
+        devices = devices.filter(category_id=category_id)
+    if location_id:
+        devices = devices.filter(location_id=location_id)
+    if secret_level:
+        devices = devices.filter(secret_level=secret_level)
+    if is_fixed:
+        devices = devices.filter(is_fixed=True)
+    if is_secret:
+        devices = devices.filter(is_secret=True)
+    if secret_category:
+        devices = devices.filter(secret_category=secret_category)
+    
+    paginator = Paginator(devices, 20)
+    page = request.GET.get('page', 1)
+    devices = paginator.get_page(page)
+    
+    categories = AssetCategory.objects.all().order_by('code')
+    locations = AssetLocation.objects.filter(parent__isnull=True).prefetch_related('children')
+    secret_categories = Device.objects.filter(
+        is_secret=True, 
+        secret_category__isnull=False
+    ).exclude(secret_category='').values_list('secret_category', flat=True).distinct().order_by('secret_category')
+    
+    visible_field_keys = request.session.get('device_visible_fields', None)
+    if visible_field_keys:
+        visible_fields = DeviceField.objects.filter(field_key__in=visible_field_keys).order_by('sort')
+    else:
+        visible_fields = DeviceField.objects.filter(is_visible=True).order_by('sort')
+    
+    all_fields = DeviceField.objects.all().order_by('sort')
+    
+    return render(request, 'assets/device_fault_list.html', {
+        'devices': devices,
+        'categories': categories,
+        'locations': locations,
+        'visible_fields': visible_fields,
+        'all_fields': all_fields,
+        'secret_categories': secret_categories,
+    })
+
+
+@csrf_exempt
+@login_required
+@require_http_methods(["POST"])
+def device_fault(request, pk):
+    device = get_object_or_404(Device, pk=pk)
+    fault_reason = request.POST.get('fault_reason', '')
+    
+    old_status = device.status
+    device.status = 'fault'
+    device.fault_reason = fault_reason
+    device.save()
+    
+    AssetLog.objects.create(
+        device=device,
+        user=request.user,
+        action='fault',
+        field_name='status',
+        old_value=old_status,
+        new_value='fault',
+        remarks=fault_reason
+    )
+    
+    return JsonResponse({'success': True, 'message': '报障成功'})
+
+
+@csrf_exempt
+@login_required
+@require_http_methods(["POST"])
+def device_repair(request, pk):
+    device = get_object_or_404(Device, pk=pk)
+    repair_reason = request.POST.get('repair_reason', '')
+    
+    old_status = device.status
+    # 根据设备是否有使用人判断状态
+    new_status = 'normal' if device.user_id else 'unused'
+    
+    device.status = new_status
+    device.fault_reason = ''
+    device.save()
+    
+    AssetLog.objects.create(
+        device=device,
+        user=request.user,
+        action='repair',
+        field_name='status',
+        old_value=old_status,
+        new_value=new_status,
+        remarks=repair_reason
+    )
+    
+    return JsonResponse({'success': True, 'message': '维修成功'})
+
+
+@login_required
 @csrf_exempt
 def api_save_field_visibility(request):
     if request.method == 'POST':

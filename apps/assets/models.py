@@ -220,6 +220,7 @@ class Device(models.Model):
     disk_serial = models.CharField(max_length=128, blank=True, verbose_name='硬盘序列号')
     purpose = models.CharField(max_length=256, blank=True, verbose_name='用途')
     remarks = models.TextField(blank=True, verbose_name='备注')
+    fault_reason = models.TextField(blank=True, verbose_name='故障原因')
     
     is_fixed = models.BooleanField(default=False, verbose_name='固资在账')
     asset_card_no = models.CharField(max_length=64, blank=True, verbose_name='卡片编号')
@@ -578,6 +579,7 @@ class AssetLog(models.Model):
         ('repair', '维修'),
         ('scrap', '报废'),
         ('revoke', '回收'),
+        ('fault', '报障'),
     ]
     
     device = models.ForeignKey(Device, on_delete=models.CASCADE, related_name='logs', verbose_name='设备')

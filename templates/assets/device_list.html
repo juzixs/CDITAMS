@@ -94,6 +94,10 @@
                     </div>
                 </div>
             </div>
+            <div class="col-auto ms-auto">
+                <a href="{% url 'device_fault_list' %}" class="btn btn-sm btn-warning"><i class="fas fa-exclamation-triangle"></i> 故障设备</a>
+                <a href="#" class="btn btn-sm btn-secondary"><i class="fas fa-times"></i> 报废设备</a>
+            </div>
         </form>
     </div>
 </div>
@@ -191,6 +195,12 @@
                                 {% else %}
                                 <button type="button" class="btn btn-sm btn-outline-success" onclick="openAssignModal({{ device.id }})" title="分配"><i class="fas fa-user-plus"></i></button>
                                 {% endif %}
+                                {% if device.status == 'fault' %}
+                                <button type="button" class="btn btn-sm btn-outline-success" onclick="repairDevice({{ device.id }})" title="维修"><i class="fas fa-wrench"></i></button>
+                                {% else %}
+                                <button type="button" class="btn btn-sm btn-outline-warning" onclick="faultDevice({{ device.id }})" title="报障"><i class="fas fa-exclamation-triangle"></i></button>
+                                {% endif %}
+                                <button type="button" class="btn btn-sm btn-outline-danger" onclick="alert('报废功能开发中...')" title="报废"><i class="fas fa-times"></i></button>
                             </td>
                         </tr>
                         {% empty %}
@@ -385,6 +395,63 @@
         });
     }
     
+    let currentFaultDeviceId = null;
+    let currentRepairDeviceId = null;
+    
+    function faultDevice(deviceId) {
+        currentFaultDeviceId = deviceId;
+        document.getElementById('faultReason').value = '';
+        $('#faultModal').modal('show');
+    }
+    
+    function submitFault() {
+        const reason = document.getElementById('faultReason').value;
+        const formData = new FormData();
+        formData.append('fault_reason', reason);
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+        
+        fetch('/assets/' + currentFaultDeviceId + '/fault/', {
+            method: 'POST',
+            body: formData
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                alert('报障成功');
+                location.reload();
+            } else {
+                alert('报障失败: ' + data.message);
+            }
+        });
+    }
+    
+    function repairDevice(deviceId) {
+        currentRepairDeviceId = deviceId;
+        document.getElementById('repairReason').value = '';
+        $('#repairModal').modal('show');
+    }
+    
+    function submitRepair() {
+        const reason = document.getElementById('repairReason').value;
+        const formData = new FormData();
+        formData.append('repair_reason', reason);
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+        
+        fetch('/assets/' + currentRepairDeviceId + '/repair/', {
+            method: 'POST',
+            body: formData
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                alert('维修成功');
+                location.reload();
+            } else {
+                alert('维修失败: ' + data.message);
+            }
+        });
+    }
+    
     // 字段显示控制
     function saveFieldVisibility() {
         const checked = Array.from(document.querySelectorAll('.field-check:checked')).map(cb => cb.value);
@@ -539,6 +606,50 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 报障弹窗 -->
+<div class="modal fade" id="faultModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title"><i class="fas fa-exclamation-triangle me-2"></i>报障</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">故障现象（选填）</label>
+                    <textarea class="form-control" id="faultReason" rows="3" placeholder="请输入故障现象..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-warning" onclick="submitFault()"><i class="fas fa-check me-1"></i>提交</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 维修弹窗 -->
+<div class="modal fade" id="repairModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success">
+                <h5 class="modal-title"><i class="fas fa-wrench me-2"></i>维修</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">故障原因（选填）</label>
+                    <textarea class="form-control" id="repairReason" rows="3" placeholder="请输入故障原因..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-success" onclick="submitRepair()"><i class="fas fa-check me-1"></i>提交</button>
             </div>
         </div>
     </div>

@@ -3,11 +3,14 @@ from . import views
 
 urlpatterns = [
     path('', views.device_list, name='device_list'),
+    path('fault/', views.device_fault_list, name='device_fault_list'),
     path('create/', views.device_create, name='device_create'),
     path('view/<str:asset_no>/', views.asset_view, name='asset_view'),
     path('<int:pk>/', views.device_detail, name='device_detail'),
     path('<int:pk>/edit/', views.device_edit, name='device_edit'),
     path('<int:pk>/delete/', views.device_delete, name='device_delete'),
+    path('<int:pk>/fault/', views.device_fault, name='device_fault'),
+    path('<int:pk>/repair/', views.device_repair, name='device_repair'),
     path('<int:pk>/print/', views.device_print_label, name='device_print_label'),
     path('<int:pk>/assign/', views.api_device_assign, name='api_device_assign'),
     path('<int:pk>/revoke/', views.api_device_revoke, name='api_device_revoke'),
