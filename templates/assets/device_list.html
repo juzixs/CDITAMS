@@ -23,6 +23,17 @@
                 <input type="text" name="search" class="form-control" placeholder="搜索所有信息..." value="{{ request.GET.search }}">
             </div>
             <div class="col-md-1">
+                <select name="secret_level" class="form-select">
+                    <option value="">全部密级</option>
+                    <option value="public" {% if request.GET.secret_level == 'public' %}selected{% endif %}>公开</option>
+                    <option value="internal" {% if request.GET.secret_level == 'internal' %}selected{% endif %}>内部</option>
+                    <option value="confidential" {% if request.GET.secret_level == 'confidential' %}selected{% endif %}>秘密</option>
+                    <option value="secret" {% if request.GET.secret_level == 'secret' %}selected{% endif %}>机密</option>
+                    <option value="top_secret" {% if request.GET.secret_level == 'top_secret' %}selected{% endif %}>绝密</option>
+                    <option value="commercial_secret" {% if request.GET.secret_level == 'commercial_secret' %}selected{% endif %}>商密</option>
+                </select>
+            </div>
+            <div class="col-md-1">
                 <select name="status" class="form-select">
                     <option value="">全部状态</option>
                     <option value="normal" {% if request.GET.status == 'normal' %}selected{% endif %}>使用</option>

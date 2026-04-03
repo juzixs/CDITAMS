@@ -99,12 +99,13 @@ def device_list(request):
     search = request.GET.get('search', '')
     category_id = request.GET.get('category', '')
     location_id = request.GET.get('location', '')
+    secret_level = request.GET.get('secret_level', '')
     status = request.GET.get('status', '')
     is_fixed = request.GET.get('is_fixed', '')
     is_secret = request.GET.get('is_secret', '')
     secret_category = request.GET.get('secret_category', '')
     
-    devices = Device.objects.select_related('category', 'location', 'user', 'department').order_by('id').all()
+    devices = Device.objects.select_related('category', 'location', 'user', 'department', 'workstation').order_by('id').all()
     
     if search:
         devices = devices.filter(
@@ -117,12 +118,18 @@ def device_list(request):
             Q(department__name__icontains=search) |
             Q(mac_address__icontains=search) |
             Q(ip_address__icontains=search) |
-            Q(remarks__icontains=search)
-        )
+            Q(remarks__icontains=search) |
+            Q(category__name__icontains=search) |
+            Q(location__name__icontains=search) |
+            Q(location_text__icontains=search) |
+            Q(workstation__workstation_code__icontains=search)
+        ).distinct()
     if category_id:
         devices = devices.filter(category_id=category_id)
     if location_id:
         devices = devices.filter(location_id=location_id)
+    if secret_level:
+        devices = devices.filter(secret_level=secret_level)
     if status:
         devices = devices.filter(status=status)
     if is_fixed:
