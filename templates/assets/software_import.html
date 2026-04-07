@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+{% block title %}导入软件 - 驰达IT资产管理系统{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4><i class="fas fa-file-import me-2"></i>导入软件</h4>
+    <div>
+        <a href="{% url 'software_list' %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left me-1"></i>返回列表</a>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header bg-primary text-white">
+        <i class="fas fa-info-circle me-2"></i>导入说明
+    </div>
+    <div class="card-body">
+        <ol class="mb-0">
+            <li>点击"下载模板"按钮获取Excel导入模板</li>
+            <li>按照模板格式填写软件信息</li>
+            <li><strong>软件名称</strong>为必填项</li>
+            <li>授权数量填写 <strong>-1</strong> 表示无限制</li>
+            <li>固资在账填写：是/否</li>
+            <li>日期格式：2024-01-01</li>
+            <li>资产编号如已存在将自动跳过</li>
+        </ol>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">
+        <i class="fas fa-upload me-2"></i>上传文件
+    </div>
+    <div class="card-body">
+        <form method="post" enctype="multipart/form-data" class="mb-3">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label class="form-label">选择Excel文件</label>
+                <input type="file" name="excel_file" class="form-control" accept=".xlsx,.xls" required>
+            </div>
+            <button type="submit" class="btn btn-primary"><i class="fas fa-upload me-1"></i>导入</button>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fas fa-table me-2"></i>模板格式
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-bordered table-sm">
+                <thead class="table-light">
+                    <tr>
+                        <th class="text-center">资产编号</th>
+                        <th class="text-center">编号</th>
+                        <th class="text-center text-danger">软件名称*</th>
+                        <th class="text-center">版本</th>
+                        <th class="text-center">供应商</th>
+                        <th class="text-center">授权类型</th>
+                        <th class="text-center">授权数量</th>
+                        <th class="text-center">价格</th>
+                        <th class="text-center">购买日期</th>
+                        <th class="text-center">到期日期</th>
+                        <th class="text-center">固资在账</th>
+                        <th class="text-center">卡片编号</th>
+                        <th class="text-center">描述</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>SW-001</td>
+                        <td>编号001</td>
+                        <td>Microsoft Office</td>
+                        <td>2024</td>
+                        <td>微软</td>
+                        <td>永久授权</td>
+                        <td>100</td>
+                        <td>5000</td>
+                        <td>2024-01-01</td>
+                        <td>2025-12-31</td>
+                        <td>是</td>
+                        <td>KA-001</td>
+                        <td>办公软件</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="text-muted mt-2">
+            <small>* 授权类型可选值：永久授权、订阅、开源、免费、试用<br>
+            * 授权数量填写 -1 表示无限制<br>
+            * 固资在账填写：是/否</small>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -392,21 +392,27 @@ class Software(models.Model):
     LICENSE_TYPES = [
         ('perpetual', '永久授权'),
         ('subscription', '订阅'),
+        ('open', '开源'),
         ('free', '免费'),
         ('trial', '试用'),
     ]
     
+    asset_no = models.CharField(max_length=64, unique=True, blank=True, null=True, verbose_name='资产编号')
+    device_no = models.CharField(max_length=64, blank=True, null=True, verbose_name='编号')
+    serial_no = models.CharField(max_length=128, blank=True, null=True, verbose_name='序列号')
     name = models.CharField(max_length=128, verbose_name='软件名称')
     category = models.ForeignKey(SoftwareCategory, on_delete=models.SET_NULL, null=True, blank=True, related_name='software', verbose_name='分类')
-    version = models.CharField(max_length=32, blank=True, verbose_name='版本')
-    vendor = models.CharField(max_length=128, blank=True, verbose_name='供应商')
+    version = models.CharField(max_length=32, blank=True, null=True, verbose_name='版本')
+    vendor = models.CharField(max_length=128, blank=True, null=True, verbose_name='供应商')
     license_type = models.CharField(max_length=32, choices=LICENSE_TYPES, default='perpetual', verbose_name='授权类型')
     license_count = models.IntegerField(null=True, blank=True, verbose_name='授权数量')
     license_used = models.IntegerField(default=0, verbose_name='已使用数量')
     purchase_date = models.DateField(null=True, blank=True, verbose_name='购买日期')
     expire_date = models.DateField(null=True, blank=True, verbose_name='到期日期')
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name='价格')
-    description = models.TextField(blank=True, verbose_name='描述')
+    description = models.TextField(blank=True, null=True, verbose_name='描述')
+    is_fixed = models.BooleanField(default=False, verbose_name='固资在账')
+    asset_card_no = models.CharField(max_length=64, blank=True, null=True, verbose_name='卡片编号')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
 
@@ -417,6 +423,50 @@ class Software(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class SoftwareField(models.Model):
+    TYPE_CHOICES = [
+        ('text', '文本'),
+        ('textarea', '多行文本'),
+        ('number', '数字'),
+        ('select', '下拉选择'),
+        ('multi_select', '多选'),
+        ('date', '日期'),
+        ('datetime', '日期时间'),
+        ('checkbox', '复选框'),
+        ('file', '文件上传'),
+    ]
+    
+    name = models.CharField(max_length=64, verbose_name='字段名称')
+    field_key = models.CharField(max_length=32, unique=True, verbose_name='字段键名')
+    field_type = models.CharField(max_length=20, choices=TYPE_CHOICES, default='text', verbose_name='字段类型')
+    is_required = models.BooleanField(default=False, verbose_name='是否必填')
+    is_visible = models.BooleanField(default=True, verbose_name='是否可见')
+    options = models.TextField(blank=True, verbose_name='选项(JSON)')
+    default_value = models.CharField(max_length=256, blank=True, verbose_name='默认值')
+    sort = models.IntegerField(default=0, verbose_name='排序')
+    is_system = models.BooleanField(default=False, verbose_name='系统字段')
+
+    class Meta:
+        db_table = 'software_fields'
+        verbose_name = '软件字段'
+        verbose_name_plural = '软件字段'
+        ordering = ['sort', 'id']
+
+    def __str__(self):
+        return self.name
+
+
+class SoftwareFieldValue(models.Model):
+    software = models.ForeignKey('Software', on_delete=models.CASCADE, related_name='field_values', verbose_name='软件')
+    field = models.ForeignKey(SoftwareField, on_delete=models.CASCADE, verbose_name='字段')
+    value = models.TextField(blank=True, verbose_name='字段值')
+
+    class Meta:
+        db_table = 'software_field_values'
+        verbose_name = '软件字段值'
+        verbose_name_plural = '软件字段值'
 
 
 class SoftwareLicense(models.Model):

@@ -1,11 +1,183 @@
 {% extends 'base.html' %}
+
 {% block title %}软件管理 - 驰达IT资产管理系统{% endblock %}
+
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-<h4>软件管理</h4>
-<a href="{% url 'software_create' %}" class="btn btn-primary"><i class="fas fa-plus"></i> 新增软件</a>
+    <h4><i class="fas fa-desktop me-2"></i>软件管理</h4>
+    <div>
+        <a href="{% url 'software_field_list' %}" class="btn btn-outline-secondary" title="字段管理"><i class="fas fa-cog"></i> 字段管理</a>
+    </div>
 </div>
-<div class="card"><div class="card-body">
-<table class="table table-hover"><thead><tr><th>软件名称</th><th>版本</th><th>供应商</th><th>授权类型</th><th>授权数量</th><th>已使用</th></tr></thead>
-<tbody>{% for s in software_list %}<tr><td>{{ s.name }}</td><td>{{ s.version|default:'-' }}</td><td>{{ s.vendor|default:'-' }}</td><td>{{ s.get_license_type_display }}</td><td>{{ s.license_count|default:'-' }}</td><td>{{ s.license_used }}</td></tr>{% empty %}<tr><td colspan="6" class="text-center text-muted">暂无数据</td></tr>{% endfor %}</tbody></table>
-</div></div>{% endblock %}
+
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-2 align-items-center">
+            <div class="col-md-4">
+                <input type="text" name="search" class="form-control" placeholder="搜索所有信息..." value="{{ request.GET.search }}">
+            </div>
+            <div class="col-md-2">
+                <select name="license_type" class="form-select">
+                    <option value="">全部授权类型</option>
+                    <option value="perpetual" {% if request.GET.license_type == 'perpetual' %}selected{% endif %}>永久授权</option>
+                    <option value="subscription" {% if request.GET.license_type == 'subscription' %}selected{% endif %}>订阅</option>
+                    <option value="open" {% if request.GET.license_type == 'open' %}selected{% endif %}>开源</option>
+                    <option value="free" {% if request.GET.license_type == 'free' %}selected{% endif %}>免费</option>
+                    <option value="trial" {% if request.GET.license_type == 'trial' %}selected{% endif %}>试用</option>
+                </select>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary"><i class="fas fa-search me-1"></i>搜索</button>
+                <a href="{% url 'software_list' %}" class="btn btn-outline-secondary">重置</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="post" id="batchForm">
+            {% csrf_token %}
+            <div class="mb-3 d-flex justify-content-between">
+                <div>
+                    <button type="button" class="btn btn-sm btn-danger" onclick="batchDelete()"><i class="fas fa-trash"></i> 批量删除</button>
+                </div>
+                <div>
+                    <a href="{% url 'software_create' %}" class="btn btn-sm btn-primary"><i class="fas fa-plus"></i> 新增软件</a>
+                    <a href="{% url 'software_import' %}" class="btn btn-sm btn-info"><i class="fas fa-file-import"></i> 导入软件</a>
+                    <a href="{% url 'software_export' %}" class="btn btn-sm btn-info"><i class="fas fa-file-export"></i> 导出台账</a>
+                </div>
+            </div>
+            
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th style="width:30px;"><input type="checkbox" id="selectAll" onclick="toggleSelectAll()"></th>
+                            {% for field in software_fields %}
+                            <th>{{ field.name }}</th>
+                            {% endfor %}
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in software_list %}
+                        <tr>
+                            <td><input type="checkbox" name="software_ids" value="{{ s.id }}"></td>
+                            <td>{{ s.name }}</td>
+                            <td>{{ s.asset_no|default:'-' }}</td>
+                            <td>{{ s.device_no|default:'-' }}</td>
+                            <td>{{ s.version|default:'-' }}</td>
+                            <td>{{ s.vendor|default:'-' }}</td>
+                            <td>{{ s.get_license_type_display }}</td>
+                            <td>{% if s.license_count is None %}<span class="text-success">无限制</span>{% else %}{{ s.license_count }}{% endif %}</td>
+                            <td>{{ s.price|default:'-' }}</td>
+                            <td>{{ s.is_fixed|yesno:'是,否' }}</td>
+                            <td>{{ s.asset_card_no|default:'-' }}</td>
+                            <td>{{ s.description|default:'-'|truncatechars:30 }}</td>
+                            <td>
+                                <a href="{% url 'software_detail' s.id %}" class="btn btn-sm btn-outline-primary" title="查看详情"><i class="fas fa-eye"></i></a>
+                                <a href="{% url 'software_edit' s.id %}" class="btn btn-sm btn-outline-secondary" title="编辑"><i class="fas fa-edit"></i></a>
+                                <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteSoftware({{ s.id }})" title="删除"><i class="fas fa-trash"></i></button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="{{ software_fields|length|add:2 }}" class="text-center text-muted">暂无数据</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            {% if software_list.has_other_pages %}
+            <nav>
+                <ul class="pagination justify-content-center">
+                    {% if software_list.has_previous %}
+                    <li class="page-item"><a class="page-link" href="#" onclick="goToPage({{ software_list.previous_page_number }}); return false;">上一页</a></li>
+                    {% endif %}
+                    {% for num in software_list.paginator.page_range %}
+                    <li class="page-item {% if software_list.number == num %}active{% endif %}"><a class="page-link" href="#" onclick="goToPage({{ num }}); return false;">{{ num }}</a></li>
+                    {% endfor %}
+                    {% if software_list.has_next %}
+                    <li class="page-item"><a class="page-link" href="#" onclick="goToPage({{ software_list.next_page_number }}); return false;">下一页</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function goToPage(pageNum) {
+        const form = document.querySelector('form[method="get"]');
+        const formData = new FormData(form);
+        const params = new URLSearchParams(formData);
+        params.set('page', pageNum);
+        window.location.href = '?' + params.toString();
+    }
+    
+    function getSelectedIds() {
+        const checkboxes = document.querySelectorAll('input[name="software_ids"]:checked');
+        return Array.from(checkboxes).map(cb => cb.value);
+    }
+    
+    function toggleSelectAll() {
+        const selectAll = document.getElementById('selectAll');
+        const checkboxes = document.querySelectorAll('input[name="software_ids"]');
+        checkboxes.forEach(cb => cb.checked = selectAll.checked);
+    }
+    
+    function deleteSoftware(softwareId) {
+        if (!confirm('确定要删除该软件吗？')) return;
+        
+        function getCookie(name) {
+            var cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                var cookies = document.cookie.split(';');
+                for (var i = 0; i < cookies.length; i++) {
+                    var cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        var csrftoken = getCookie('csrftoken');
+        
+        fetch('/assets/software/' + softwareId + '/delete/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrftoken,
+            }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                alert('删除成功');
+                location.reload();
+            } else {
+                alert('删除失败: ' + data.message);
+            }
+        });
+    }
+    
+    function batchDelete() {
+        const ids = getSelectedIds();
+        if (ids.length === 0) return alert('请选择要删除的软件');
+        if (!confirm('确定要删除选中的 ' + ids.length + ' 个软件吗？')) return;
+        
+        const form = document.createElement('form');
+        form.method = 'post';
+        form.action = '{% url "software_batch_delete" %}';
+        form.innerHTML = '{% csrf_token %}<input type="hidden" name="ids" value="' + ids.join(',') + '">';
+        document.body.appendChild(form);
+        form.submit();
+    }
+</script>
+{% endblock %}

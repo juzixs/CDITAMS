@@ -82,6 +82,16 @@ urlpatterns = [
     
     path('software/', views.software_list, name='software_list'),
     path('software/create/', views.software_create, name='software_create'),
+    path('software/<int:pk>/', views.software_detail, name='software_detail'),
+    path('software/<int:pk>/edit/', views.software_edit, name='software_edit'),
+    path('software/<int:pk>/delete/', views.software_delete, name='software_delete'),
+    path('software/batch/delete/', views.software_batch_delete, name='software_batch_delete'),
+    path('software/import/', views.software_import, name='software_import'),
+    path('software/export/', views.software_export, name='software_export'),
+    path('software/fields/', views.software_field_list, name='software_field_list'),
+    path('software/fields/create/', views.software_field_create, name='software_field_create'),
+    path('software/fields/<int:pk>/edit/', views.software_field_edit, name='software_field_edit'),
+    path('software/fields/<int:pk>/delete/', views.software_field_delete, name='software_field_delete'),
     
     path('consumables/', views.consumable_list, name='consumable_list'),
     path('consumables/create/', views.consumable_create, name='consumable_create'),

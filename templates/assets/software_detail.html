@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+
+{% block title %}软件详情 - 驰达IT资产管理系统{% endblock %}
+
+{% block content %}
+<div class="content-wrapper">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4><i class="fas fa-desktop"></i> 软件详情</h4>
+        <div>
+            <a href="{% url 'software_list' %}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left"></i> 返回</a>
+            <a href="{% url 'software_edit' software.id %}" class="btn btn-primary btn-sm"><i class="fas fa-edit"></i> 编辑</a>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-12">
+            <div class="card border-primary mb-3">
+                <div class="card-header bg-primary text-white py-2"><i class="fas fa-info-circle me-2"></i>基本信息</div>
+                <div class="card-body p-0">
+                    <table class="table table-borderless table-sm mb-0">
+                        <tr><td class="py-2 ps-3" style="width:140px;"><strong class="text-muted">软件名称</strong></td><td class="py-2" style="font-size:15px;"><strong>{{ software.name }}</strong></td></tr>
+                        <tr><td class="py-2 ps-3" style="width:140px;"><strong class="text-muted">资产编号</strong></td><td class="py-2" style="font-size:15px;">{{ software.asset_no|default:'-' }}</td></tr>
+                        <tr><td class="py-2 ps-3" style="width:140px;"><strong class="text-muted">编号</strong></td><td class="py-2" style="font-size:15px;">{{ software.device_no|default:'-' }}</td></tr>
+                        <tr><td class="py-2 ps-3" style="width:140px;"><strong class="text-muted">版本</strong></td><td class="py-2" style="font-size:15px;">{{ software.version|default:'-' }}</td></tr>
+                        <tr><td class="py-2 ps-3" style="width:140px;"><strong class="text-muted">供应商</strong></td><td class="py-2" style="font-size:15px;">{{ software.vendor|default:'-' }}</td></tr>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="card border-info mb-3">
+                <div class="card-header bg-info text-white py-2"><i class="fas fa-key me-2"></i>授权信息</div>
+                <div class="card-body p-0">
+                    <table class="table table-borderless table-sm mb-0">
+                        <tr><td class="py-2 ps-3" style="width:140px;"><strong class="text-muted">授权类型</strong></td><td class="py-2" style="font-size:15px;">{{ software.get_license_type_display }}</td></tr>
+                        <tr><td class="py-2 ps-3" style="width:140px;"><strong class="text-muted">授权数量</strong></td><td class="py-2" style="font-size:15px;">{% if software.license_count is None %}<span class="text-success">无限制</span>{% else %}{{ software.license_count }}{% endif %}</td></tr>
+                        <tr><td class="py-2 ps-3" style="width:140px;"><strong class="text-muted">价格</strong></td><td class="py-2" style="font-size:15px;">{{ software.price|default:'-' }}</td></tr>
+                        <tr><td class="py-2 ps-3" style="width:140px;"><strong class="text-muted">购买日期</strong></td><td class="py-2" style="font-size:15px;">{{ software.purchase_date|default:'-' }}</td></tr>
+                        <tr><td class="py-2 ps-3" style="width:140px;"><strong class="text-muted">到期日期</strong></td><td class="py-2" style="font-size:15px;">{{ software.expire_date|default:'-' }}</td></tr>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="card border-secondary mb-3">
+                <div class="card-header bg-secondary text-white py-2"><i class="fas fa-cog me-2"></i>其他信息</div>
+                <div class="card-body p-0">
+                    <table class="table table-borderless table-sm mb-0">
+                        <tr><td class="py-2 ps-3" style="width:140px;"><strong class="text-muted">固资在账</strong></td><td class="py-2" style="font-size:15px;">{% if software.is_fixed %}<span class="badge bg-success">是</span>{% else %}<span class="badge bg-secondary">否</span>{% endif %}</td></tr>
+                        <tr><td class="py-2 ps-3" style="width:140px;"><strong class="text-muted">卡片编号</strong></td><td class="py-2" style="font-size:15px;">{{ software.asset_card_no|default:'-' }}</td></tr>
+                        <tr><td class="py-2 ps-3" style="width:140px;"><strong class="text-muted">描述</strong></td><td class="py-2" style="font-size:15px;">{{ software.description|default:'-' }}</td></tr>
+                        <tr><td class="py-2 ps-3" style="width:140px;"><strong class="text-muted">创建时间</strong></td><td class="py-2" style="font-size:15px;">{{ software.created_at|default:'-' }}</td></tr>
+                        <tr><td class="py-2 ps-3" style="width:140px;"><strong class="text-muted">更新时间</strong></td><td class="py-2" style="font-size:15px;">{{ software.updated_at|default:'-' }}</td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

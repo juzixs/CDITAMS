@@ -1,30 +1,95 @@
 {% extends 'base.html' %}
-{% block title %}新增软件 - 驰达IT资产管理系统{% endblock %}
+{% block title %}{% if software %}编辑{% else %}新增{% endif %}软件 - 驰达IT资产管理系统{% endblock %}
 {% block extra_css %}
 <link href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" rel="stylesheet" />
 {% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4"><h4>新增软件</h4></div>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4>{% if software %}<i class="fas fa-edit"></i> 编辑软件{% else %}<i class="fas fa-plus"></i> 新增软件{% endif %}</h4>
+    <div>
+        <a href="{% url 'software_list' %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> 返回</a>
+    </div>
+</div>
 <div class="card"><div class="card-body">
 <form method="post">{% csrf_token %}
 <div class="row mb-3">
-<div class="col-md-6"><label class="form-label">软件名称 <span class="text-danger">*</span></label><input type="text" name="name" class="form-control" required></div>
-<div class="col-md-6"><label class="form-label">版本</label><input type="text" name="version" class="form-control"></div>
+    <div class="col-md-6">
+        <label class="form-label">软件名称 <span class="text-danger">*</span></label>
+        <input type="text" name="name" class="form-control" value="{{ software.name|default:'' }}" required>
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">资产编号 <span class="text-danger">*</span>（唯一性）</label>
+        <input type="text" name="asset_no" class="form-control" value="{{ software.asset_no|default:'' }}">
+    </div>
 </div>
 <div class="row mb-3">
-<div class="col-md-6"><label class="form-label">供应商</label><input type="text" name="vendor" class="form-control"></div>
-<div class="col-md-6"><label class="form-label">授权类型</label><select name="license_type" class="form-select"><option value="perpetual">永久授权</option><option value="subscription">订阅</option><option value="free">免费</option><option value="trial">试用</option></select></div>
+    <div class="col-md-6">
+        <label class="form-label">编号</label>
+        <input type="text" name="device_no" class="form-control" value="{{ software.device_no|default:'' }}">
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">版本</label>
+        <input type="text" name="version" class="form-control" value="{{ software.version|default:'' }}">
+    </div>
 </div>
 <div class="row mb-3">
-<div class="col-md-6"><label class="form-label">授权数量</label><input type="number" name="license_count" class="form-control"></div>
-<div class="col-md-6"><label class="form-label">价格</label><input type="number" name="price" step="0.01" class="form-control"></div>
+    <div class="col-md-6">
+        <label class="form-label">供应商</label>
+        <input type="text" name="vendor" class="form-control" value="{{ software.vendor|default:'' }}">
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">授权类型</label>
+        <select name="license_type" class="form-select">
+            <option value="perpetual" {% if software.license_type == 'perpetual' or not software %}selected{% endif %}>永久授权</option>
+            <option value="subscription" {% if software.license_type == 'subscription' %}selected{% endif %}>订阅</option>
+            <option value="open" {% if software.license_type == 'open' %}selected{% endif %}>开源</option>
+            <option value="free" {% if software.license_type == 'free' %}selected{% endif %}>免费</option>
+            <option value="trial" {% if software.license_type == 'trial' %}selected{% endif %}>试用</option>
+        </select>
+    </div>
 </div>
 <div class="row mb-3">
-<div class="col-md-6"><label class="form-label">购买日期</label><input type="date" name="purchase_date" class="form-control"></div>
-<div class="col-md-6"><label class="form-label">到期日期</label><input type="date" name="expire_date" class="form-control"></div>
+    <div class="col-md-6">
+        <label class="form-label">授权数量 <span class="text-muted">(-1表示无限制)</span></label>
+        <input type="number" name="license_count" class="form-control" value="{{ software.license_count|default:'' }}">
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">价格</label>
+        <input type="number" name="price" step="0.01" class="form-control" value="{{ software.price|default:'' }}">
+    </div>
 </div>
-<div class="mb-3"><label class="form-label">描述</label><textarea name="description" class="form-control" rows="2"></textarea></div>
-<div class="mt-4"><button type="submit" class="btn btn-primary">保存</button><a href="{% url 'software_list' %}" class="btn btn-outline-secondary">返回</a></div>
+<div class="row mb-3">
+    <div class="col-md-6">
+        <div class="form-check mt-4">
+            <input class="form-check-input" type="checkbox" name="is_fixed" id="is_fixed" {% if software.is_fixed %}checked{% endif %}>
+            <label class="form-check-label" for="is_fixed">固资在账</label>
+        </div>
+    </div>
+</div>
+<div class="row mb-3">
+    <div class="col-md-6">
+        <label class="form-label">购买日期</label>
+        <input type="date" name="purchase_date" class="form-control" value="{{ software.purchase_date|default:'' }}">
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">到期日期</label>
+        <input type="date" name="expire_date" class="form-control" value="{{ software.expire_date|default:'' }}">
+    </div>
+</div>
+<div class="row mb-3">
+    <div class="col-md-6">
+        <label class="form-label">卡片编号</label>
+        <input type="text" name="asset_card_no" class="form-control" value="{{ software.asset_card_no|default:'' }}">
+    </div>
+</div>
+<div class="mb-3">
+    <label class="form-label">描述</label>
+    <textarea name="description" class="form-control" rows="3">{{ software.description|default:'' }}</textarea>
+</div>
+<div class="mt-4">
+    <button type="submit" class="btn btn-primary">保存</button>
+    <a href="{% url 'software_list' %}" class="btn btn-outline-secondary">返回</a>
+</div>
 </form></div></div>
 {% endblock %}
 {% block extra_js %}

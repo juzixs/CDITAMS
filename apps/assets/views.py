@@ -22,7 +22,7 @@ import time
 from .models import (
     Device, AssetCategory, AssetLocation, DeviceField, DeviceFieldValue,
     Workstation, MapElement, MapBackground, LocationAreaBinding,
-    Software, SoftwareCategory, SoftwareLicense,
+    Software, SoftwareCategory, SoftwareLicense, SoftwareField, SoftwareFieldValue,
     Consumable, ConsumableCategory, ConsumableRecord,
     ServiceType, ServiceRequest, ServiceLog, AssetLog, LabelTemplate
 )
@@ -1403,7 +1403,6 @@ def field_create(request):
         name = request.POST.get('name')
         field_key = request.POST.get('field_key')
         field_type = request.POST.get('field_type')
-        category_id = request.POST.get('category')
         is_required = request.POST.get('is_required') == 'on'
         is_visible = request.POST.get('is_visible') == 'on'
         options = request.POST.get('options')
@@ -1414,7 +1413,6 @@ def field_create(request):
             name=name,
             field_key=field_key,
             field_type=field_type,
-            category_id=category_id if category_id else None,
             is_required=is_required,
             is_visible=is_visible,
             options=options,
@@ -1424,8 +1422,7 @@ def field_create(request):
         messages.success(request, '字段创建成功')
         return redirect('field_list')
     
-    categories = AssetCategory.objects.all()
-    return render(request, 'assets/field_form.html', {'categories': categories})
+    return render(request, 'assets/field_form.html')
 
 
 @login_required
@@ -1435,7 +1432,6 @@ def field_edit(request, pk):
     if request.method == 'POST':
         field.name = request.POST.get('name')
         field.field_type = request.POST.get('field_type')
-        field.category_id = request.POST.get('category') or None
         field.is_required = request.POST.get('is_required') == 'on'
         field.is_visible = request.POST.get('is_visible') == 'on'
         field.options = request.POST.get('options')
@@ -1449,8 +1445,7 @@ def field_edit(request, pk):
         messages.success(request, '字段更新成功')
         return redirect('field_list')
     
-    categories = AssetCategory.objects.all()
-    return render(request, 'assets/field_form.html', {'field': field, 'categories': categories})
+    return render(request, 'assets/field_form.html', {'field': field})
 
 
 @login_required
@@ -1467,30 +1462,306 @@ def field_delete(request, pk):
 
 @login_required
 def software_list(request):
-    software_list = Software.objects.all()
-    return render(request, 'assets/software_list.html', {'software_list': software_list})
+    search = request.GET.get('search', '')
+    category_id = request.GET.get('category', '')
+    license_type = request.GET.get('license_type', '')
+    
+    software_list = Software.objects.select_related('category').all()
+    
+    if search:
+        software_list = software_list.filter(
+            Q(asset_no__icontains=search) |
+            Q(name__icontains=search) |
+            Q(device_no__icontains=search) |
+            Q(serial_no__icontains=search) |
+            Q(vendor__icontains=search)
+        )
+    if category_id:
+        software_list = software_list.filter(category_id=category_id)
+    if license_type:
+        software_list = software_list.filter(license_type=license_type)
+    
+    paginator = Paginator(software_list, 20)
+    page = request.GET.get('page', 1)
+    software_list = paginator.get_page(page)
+    
+    categories = SoftwareCategory.objects.all()
+    
+    return render(request, 'assets/software_list.html', {
+        'software_list': software_list,
+        'categories': categories,
+        'software_fields': SoftwareField.objects.filter(is_visible=True),
+    })
+
+
+@login_required
+def software_detail(request, pk):
+    software = get_object_or_404(Software, pk=pk)
+    return render(request, 'assets/software_detail.html', {'software': software})
 
 
 @login_required
 def software_create(request):
     if request.method == 'POST':
-        Software.objects.create(
+        software = Software.objects.create(
+            asset_no=request.POST.get('asset_no') or None,
+            device_no=request.POST.get('device_no') or None,
+            serial_no=request.POST.get('serial_no') or None,
             name=request.POST.get('name'),
-            category_id=request.POST.get('category'),
-            version=request.POST.get('version'),
-            vendor=request.POST.get('vendor'),
-            license_type=request.POST.get('license_type'),
+            category_id=request.POST.get('category') or None,
+            version=request.POST.get('version') or None,
+            vendor=request.POST.get('vendor') or None,
+            license_type=request.POST.get('license_type', 'perpetual'),
             license_count=request.POST.get('license_count') or None,
             purchase_date=request.POST.get('purchase_date') or None,
             expire_date=request.POST.get('expire_date') or None,
             price=request.POST.get('price') or None,
-            description=request.POST.get('description'),
+            description=request.POST.get('description') or None,
+            is_fixed=request.POST.get('is_fixed') == 'on',
+            asset_card_no=request.POST.get('asset_card_no') or None,
         )
         messages.success(request, '软件创建成功')
         return redirect('software_list')
     
     categories = SoftwareCategory.objects.all()
     return render(request, 'assets/software_form.html', {'categories': categories})
+
+
+@login_required
+def software_edit(request, pk):
+    software = get_object_or_404(Software, pk=pk)
+    
+    if request.method == 'POST':
+        software.asset_no = request.POST.get('asset_no') or None
+        software.device_no = request.POST.get('device_no') or None
+        software.serial_no = request.POST.get('serial_no') or None
+        software.name = request.POST.get('name')
+        software.category_id = request.POST.get('category') or None
+        software.version = request.POST.get('version') or None
+        software.vendor = request.POST.get('vendor') or None
+        software.license_type = request.POST.get('license_type', 'perpetual')
+        software.license_count = request.POST.get('license_count') or None
+        software.purchase_date = request.POST.get('purchase_date') or None
+        software.expire_date = request.POST.get('expire_date') or None
+        software.price = request.POST.get('price') or None
+        software.description = request.POST.get('description') or None
+        software.is_fixed = request.POST.get('is_fixed') == 'on'
+        software.asset_card_no = request.POST.get('asset_card_no') or None
+        software.save()
+        
+        messages.success(request, '软件更新成功')
+        return redirect('software_list')
+    
+    categories = SoftwareCategory.objects.all()
+    return render(request, 'assets/software_form.html', {'software': software, 'categories': categories})
+
+
+@login_required
+def software_delete(request, pk):
+    if request.method == 'POST':
+        software = get_object_or_404(Software, pk=pk)
+        software.delete()
+        messages.success(request, '软件删除成功')
+    return redirect('software_list')
+
+
+@login_required
+def software_batch_delete(request):
+    if request.method == 'POST':
+        ids = request.POST.get('ids', '').split(',')
+        software_ids = [int(i) for i in ids if i]
+        Software.objects.filter(id__in=software_ids).delete()
+        messages.success(request, f'已删除 {len(software_ids)} 个软件')
+    return redirect('software_list')
+
+
+@login_required
+def software_import(request):
+    if request.method == 'POST':
+        excel_file = request.FILES.get('excel_file')
+        if not excel_file:
+            messages.error(request, '请选择文件')
+            return render(request, 'assets/software_import.html')
+        
+        try:
+            import openpyxl
+            wb = openpyxl.load_workbook(excel_file)
+            ws = wb.active
+            
+            headers = [cell.value for cell in ws[1]]
+            field_map = {}
+            for idx, header in enumerate(headers):
+                if header:
+                    for field in SoftwareField.objects.all():
+                        if field.name == header:
+                            field_map[idx] = field.field_key
+                            break
+            
+            success_count = 0
+            error_count = 0
+            errors = []
+            
+            for row_idx in range(2, ws.max_row + 1):
+                try:
+                    data = {}
+                    for idx, field_key in field_map.items():
+                        cell_value = ws.cell(row=row_idx, column=idx + 1).value
+                        if field_key == 'license_count' and cell_value == '-1':
+                            data[field_key] = None
+                        elif field_key in ['purchase_date', 'expire_date'] and cell_value:
+                            if isinstance(cell_value, str):
+                                data[field_key] = cell_value
+                            else:
+                                data[field_key] = cell_value.strftime('%Y-%m-%d') if hasattr(cell_value, 'strftime') else str(cell_value)
+                        elif field_key in ['is_fixed']:
+                            data[field_key] = str(cell_value).lower() in ['true', '1', '是', 'yes']
+                        else:
+                            data[field_key] = cell_value
+                    
+                    if data.get('name'):
+                        Software.objects.create(**data)
+                        success_count += 1
+                    else:
+                        error_count += 1
+                except Exception as e:
+                    error_count += 1
+                    errors.append(f'第{row_idx}行: {str(e)}')
+            
+            messages.success(request, f'导入成功: {success_count} 条，失败: {error_count} 条')
+            if errors:
+                messages.warning(request, '错误: ' + '; '.join(errors[:5]))
+        except Exception as e:
+            messages.error(request, f'导入失败: {str(e)}')
+    
+    return render(request, 'assets/software_import.html')
+
+
+@login_required
+def software_export(request):
+    import openpyxl
+    from django.utils import timezone as tz
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+    
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = '软件台账'
+    
+    visible_fields = SoftwareField.objects.filter(is_visible=True)
+    headers = [f.name for f in visible_fields]
+    ws.append(headers)
+    
+    header_font = Font(bold=True, size=11)
+    header_fill = PatternFill(start_color='D9E1F2', end_color='D9E1F2', fill_type='solid')
+    thin_border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    
+    for cell in ws[1]:
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+        cell.border = thin_border
+    
+    software_list = Software.objects.all()
+    
+    for s in software_list:
+        row = []
+        for field in visible_fields:
+            key = field.field_key
+            if key == 'license_type':
+                row.append(s.get_license_type_display())
+            elif key == 'license_count':
+                row.append('无限制' if s.license_count is None else s.license_count)
+            elif key == 'is_fixed':
+                row.append('是' if s.is_fixed else '否')
+            elif key in ['purchase_date', 'expire_date']:
+                row.append(getattr(s, key).strftime('%Y-%m-%d') if getattr(s, key) else '')
+            elif key in ['created_at', 'updated_at']:
+                row.append(getattr(s, key).strftime('%Y-%m-%d %H:%M') if getattr(s, key) else '')
+            else:
+                row.append(getattr(s, key) or '')
+        ws.append(row)
+    
+    tz_value = get_config_value('timezone', 'Asia/Shanghai')
+    now = datetime.now(tz.timezone(tz_value))
+    filename = f'软件台账_{now.strftime("%Y%m%d_%H%M%S")}_{random.randint(1000,9999)}.xlsx'
+    
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename={filename}'
+    wb.save(response)
+    return response
+
+
+@login_required
+def software_field_list(request):
+    fields = SoftwareField.objects.all()
+    return render(request, 'assets/software_field_list.html', {'fields': fields})
+
+
+@login_required
+def software_field_create(request):
+    if request.method == 'POST':
+        name = request.POST.get('name')
+        field_key = request.POST.get('field_key')
+        field_type = request.POST.get('field_type')
+        is_required = request.POST.get('is_required') == 'on'
+        is_visible = request.POST.get('is_visible') == 'on'
+        options = request.POST.get('options')
+        default_value = request.POST.get('default_value')
+        sort = request.POST.get('sort', 0)
+        
+        SoftwareField.objects.create(
+            name=name,
+            field_key=field_key,
+            field_type=field_type,
+            is_required=is_required,
+            is_visible=is_visible,
+            options=options,
+            default_value=default_value,
+            sort=sort,
+        )
+        messages.success(request, '字段创建成功')
+        return redirect('software_field_list')
+    
+    return render(request, 'assets/software_field_form.html')
+
+
+@login_required
+def software_field_edit(request, pk):
+    field = get_object_or_404(SoftwareField, pk=pk)
+    
+    if request.method == 'POST':
+        field.name = request.POST.get('name')
+        field.field_type = request.POST.get('field_type')
+        field.is_required = request.POST.get('is_required') == 'on'
+        field.is_visible = request.POST.get('is_visible') == 'on'
+        field.options = request.POST.get('options')
+        field.default_value = request.POST.get('default_value')
+        field.sort = request.POST.get('sort', 0)
+        
+        if not field.is_system:
+            field.field_key = request.POST.get('field_key')
+        
+        field.save()
+        messages.success(request, '字段更新成功')
+        return redirect('software_field_list')
+    
+    return render(request, 'assets/software_field_form.html', {'field': field})
+
+
+@login_required
+def software_field_delete(request, pk):
+    if request.method == 'POST':
+        field = get_object_or_404(SoftwareField, pk=pk)
+        if field.is_system:
+            messages.error(request, '系统字段不能删除')
+        else:
+            field.delete()
+            messages.success(request, '字段删除成功')
+    return redirect('software_field_list')
 
 
 @login_required
