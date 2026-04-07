@@ -146,8 +146,8 @@ def user_list(request):
         page_range = list(range(1, total_pages + 1))
     else:
         page_range.extend([1, 2])
-        start = max(3, current_page - 3)
-        end = min(total_pages - 1, current_page + 3)
+        start = max(3, current_page - 2)
+        end = min(total_pages - 1, current_page + 2)
         if start > 3:
             page_range.append('...')
         page_range.extend(range(start, end + 1))

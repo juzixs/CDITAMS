@@ -432,12 +432,12 @@
                     {% endif %}
                     
                     <li class="page-item ms-3">
-                        <select class="form-select form-select-sm" style="width: auto;" onchange="changePageSize(this.value)">
-                            <option value="20" {% if page_size == 20 %}selected{% endif %}>20条/页</option>
-                            <option value="50" {% if page_size == 50 %}selected{% endif %}>50条/页</option>
-                            <option value="100" {% if page_size == 100 %}selected{% endif %}>100条/页</option>
-                            <option value="200" {% if page_size == 200 %}selected{% endif %}>200条/页</option>
-                        </select>
+                    <select class="form-select form-select-sm" style="width: auto;" onchange="changePageSize(this.value)">
+                        <option value="20" {% if page_size == 20 %}selected{% endif %}>20</option>
+                        <option value="50" {% if page_size == 50 %}selected{% endif %}>50</option>
+                        <option value="100" {% if page_size == 100 %}selected{% endif %}>100</option>
+                        <option value="200" {% if page_size == 200 %}selected{% endif %}>200</option>
+                    </select>
                     </li>
                 </ul>
             </nav>
