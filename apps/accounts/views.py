@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import Group
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponseRedirect
 from django.core.paginator import Paginator
@@ -19,6 +20,8 @@ import_progress = {}
 
 
 def user_login(request):
+    from django.contrib.auth import get_backends
+    
     if request.method == 'POST':
         emp_no = request.POST.get('emp_no', '').strip()
         password = request.POST.get('password', '')
@@ -28,7 +31,14 @@ def user_login(request):
         
         if user is not None:
             if user.is_active:
-                login(request, user)
+                backend = get_backends()[0]
+                login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+                
+                if remember:
+                    request.session.set_expiry(60 * 60 * 24 * 14)  # 记住我：14天
+                else:
+                    request.session.set_expiry(0)  # 浏览器关闭时过期
+                
                 LoginLog.objects.create(
                     user=user,
                     username=emp_no,
