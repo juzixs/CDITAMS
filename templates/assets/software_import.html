@@ -20,7 +20,7 @@
             <li>授权数量填写 <strong>-1</strong> 表示无限制</li>
             <li>固资在账填写：是/否</li>
             <li>日期格式：2024-01-01</li>
-            <li>资产编号如已存在将自动跳过</li>
+            <li>如资产编号已存在，将根据选择更新或跳过该软件</li>
         </ol>
     </div>
 </div>
@@ -30,23 +30,11 @@
         <i class="fas fa-upload me-2"></i>上传文件
     </div>
     <div class="card-body">
-        <form method="post" enctype="multipart/form-data" class="mb-3">
-            {% csrf_token %}
-            <div class="mb-3">
-                <label class="form-label">选择Excel文件</label>
-                <input type="file" name="excel_file" class="form-control" accept=".xlsx,.xls" required>
-            </div>
-            <button type="submit" class="btn btn-primary"><i class="fas fa-upload me-1"></i>导入</button>
-        </form>
-    </div>
-</div>
-
-<div class="card">
-    <div class="card-header">
-        <i class="fas fa-table me-2"></i>模板格式
-    </div>
-    <div class="card-body">
-        <div class="table-responsive">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <span><i class="fas fa-table me-1 text-info"></i><strong>模板格式</strong></span>
+            <a href="{% url 'software_download_template' %}" class="btn btn-sm btn-outline-success"><i class="fas fa-download me-1"></i>下载模板</a>
+        </div>
+        <div class="table-responsive mb-4">
             <table class="table table-bordered table-sm">
                 <thead class="table-light">
                     <tr>
@@ -67,28 +55,286 @@
                 </thead>
                 <tbody>
                     <tr>
-                        <td>SW-001</td>
-                        <td>编号001</td>
-                        <td>Microsoft Office</td>
-                        <td>2024</td>
-                        <td>微软</td>
-                        <td>永久授权</td>
-                        <td>100</td>
-                        <td>5000</td>
-                        <td>2024-01-01</td>
-                        <td>2025-12-31</td>
-                        <td>是</td>
-                        <td>KA-001</td>
-                        <td>办公软件</td>
+                        <td class="text-center">SW-001</td>
+                        <td class="text-center">编号001</td>
+                        <td class="text-center">Microsoft Office</td>
+                        <td class="text-center">2024</td>
+                        <td class="text-center">微软</td>
+                        <td class="text-center">永久授权</td>
+                        <td class="text-center">-1</td>
+                        <td class="text-center">5000</td>
+                        <td class="text-center">2024-01-01</td>
+                        <td class="text-center">2025-12-31</td>
+                        <td class="text-center">是</td>
+                        <td class="text-center">KA-001</td>
+                        <td class="text-center">办公软件</td>
                     </tr>
                 </tbody>
             </table>
+            <table class="table table-bordered table-sm">
+                <thead class="table-light">
+                    <tr>
+                        <th></th>
+                        <th colspan="12" class="text-muted">
+                            <small>* 授权类型可选值：永久授权、订阅、开源、免费、试用<br>
+                            * 授权数量填写 -1 表示无限制<br>
+                            * 固资在账填写：是/否</small>
+                        </th>
+                    </tr>
+                </thead>
+            </table>
         </div>
-        <div class="text-muted mt-2">
-            <small>* 授权类型可选值：永久授权、订阅、开源、免费、试用<br>
-            * 授权数量填写 -1 表示无限制<br>
-            * 固资在账填写：是/否</small>
+        
+        <hr>
+        
+        <form id="importForm" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="row">
+                <div class="col-md-6">
+                    <label class="form-label">选择Excel文件 <small class="text-muted">（支持 .xlsx 和 .xls 格式）</small></label>
+                    <div class="input-group">
+                        <input type="file" name="file" id="fileInput" class="form-control" accept=".xlsx,.xls" required>
+                        <button type="submit" id="importBtn" class="btn btn-primary"><i class="fas fa-upload me-1"></i>开始导入</button>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">导入选项</label>
+                    <div class="form-check mt-2">
+                        <input class="form-check-input" type="checkbox" id="updateExisting" name="update_existing">
+                        <label class="form-check-label" for="updateExisting">
+                            更新现有软件信息 <small class="text-muted">（勾选后，如资产编号已存在则更新软件信息，否则跳过）</small>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card d-none" id="progressCard">
+    <div class="card-header bg-info text-white">
+        <i class="fas fa-spinner fa-spin me-2" id="progressIcon"></i>处理进度
+    </div>
+    <div class="card-body">
+        <div class="mb-3">
+            <div class="d-flex justify-content-between mb-1">
+                <span>导入进度</span>
+                <span id="progressText">0%</span>
+            </div>
+            <div class="progress" style="height: 25px;">
+                <div class="progress-bar progress-bar-striped progress-bar-animated" id="progressBar" role="progressbar" style="width: 0%">0/0</div>
+            </div>
+        </div>
+        
+        <div class="row text-center mb-3">
+            <div class="col-md-3">
+                <div class="border rounded p-3">
+                    <h4 class="text-success mb-0" id="successCount">0</h4>
+                    <small class="text-muted">新增软件</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="border rounded p-3">
+                    <h4 class="text-info mb-0" id="updateCount">0</h4>
+                    <small class="text-muted">更新软件</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="border rounded p-3">
+                    <h4 class="text-warning mb-0" id="skipCount">0</h4>
+                    <small class="text-muted">跳过软件</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="border rounded p-3">
+                    <h4 class="text-danger mb-0" id="errorCount">0</h4>
+                    <small class="text-muted">失败记录</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="alert alert-light mb-0">
+            <small class="text-muted">当前处理：<span id="currentInfo">等待开始...</span></small>
         </div>
     </div>
 </div>
+
+<div class="card d-none mt-4" id="resultCard">
+    <div class="card-header bg-success text-white">
+        <i class="fas fa-check-circle me-2"></i>导入完成
+    </div>
+    <div class="card-body">
+        <div class="row text-center mb-3">
+            <div class="col-md-3">
+                <div class="border rounded p-3">
+                    <h3 class="text-success mb-0" id="finalSuccess">0</h3>
+                    <small class="text-muted">成功导入</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="border rounded p-3">
+                    <h3 class="text-info mb-0" id="finalUpdate">0</h3>
+                    <small class="text-muted">更新软件</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="border rounded p-3">
+                    <h3 class="text-warning mb-0" id="finalSkip">0</h3>
+                    <small class="text-muted">跳过软件</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="border rounded p-3">
+                    <h3 class="text-danger mb-0" id="finalError">0</h3>
+                    <small class="text-muted">失败记录</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="d-none" id="errorDetail">
+            <div class="alert alert-warning">
+                <strong><i class="fas fa-exclamation-triangle me-1"></i>失败详情：</strong>
+                <ul class="mb-0 mt-2" id="errorList"></ul>
+            </div>
+        </div>
+        
+        <div class="d-flex gap-2">
+            <a href="{% url 'software_list' %}" class="btn btn-primary"><i class="fas fa-desktop me-1"></i>查看软件列表</a>
+            <button type="button" class="btn btn-outline-secondary" onclick="resetForm()"><i class="fas fa-redo me-1"></i>继续导入</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let pollTimer = null;
+let currentTaskId = null;
+
+document.getElementById('importForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const fileInput = document.getElementById('fileInput');
+    if (!fileInput.files.length) {
+        alert('请选择要导入的文件');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    formData.append('update_existing', document.getElementById('updateExisting').checked ? 'true' : 'false');
+    
+    document.getElementById('importBtn').disabled = true;
+    document.getElementById('importBtn').innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>上传中...';
+    
+    fetch('{% url "software_import" %}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            currentTaskId = data.task_id;
+            showProgress();
+            startPolling();
+        } else {
+            alert(data.message || '导入失败');
+            resetImportBtn();
+        }
+    })
+    .catch(error => {
+        alert('上传失败：' + error);
+        resetImportBtn();
+    });
+});
+
+function showProgress() {
+    document.getElementById('progressCard').classList.remove('d-none');
+    document.getElementById('resultCard').classList.add('d-none');
+}
+
+function startPolling() {
+    pollTimer = setInterval(pollProgress, 500);
+}
+
+function pollProgress() {
+    if (!currentTaskId) return;
+    
+    fetch('{% url "software_import_progress_api" %}?task_id=' + currentTaskId)
+    .then(response => response.json())
+    .then(data => {
+        updateProgressUI(data);
+        
+        if (data.status === 'completed' || data.status === 'error') {
+            clearInterval(pollTimer);
+            showResult(data);
+        }
+    });
+}
+
+function updateProgressUI(data) {
+    const total = data.total || 0;
+    const current = data.current || 0;
+    const percent = total > 0 ? Math.round((current / total) * 100) : 0;
+    
+    document.getElementById('progressBar').style.width = percent + '%';
+    document.getElementById('progressBar').textContent = current + '/' + total;
+    document.getElementById('progressText').textContent = percent + '% (' + current + '/' + total + ')';
+    
+    document.getElementById('successCount').textContent = data.success || 0;
+    document.getElementById('updateCount').textContent = data.update || 0;
+    document.getElementById('skipCount').textContent = data.skip || 0;
+    document.getElementById('errorCount').textContent = data.error || 0;
+    
+    if (data.current_asset_no) {
+        document.getElementById('currentInfo').textContent = '第 ' + (data.current + 1) + ' 行 - 资产编号: ' + data.current_asset_no;
+    }
+}
+
+function showResult(data) {
+    document.getElementById('progressCard').classList.add('d-none');
+    document.getElementById('resultCard').classList.remove('d-none');
+    
+    document.getElementById('finalSuccess').textContent = data.success || 0;
+    document.getElementById('finalUpdate').textContent = data.update || 0;
+    document.getElementById('finalSkip').textContent = data.skip || 0;
+    document.getElementById('finalError').textContent = data.error || 0;
+    
+    if (data.errors && data.errors.length > 0) {
+        document.getElementById('errorDetail').classList.remove('d-none');
+        const errorList = document.getElementById('errorList');
+        errorList.innerHTML = '';
+        data.errors.forEach(function(error) {
+            const li = document.createElement('li');
+            li.textContent = error;
+            errorList.appendChild(li);
+        });
+    }
+    
+    resetImportBtn();
+}
+
+function resetImportBtn() {
+    document.getElementById('importBtn').disabled = false;
+    document.getElementById('importBtn').innerHTML = '<i class="fas fa-upload me-1"></i>开始导入';
+}
+
+function resetForm() {
+    document.getElementById('fileInput').value = '';
+    document.getElementById('resultCard').classList.add('d-none');
+    document.getElementById('progressCard').classList.add('d-none');
+    document.getElementById('errorDetail').classList.add('d-none');
+    currentTaskId = null;
+    
+    document.getElementById('progressBar').style.width = '0%';
+    document.getElementById('progressBar').textContent = '0/0';
+    document.getElementById('progressText').textContent = '0%';
+    document.getElementById('successCount').textContent = '0';
+    document.getElementById('updateCount').textContent = '0';
+    document.getElementById('skipCount').textContent = '0';
+    document.getElementById('errorCount').textContent = '0';
+    document.getElementById('currentInfo').textContent = '等待开始...';
+}
+</script>
 {% endblock %}

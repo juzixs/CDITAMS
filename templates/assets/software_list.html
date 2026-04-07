@@ -70,7 +70,7 @@
                             <td>{{ s.version|default:'-' }}</td>
                             <td>{{ s.vendor|default:'-' }}</td>
                             <td>{{ s.get_license_type_display }}</td>
-                            <td>{% if s.license_count is None %}<span class="text-success">无限制</span>{% else %}{{ s.license_count }}{% endif %}</td>
+                            <td>{% if s.license_count == -1 %}<span class="text-success">无限制</span>{% else %}{{ s.license_count|default:'' }}{% endif %}</td>
                             <td>{{ s.price|default:'-' }}</td>
                             <td>{{ s.is_fixed|yesno:'是,否' }}</td>
                             <td>{{ s.asset_card_no|default:'-' }}</td>
@@ -172,12 +172,39 @@
         if (ids.length === 0) return alert('请选择要删除的软件');
         if (!confirm('确定要删除选中的 ' + ids.length + ' 个软件吗？')) return;
         
-        const form = document.createElement('form');
-        form.method = 'post';
-        form.action = '{% url "software_batch_delete" %}';
-        form.innerHTML = '{% csrf_token %}<input type="hidden" name="ids" value="' + ids.join(',') + '">';
-        document.body.appendChild(form);
-        form.submit();
+        function getCookie(name) {
+            var cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                var cookies = document.cookie.split(';');
+                for (var i = 0; i < cookies.length; i++) {
+                    var cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        var csrftoken = getCookie('csrftoken');
+        
+        fetch('{% url "software_batch_delete" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrftoken,
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: 'ids=' + ids.join(',')
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.href = '{% url "software_list" %}';
+            } else {
+                alert('删除失败: ' + data.message);
+            }
+        });
     }
 </script>
 {% endblock %}

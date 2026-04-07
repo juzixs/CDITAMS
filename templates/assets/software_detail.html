@@ -32,7 +32,7 @@
                 <div class="card-body p-0">
                     <table class="table table-borderless table-sm mb-0">
                         <tr><td class="py-2 ps-3" style="width:140px;"><strong class="text-muted">授权类型</strong></td><td class="py-2" style="font-size:15px;">{{ software.get_license_type_display }}</td></tr>
-                        <tr><td class="py-2 ps-3" style="width:140px;"><strong class="text-muted">授权数量</strong></td><td class="py-2" style="font-size:15px;">{% if software.license_count is None %}<span class="text-success">无限制</span>{% else %}{{ software.license_count }}{% endif %}</td></tr>
+                        <tr><td class="py-2 ps-3" style="width:140px;"><strong class="text-muted">授权数量</strong></td><td class="py-2" style="font-size:15px;">{% if software.license_count == -1 %}<span class="text-success">无限制</span>{% else %}{{ software.license_count|default:'' }}{% endif %}</td></tr>
                         <tr><td class="py-2 ps-3" style="width:140px;"><strong class="text-muted">价格</strong></td><td class="py-2" style="font-size:15px;">{{ software.price|default:'-' }}</td></tr>
                         <tr><td class="py-2 ps-3" style="width:140px;"><strong class="text-muted">购买日期</strong></td><td class="py-2" style="font-size:15px;">{{ software.purchase_date|default:'-' }}</td></tr>
                         <tr><td class="py-2 ps-3" style="width:140px;"><strong class="text-muted">到期日期</strong></td><td class="py-2" style="font-size:15px;">{{ software.expire_date|default:'-' }}</td></tr>

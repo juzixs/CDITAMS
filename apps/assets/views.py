@@ -31,6 +31,7 @@ from apps.settings.views import get_config_value
 
 # 全局变量存储导入进度
 device_import_progress = {}
+software_import_progress = {}
 
 
 def is_point_in_polygon(x, y, points):
@@ -1501,6 +1502,19 @@ def software_detail(request, pk):
 
 
 @login_required
+def parse_software_license_count(request):
+    license_count_str = request.POST.get('license_count')
+    if license_count_str == '' or license_count_str is None:
+        return None
+    try:
+        val = int(license_count_str)
+        if val == -1:
+            return -1  # -1 表示无限制
+        return val
+    except:
+        return None
+
+
 def software_create(request):
     if request.method == 'POST':
         software = Software.objects.create(
@@ -1512,7 +1526,7 @@ def software_create(request):
             version=request.POST.get('version') or None,
             vendor=request.POST.get('vendor') or None,
             license_type=request.POST.get('license_type', 'perpetual'),
-            license_count=request.POST.get('license_count') or None,
+            license_count=parse_software_license_count(request),
             purchase_date=request.POST.get('purchase_date') or None,
             expire_date=request.POST.get('expire_date') or None,
             price=request.POST.get('price') or None,
@@ -1540,7 +1554,7 @@ def software_edit(request, pk):
         software.version = request.POST.get('version') or None
         software.vendor = request.POST.get('vendor') or None
         software.license_type = request.POST.get('license_type', 'perpetual')
-        software.license_count = request.POST.get('license_count') or None
+        software.license_count = parse_software_license_count(request)
         software.purchase_date = request.POST.get('purchase_date') or None
         software.expire_date = request.POST.get('expire_date') or None
         software.price = request.POST.get('price') or None
@@ -1557,81 +1571,160 @@ def software_edit(request, pk):
 
 
 @login_required
+@csrf_exempt
 def software_delete(request, pk):
-    if request.method == 'POST':
-        software = get_object_or_404(Software, pk=pk)
-        software.delete()
-        messages.success(request, '软件删除成功')
-    return redirect('software_list')
+    try:
+        if request.method == 'POST':
+            software = get_object_or_404(Software, pk=pk)
+            software.delete()
+            return JsonResponse({'success': True, 'message': '删除成功'})
+        return JsonResponse({'success': False, 'message': '请求方式错误'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'删除失败: {str(e)}'})
 
 
 @login_required
+@csrf_exempt
 def software_batch_delete(request):
-    if request.method == 'POST':
-        ids = request.POST.get('ids', '').split(',')
-        software_ids = [int(i) for i in ids if i]
-        Software.objects.filter(id__in=software_ids).delete()
-        messages.success(request, f'已删除 {len(software_ids)} 个软件')
-    return redirect('software_list')
+    try:
+        if request.method == 'POST':
+            ids = request.POST.get('ids', '').split(',')
+            software_ids = [int(i) for i in ids if i]
+            Software.objects.filter(id__in=software_ids).delete()
+            return JsonResponse({'success': True, 'message': f'已删除 {len(software_ids)} 个软件'})
+        return JsonResponse({'success': False, 'message': '请求方式错误'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'删除失败: {str(e)}'})
+
+
+def process_software_import_task(task_id, file_content, update_existing, user_id):
+    """后台处理软件导入任务"""
+    import openpyxl
+    from io import BytesIO
+    
+    progress = software_import_progress[task_id]
+    
+    try:
+        wb = openpyxl.load_workbook(BytesIO(file_content))
+        ws = wb.active
+    except Exception as e:
+        progress['status'] = 'error'
+        progress['errors'].append(f'文件读取失败: {str(e)}')
+        return
+    
+    headers = [cell.value for cell in ws[1]]
+    field_map = {}
+    for idx, header in enumerate(headers):
+        if header:
+            for field in SoftwareField.objects.all():
+                if field.name == header:
+                    field_map[idx] = field.field_key
+                    break
+    
+    user = User.objects.filter(pk=user_id).first()
+    
+    rows = list(ws.iter_rows(min_row=2, values_only=True))
+    progress['total'] = len(rows)
+    
+    for idx, row in enumerate(rows, start=2):
+        progress['current'] = idx - 1
+        progress['current_asset_no'] = str(row[2]).strip() if row[2] else ''
+        
+        try:
+            data = {}
+            for col_idx, field_key in field_map.items():
+                if col_idx >= len(row):
+                    continue
+                cell_value = row[col_idx]
+                
+                if field_key == 'license_count' and (cell_value == '-1' or cell_value == -1):
+                    data[field_key] = -1  # -1 表示无限制
+                elif field_key in ['purchase_date', 'expire_date'] and cell_value:
+                    if isinstance(cell_value, datetime):
+                        data[field_key] = cell_value.date()
+                    elif isinstance(cell_value, str):
+                        data[field_key] = cell_value
+                    else:
+                        data[field_key] = str(cell_value)
+                elif field_key in ['is_fixed']:
+                    data[field_key] = str(cell_value).lower() in ['true', '1', '是', 'yes']
+                else:
+                    data[field_key] = cell_value
+            
+            software_name = data.get('name')
+            if not software_name:
+                progress['error'] += 1
+                progress['errors'].append(f'第{idx}行：软件名称不能为空')
+                continue
+            
+            asset_no = data.get('asset_no')
+            
+            if asset_no:
+                software = Software.objects.filter(asset_no=asset_no).first()
+                
+                if software:
+                    if update_existing:
+                        for key, value in data.items():
+                            if value is not None and value != '':
+                                setattr(software, key, value)
+                        software.save()
+                        progress['update'] += 1
+                    else:
+                        progress['skip'] += 1
+                else:
+                    Software.objects.create(**data)
+                    progress['success'] += 1
+            else:
+                Software.objects.create(**data)
+                progress['success'] += 1
+                
+        except Exception as e:
+            progress['error'] += 1
+            progress['errors'].append(f'第{idx}行：{str(e)}')
+        
+        time.sleep(0.01)
+    
+    progress['current'] = progress['total']
+    progress['status'] = 'completed'
 
 
 @login_required
 def software_import(request):
     if request.method == 'POST':
-        excel_file = request.FILES.get('excel_file')
-        if not excel_file:
-            messages.error(request, '请选择文件')
-            return render(request, 'assets/software_import.html')
+        import openpyxl
         
-        try:
-            import openpyxl
-            wb = openpyxl.load_workbook(excel_file)
-            ws = wb.active
-            
-            headers = [cell.value for cell in ws[1]]
-            field_map = {}
-            for idx, header in enumerate(headers):
-                if header:
-                    for field in SoftwareField.objects.all():
-                        if field.name == header:
-                            field_map[idx] = field.field_key
-                            break
-            
-            success_count = 0
-            error_count = 0
-            errors = []
-            
-            for row_idx in range(2, ws.max_row + 1):
-                try:
-                    data = {}
-                    for idx, field_key in field_map.items():
-                        cell_value = ws.cell(row=row_idx, column=idx + 1).value
-                        if field_key == 'license_count' and cell_value == '-1':
-                            data[field_key] = None
-                        elif field_key in ['purchase_date', 'expire_date'] and cell_value:
-                            if isinstance(cell_value, str):
-                                data[field_key] = cell_value
-                            else:
-                                data[field_key] = cell_value.strftime('%Y-%m-%d') if hasattr(cell_value, 'strftime') else str(cell_value)
-                        elif field_key in ['is_fixed']:
-                            data[field_key] = str(cell_value).lower() in ['true', '1', '是', 'yes']
-                        else:
-                            data[field_key] = cell_value
-                    
-                    if data.get('name'):
-                        Software.objects.create(**data)
-                        success_count += 1
-                    else:
-                        error_count += 1
-                except Exception as e:
-                    error_count += 1
-                    errors.append(f'第{row_idx}行: {str(e)}')
-            
-            messages.success(request, f'导入成功: {success_count} 条，失败: {error_count} 条')
-            if errors:
-                messages.warning(request, '错误: ' + '; '.join(errors[:5]))
-        except Exception as e:
-            messages.error(request, f'导入失败: {str(e)}')
+        file = request.FILES.get('file')
+        if not file:
+            return JsonResponse({'success': False, 'message': '请选择要导入的文件'})
+        
+        if not file.name.endswith(('.xlsx', '.xls')):
+            return JsonResponse({'success': False, 'message': '请上传Excel文件(.xlsx或.xls)'})
+        
+        update_existing = request.POST.get('update_existing') == 'true'
+        
+        task_id = str(uuid.uuid4())[:8]
+        file_content = file.read()
+        
+        software_import_progress[task_id] = {
+            'status': 'processing',
+            'total': 0,
+            'current': 0,
+            'success': 0,
+            'update': 0,
+            'skip': 0,
+            'error': 0,
+            'errors': [],
+            'current_asset_no': ''
+        }
+        
+        thread = threading.Thread(
+            target=process_software_import_task,
+            args=(task_id, file_content, update_existing, request.user.id)
+        )
+        thread.daemon = True
+        thread.start()
+        
+        return JsonResponse({'success': True, 'task_id': task_id})
     
     return render(request, 'assets/software_import.html')
 
@@ -3285,6 +3378,35 @@ def device_download_template(request):
     return response
 
 
+def software_download_template(request):
+    import openpyxl
+    
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = '软件导入模板'
+    
+    headers = ['资产编号', '编号', '软件名称', '版本', '供应商', '授权类型', '授权数量', '价格', '购买日期', '到期日期', '固资在账', '卡片编号', '描述']
+    ws.append(headers)
+    
+    ws.append(['SW-001', '编号001', 'Microsoft Office', '2024', '微软', '永久授权', '-1', '5000', '2024-01-01', '2025-12-31', '是', 'KA-001', '办公软件'])
+    
+    for col in ws.columns:
+        max_length = 0
+        column = col[0].column_letter
+        for cell in col:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        ws.column_dimensions[column].width = max(max_length + 2, 10)
+    
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="software_import_template.xlsx"'
+    wb.save(response)
+    return response
+
+
 @login_required
 def device_export(request):
     import openpyxl
@@ -3649,4 +3771,12 @@ def device_import_progress_api(request):
     task_id = request.GET.get('task_id')
     if task_id and task_id in device_import_progress:
         return JsonResponse(device_import_progress[task_id])
+    return JsonResponse({'status': 'not_found'})
+
+
+@login_required
+def software_import_progress_api(request):
+    task_id = request.GET.get('task_id')
+    if task_id and task_id in software_import_progress:
+        return JsonResponse(software_import_progress[task_id])
     return JsonResponse({'status': 'not_found'})
