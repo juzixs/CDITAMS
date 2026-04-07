@@ -3,6 +3,118 @@
 
 {% block title %}设备管理 - 驰达IT资产管理系统{% endblock %}
 
+{% block extra_css %}
+<style>
+/* 默认样式 - 桌面端显示表格，隐藏卡片 */
+.content .device-table-container {
+    display: block !important;
+}
+.content .device-cards-container {
+    display: none !important;
+}
+
+/* 移动端样式 */
+@media (max-width: 992px) {
+    /* 隐藏表格，显示卡片 */
+    .content .device-table-container {
+        display: none !important;
+    }
+    .content .device-cards-container {
+        display: block !important;
+    }
+    
+    /* 卡片样式 */
+    .content .device-card {
+        background: #fff;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+    
+    .content .device-card-body {
+        padding: 12px;
+    }
+    
+    /* 单行字段 */
+    .content .card-field {
+        display: flex;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .content .card-field:last-child {
+        border-bottom: none;
+    }
+    
+    /* 双字段行 */
+    .content .card-field-row {
+        display: flex;
+        padding: 8px 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .content .card-field-half {
+        flex: 1;
+        display: flex;
+        align-items: center;
+    }
+    
+    .content .card-field-half:first-child {
+        padding-right: 10px;
+        border-right: 1px solid #f0f0f0;
+    }
+    
+    .content .card-field-half:last-child {
+        padding-left: 10px;
+    }
+    
+    /* 字段标签 */
+    .content .field-label {
+        font-size: 12px;
+        color: #888;
+        white-space: nowrap;
+        margin-right: 8px;
+    }
+    
+    /* 字段值 */
+    .content .field-value {
+        font-size: 13px;
+        color: #333;
+        word-break: break-all;
+    }
+    
+    /* 卡片底部 */
+    .content .device-card-footer {
+        background: #f8f9fa;
+        padding: 10px 12px;
+        border-top: 1px solid #e0e0e0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .content .device-card-footer .checkbox-cell {
+        display: flex;
+        align-items: center;
+        font-size: 12px;
+    }
+    
+    .content .device-card-footer .action-cell {
+        display: flex;
+        gap: 4px;
+    }
+    
+    .content .device-card-footer .btn {
+        padding: 4px 8px;
+        font-size: 12px;
+    }
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h4>设备管理</h4>
@@ -119,7 +231,7 @@
                 </div>
             </div>
             
-            <div class="table-responsive">
+            <div class="table-responsive device-table-container">
                 <table class="table table-hover">
                     <thead>
                         <tr>
@@ -210,18 +322,123 @@
                 </table>
             </div>
             
+            <!-- 移动端卡片容器 -->
+            <div class="device-cards-container" style="display: none;">
+                {% for device in devices %}
+                <div class="device-card">
+                    <div class="device-card-body">
+                        <!-- 资产编号 -->
+                        <div class="card-field">
+                            <span class="field-label">资产编号</span>
+                            <span class="field-value">{{ device.asset_no|default:'-' }}</span>
+                        </div>
+                        <!-- 设备编号 -->
+                        <div class="card-field">
+                            <span class="field-label">设备编号</span>
+                            <span class="field-value">{{ device.device_no|default:'-' }}</span>
+                        </div>
+                        <!-- 设备名称 + 型号 -->
+                        <div class="card-field-row">
+                            <div class="card-field-half">
+                                <span class="field-label">设备名称</span>
+                                <span class="field-value">{{ device.name|default:'-' }}</span>
+                            </div>
+                            <div class="card-field-half">
+                                <span class="field-label">型号</span>
+                                <span class="field-value">{{ device.model|default:'-' }}</span>
+                            </div>
+                        </div>
+                        <!-- 密级 -->
+                        <div class="card-field">
+                            <span class="field-label">密级</span>
+                            <span class="field-value">
+                                {% if device.secret_level == 'public' %}公开
+                                {% elif device.secret_level == 'internal' %}<span class="badge bg-info">内部</span>
+                                {% elif device.secret_level == 'confidential' %}秘密
+                                {% elif device.secret_level == 'secret' %}机密
+                                {% elif device.secret_level == 'top_secret' %}绝密
+                                {% elif device.secret_level == 'commercial_secret' %}商密
+                                {% else %}-{% endif %}
+                            </span>
+                        </div>
+                        <!-- 所属部门 + 使用人 -->
+                        <div class="card-field-row">
+                            <div class="card-field-half">
+                                <span class="field-label">所属部门</span>
+                                <span class="field-value">{{ device.department.name|default:'-' }}</span>
+                            </div>
+                            <div class="card-field-half">
+                                <span class="field-label">使用人</span>
+                                <span class="field-value">{{ device.user.realname|default:'-' }}</span>
+                            </div>
+                        </div>
+                        <!-- 位置 -->
+                        <div class="card-field">
+                            <span class="field-label">位置</span>
+                            <span class="field-value">{{ device.location.get_full_path|default:'-' }}</span>
+                        </div>
+                        <!-- 设备状态 -->
+                        <div class="card-field">
+                            <span class="field-label">设备状态</span>
+                            <span class="field-value">
+                                {% if device.status == 'normal' %}<span class="badge bg-success">使用</span>
+                                {% elif device.status == 'fault' %}<span class="badge bg-danger">故障</span>
+                                {% elif device.status == 'scrapped' %}<span class="badge bg-secondary">报废</span>
+                                {% else %}<span class="badge bg-info">闲置</span>{% endif %}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="device-card-footer">
+                        <div class="checkbox-cell">
+                            <input type="checkbox" name="device_ids" value="{{ device.id }}"> 选择
+                        </div>
+                        <div class="action-cell">
+                            <a href="{% url 'device_detail' device.id %}" class="btn btn-outline-primary"><i class="fas fa-eye"></i></a>
+                            <a href="{% url 'device_edit' device.id %}" class="btn btn-outline-secondary"><i class="fas fa-edit"></i></a>
+                            <a href="{% url 'device_print_label' device.id %}" class="btn btn-outline-info" target="_blank"><i class="fas fa-print"></i></a>
+                            {% if device.user %}
+                            <button type="button" class="btn btn-outline-warning" onclick="revokeDevice({{ device.id }})"><i class="fas fa-user-minus"></i></button>
+                            {% else %}
+                            <button type="button" class="btn btn-outline-success" onclick="openAssignModal({{ device.id }})"><i class="fas fa-user-plus"></i></button>
+                            {% endif %}
+                            <button type="button" class="btn btn-outline-danger" onclick="scrapDevice({{ device.id }}, '{{ device.asset_no }}', '{{ device.name }}', {% if device.is_fixed %}'{{ device.asset_card_no }}'{% else %}null{% endif %})"><i class="fas fa-times"></i></button>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center text-muted py-5">暂无数据</div>
+                {% endfor %}
+            </div>
+            
             {% if devices.has_other_pages %}
             <nav>
-                <ul class="pagination justify-content-center">
+                <ul class="pagination justify-content-center mb-0">
                     {% if devices.has_previous %}
-                    <li class="page-item"><a class="page-link" href="#" onclick="goToPage({{ devices.previous_page_number }}); return false;">上一页</a></li>
+                    <li class="page-item"><a class="page-link" href="#" onclick="goToPage({{ devices.previous_page_number }}); return false;"><i class="fas fa-chevron-left"></i></a></li>
                     {% endif %}
-                    {% for num in devices.paginator.page_range %}
-                    <li class="page-item {% if devices.number == num %}active{% endif %}"><a class="page-link" href="#" onclick="goToPage({{ num }}); return false;">{{ num }}</a></li>
+                    
+                    {% for num in page_range %}
+                        {% if num == '...' %}
+                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                        {% else %}
+                        <li class="page-item {% if devices.number == num %}active{% endif %}">
+                            <a class="page-link" href="#" onclick="goToPage({{ num }}); return false;">{{ num }}</a>
+                        </li>
+                        {% endif %}
                     {% endfor %}
+                    
                     {% if devices.has_next %}
-                    <li class="page-item"><a class="page-link" href="#" onclick="goToPage({{ devices.next_page_number }}); return false;">下一页</a></li>
+                    <li class="page-item"><a class="page-link" href="#" onclick="goToPage({{ devices.next_page_number }}); return false;"><i class="fas fa-chevron-right"></i></a></li>
                     {% endif %}
+                    
+                    <li class="page-item ms-3">
+                        <select class="form-select form-select-sm" style="width: auto;" onchange="changePageSize(this.value)">
+                            <option value="20" {% if page_size == 20 %}selected{% endif %}>20条/页</option>
+                            <option value="50" {% if page_size == 50 %}selected{% endif %}>50条/页</option>
+                            <option value="100" {% if page_size == 100 %}selected{% endif %}>100条/页</option>
+                            <option value="200" {% if page_size == 200 %}selected{% endif %}>200条/页</option>
+                        </select>
+                    </li>
                 </ul>
             </nav>
             {% endif %}
@@ -249,6 +466,16 @@
         const formData = new FormData(form);
         const params = new URLSearchParams(formData);
         params.set('page', pageNum);
+        window.location.href = '?' + params.toString();
+    }
+    
+    // 修改每页显示数量
+    function changePageSize(size) {
+        const form = document.querySelector('form[method="get"]');
+        const formData = new FormData(form);
+        const params = new URLSearchParams(formData);
+        params.set('page_size', size);
+        params.set('page', 1); // 切换页码大小后回到第一页
         window.location.href = '?' + params.toString();
     }
 

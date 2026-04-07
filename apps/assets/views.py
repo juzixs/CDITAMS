@@ -140,9 +140,41 @@ def device_list(request):
     if secret_category:
         devices = devices.filter(secret_category=secret_category)
     
-    paginator = Paginator(devices, 20)
+    # 获取页码大小，默认20
+    page_size = int(request.GET.get('page_size', 20))
+    if page_size not in [20, 50, 100, 200]:
+        page_size = 20
+    
+    paginator = Paginator(devices, page_size)
     page = request.GET.get('page', 1)
     devices = paginator.get_page(page)
+    
+    # 计算分页范围
+    current_page = devices.number
+    total_pages = paginator.num_pages
+    
+    # 生成页码列表：前2页 ... 当前页前后3页 ... 后2页
+    page_range = []
+    if total_pages <= 7:
+        # 总页数少于7页，显示所有页码
+        page_range = list(range(1, total_pages + 1))
+    else:
+        # 总是显示前2页
+        page_range.extend([1, 2])
+        
+        # 计算中间范围
+        start = max(3, current_page - 3)
+        end = min(total_pages - 1, current_page + 3)
+        
+        # 添加省略号或页码
+        if start > 3:
+            page_range.append('...')
+        page_range.extend(range(start, end + 1))
+        if end < total_pages - 1:
+            page_range.append('...')
+        
+        # 总是显示后2页
+        page_range.extend([total_pages - 1, total_pages])
     
     categories = AssetCategory.objects.all().order_by('code')
     locations = AssetLocation.objects.filter(parent__isnull=True).prefetch_related('children')
@@ -160,6 +192,9 @@ def device_list(request):
     else:
         visible_fields = DeviceField.objects.filter(is_visible=True).order_by('sort')
     
+    # 获取卡片可见字段
+    card_visible_fields = DeviceField.objects.filter(is_card_visible=True).order_by('sort')
+    
     all_fields = DeviceField.objects.all().order_by('sort')
     
     return render(request, 'assets/device_list.html', {
@@ -167,8 +202,11 @@ def device_list(request):
         'categories': categories,
         'locations': locations,
         'visible_fields': visible_fields,
+        'card_visible_fields': card_visible_fields,
         'all_fields': all_fields,
         'secret_categories': secret_categories,
+        'page_range': page_range,
+        'page_size': page_size,
     })
 
 
@@ -214,9 +252,32 @@ def device_fault_list(request):
     if secret_category:
         devices = devices.filter(secret_category=secret_category)
     
-    paginator = Paginator(devices, 20)
+    # 获取页码大小，默认20
+    page_size = int(request.GET.get('page_size', 20))
+    if page_size not in [20, 50, 100, 200]:
+        page_size = 20
+    
+    paginator = Paginator(devices, page_size)
     page = request.GET.get('page', 1)
     devices = paginator.get_page(page)
+    
+    # 计算分页范围
+    current_page = devices.number
+    total_pages = paginator.num_pages
+    
+    page_range = []
+    if total_pages <= 7:
+        page_range = list(range(1, total_pages + 1))
+    else:
+        page_range.extend([1, 2])
+        start = max(3, current_page - 3)
+        end = min(total_pages - 1, current_page + 3)
+        if start > 3:
+            page_range.append('...')
+        page_range.extend(range(start, end + 1))
+        if end < total_pages - 1:
+            page_range.append('...')
+        page_range.extend([total_pages - 1, total_pages])
     
     categories = AssetCategory.objects.all().order_by('code')
     locations = AssetLocation.objects.filter(parent__isnull=True).prefetch_related('children')
@@ -240,6 +301,8 @@ def device_fault_list(request):
         'visible_fields': visible_fields,
         'all_fields': all_fields,
         'secret_categories': secret_categories,
+        'page_range': page_range,
+        'page_size': page_size,
     })
 
 
@@ -354,9 +417,32 @@ def device_scrap_list(request):
             except:
                 pass
     
-    paginator = Paginator(devices_list, 20)
+    # 获取页码大小，默认20
+    page_size = int(request.GET.get('page_size', 20))
+    if page_size not in [20, 50, 100, 200]:
+        page_size = 20
+    
+    paginator = Paginator(devices_list, page_size)
     page = request.GET.get('page', 1)
     devices = paginator.get_page(page)
+    
+    # 计算分页范围
+    current_page = devices.number
+    total_pages = paginator.num_pages
+    
+    page_range = []
+    if total_pages <= 7:
+        page_range = list(range(1, total_pages + 1))
+    else:
+        page_range.extend([1, 2])
+        start = max(3, current_page - 3)
+        end = min(total_pages - 1, current_page + 3)
+        if start > 3:
+            page_range.append('...')
+        page_range.extend(range(start, end + 1))
+        if end < total_pages - 1:
+            page_range.append('...')
+        page_range.extend([total_pages - 1, total_pages])
     
     categories = AssetCategory.objects.all().order_by('code')
     locations = AssetLocation.objects.filter(parent__isnull=True).prefetch_related('children')
@@ -380,6 +466,8 @@ def device_scrap_list(request):
         'visible_fields': visible_fields,
         'all_fields': all_fields,
         'secret_categories': secret_categories,
+        'page_range': page_range,
+        'page_size': page_size,
     })
 
 
@@ -1406,6 +1494,7 @@ def field_create(request):
         field_type = request.POST.get('field_type')
         is_required = request.POST.get('is_required') == 'on'
         is_visible = request.POST.get('is_visible') == 'on'
+        is_card_visible = request.POST.get('is_card_visible') == 'on'
         options = request.POST.get('options')
         default_value = request.POST.get('default_value')
         sort = request.POST.get('sort', 0)
@@ -1416,6 +1505,7 @@ def field_create(request):
             field_type=field_type,
             is_required=is_required,
             is_visible=is_visible,
+            is_card_visible=is_card_visible,
             options=options,
             default_value=default_value,
             sort=sort,
@@ -1435,6 +1525,7 @@ def field_edit(request, pk):
         field.field_type = request.POST.get('field_type')
         field.is_required = request.POST.get('is_required') == 'on'
         field.is_visible = request.POST.get('is_visible') == 'on'
+        field.is_card_visible = request.POST.get('is_card_visible') == 'on'
         field.options = request.POST.get('options')
         field.default_value = request.POST.get('default_value')
         field.sort = request.POST.get('sort', 0)

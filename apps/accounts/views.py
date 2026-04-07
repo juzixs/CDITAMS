@@ -128,9 +128,32 @@ def user_list(request):
     if role_id:
         users = users.filter(role_id=role_id)
     
-    paginator = Paginator(users, 20)
+    # 获取页码大小，默认20
+    page_size = int(request.GET.get('page_size', 20))
+    if page_size not in [20, 50, 100, 200]:
+        page_size = 20
+    
+    paginator = Paginator(users, page_size)
     page = request.GET.get('page', 1)
     users = paginator.get_page(page)
+    
+    # 计算分页范围
+    current_page = users.number
+    total_pages = paginator.num_pages
+    
+    page_range = []
+    if total_pages <= 7:
+        page_range = list(range(1, total_pages + 1))
+    else:
+        page_range.extend([1, 2])
+        start = max(3, current_page - 3)
+        end = min(total_pages - 1, current_page + 3)
+        if start > 3:
+            page_range.append('...')
+        page_range.extend(range(start, end + 1))
+        if end < total_pages - 1:
+            page_range.append('...')
+        page_range.extend([total_pages - 1, total_pages])
     
     departments = Department.objects.all()
     roles = Role.objects.all()
@@ -139,6 +162,8 @@ def user_list(request):
         'users': users,
         'departments': departments,
         'roles': roles,
+        'page_range': page_range,
+        'page_size': page_size,
     })
 
 

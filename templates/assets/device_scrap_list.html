@@ -164,16 +164,33 @@
         
         {% if devices.has_other_pages %}
         <nav>
-            <ul class="pagination justify-content-center">
+            <ul class="pagination justify-content-center mb-0">
                 {% if devices.has_previous %}
-                <li class="page-item"><a class="page-link" href="#" onclick="goToPage({{ devices.previous_page_number }}); return false;">上一页</a></li>
+                <li class="page-item"><a class="page-link" href="#" onclick="goToPage({{ devices.previous_page_number }}); return false;"><i class="fas fa-chevron-left"></i></a></li>
                 {% endif %}
-                {% for num in devices.paginator.page_range %}
-                <li class="page-item {% if devices.number == num %}active{% endif %}"><a class="page-link" href="#" onclick="goToPage({{ num }}); return false;">{{ num }}</a></li>
+                
+                {% for num in page_range %}
+                    {% if num == '...' %}
+                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                    {% else %}
+                    <li class="page-item {% if devices.number == num %}active{% endif %}">
+                        <a class="page-link" href="#" onclick="goToPage({{ num }}); return false;">{{ num }}</a>
+                    </li>
+                    {% endif %}
                 {% endfor %}
+                
                 {% if devices.has_next %}
-                <li class="page-item"><a class="page-link" href="#" onclick="goToPage({{ devices.next_page_number }}); return false;">下一页</a></li>
+                <li class="page-item"><a class="page-link" href="#" onclick="goToPage({{ devices.next_page_number }}); return false;"><i class="fas fa-chevron-right"></i></a></li>
                 {% endif %}
+                
+                <li class="page-item ms-3">
+                    <select class="form-select form-select-sm" style="width: auto;" onchange="changePageSize(this.value)">
+                        <option value="20" {% if page_size == 20 %}selected{% endif %}>20条/页</option>
+                        <option value="50" {% if page_size == 50 %}selected{% endif %}>50条/页</option>
+                        <option value="100" {% if page_size == 100 %}selected{% endif %}>100条/页</option>
+                        <option value="200" {% if page_size == 200 %}selected{% endif %}>200条/页</option>
+                    </select>
+                </li>
             </ul>
         </nav>
         {% endif %}
@@ -189,6 +206,16 @@
         const formData = new FormData(form);
         const params = new URLSearchParams(formData);
         params.set('page', pageNum);
+        window.location.href = '?' + params.toString();
+    }
+    
+    // 修改每页显示数量
+    function changePageSize(size) {
+        const form = document.querySelector('form[method="get"]');
+        const formData = new FormData(form);
+        const params = new URLSearchParams(formData);
+        params.set('page_size', size);
+        params.set('page', 1);
         window.location.href = '?' + params.toString();
     }
     

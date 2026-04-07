@@ -47,19 +47,25 @@
             </div>
             
             <div class="row mb-3">
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" name="is_required" id="is_required" {% if field.is_required %}checked{% endif %}>
                         <label class="form-check-label" for="is_required">是否必填</label>
                     </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" name="is_visible" id="is_visible" {% if field.is_visible or not field %}checked{% endif %}>
-                        <label class="form-check-label" for="is_visible">是否在列表显示</label>
+                        <label class="form-check-label" for="is_visible">列表显示</label>
                     </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="is_card_visible" id="is_card_visible" {% if field.is_card_visible %}checked{% endif %}>
+                        <label class="form-check-label" for="is_card_visible">卡片显示</label>
+                    </div>
+                </div>
+                <div class="col-md-3">
                     <label class="form-label">排序</label>
                     <input type="number" name="sort" class="form-control" value="{{ field.sort|default:0 }}">
                 </div>
