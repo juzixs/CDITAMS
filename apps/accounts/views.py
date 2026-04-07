@@ -37,7 +37,9 @@ def user_login(request):
                 if remember:
                     request.session.set_expiry(60 * 60 * 24 * 14)  # 记住我：14天
                 else:
-                    request.session.set_expiry(0)  # 浏览器关闭时过期
+                    from apps.settings.views import get_config_value
+                    timeout_minutes = get_config_value('session_timeout_minutes', 120)
+                    request.session.set_expiry(60 * timeout_minutes)  # 使用系统配置的会话超时
                 
                 LoginLog.objects.create(
                     user=user,
