@@ -8,11 +8,11 @@ django.setup()
 from django.contrib.auth import get_user_model
 from apps.accounts.models import Department, Role, Permission
 from apps.assets.models import (
-    AssetCategory, AssetLocation, ServiceType, DeviceField,
+    AssetCategory, AssetLocation, ServiceType, DeviceField, SoftwareField,
     Workstation, MapElement, MapBackground, LocationAreaBinding,
     Software, SoftwareCategory, SoftwareLicense,
     Consumable, ConsumableCategory, ConsumableRecord,
-    AssetLog, LabelTemplate
+    AssetLog, LabelTemplate, ServiceContract
 )
 from apps.inventory.models import InventoryPlan, InventoryTask, InventoryRecord
 from apps.todos.models import Todo, Notification
@@ -327,6 +327,11 @@ def init_service_types():
         {'name': '软件问题', 'sla_hours': 8},
         {'name': '网络故障', 'sla_hours': 4},
         {'name': '账号问题', 'sla_hours': 8},
+        {'name': '维保服务', 'sla_hours': 24},
+        {'name': '技术支持', 'sla_hours': 8},
+        {'name': '售后服务', 'sla_hours': 12},
+        {'name': '培训服务', 'sla_hours': 24},
+        {'name': '咨询服务', 'sla_hours': 48},
     ]
     
     for t in types:
@@ -338,6 +343,7 @@ def init_system_config():
     configs = [
         # 基础设置
         {'config_key': 'system_name', 'config_value': '驰达IT资产管理系统', 'config_group': 'basic', 'description': '系统名称'},
+        {'config_key': 'system_short_name', 'config_value': 'CDITAMS', 'value_type': 'string', 'config_group': 'basic', 'description': '系统简称'},
         {'config_key': 'app_url', 'config_value': 'http://127.0.0.1:8000', 'config_group': 'basic', 'description': '应用URL（用于生成二维码等外部链接）'},
         # 安全设置
         {'config_key': 'password_expire_days', 'config_value': '90', 'value_type': 'int', 'config_group': 'security', 'description': '密码过期天数（0表示永不过期）'},
@@ -390,35 +396,35 @@ def init_device_fields():
     print("初始化设备系统字段...")
     
     system_fields = [
-        {'name': '资产分类', 'field_key': 'category', 'field_type': 'text', 'is_system': True, 'is_visible': True, 'sort': 1},
-        {'name': '资产编号', 'field_key': 'asset_no', 'field_type': 'text', 'is_system': True, 'is_visible': True, 'sort': 2},
-        {'name': '设备编号', 'field_key': 'device_no', 'field_type': 'text', 'is_system': True, 'is_visible': True, 'sort': 3},
-        {'name': '设备名称', 'field_key': 'name', 'field_type': 'text', 'is_system': True, 'is_visible': True, 'sort': 4},
-        {'name': '型号', 'field_key': 'model', 'field_type': 'text', 'is_system': True, 'is_visible': True, 'sort': 5},
-        {'name': '序列号', 'field_key': 'serial_no', 'field_type': 'text', 'is_system': True, 'is_visible': True, 'sort': 6},
-        {'name': '密级', 'field_key': 'secret_level', 'field_type': 'select', 'is_system': True, 'is_visible': True, 'sort': 7, 'options': '["public", "internal", "confidential", "secret", "top_secret", "commercial_secret"]'},
-        {'name': '所属部门', 'field_key': 'department', 'field_type': 'text', 'is_system': True, 'is_visible': True, 'sort': 8},
-        {'name': '使用人', 'field_key': 'user', 'field_type': 'text', 'is_system': True, 'is_visible': True, 'sort': 9},
-        {'name': '位置', 'field_key': 'location', 'field_type': 'text', 'is_system': True, 'is_visible': True, 'sort': 10},
-        {'name': '工位', 'field_key': 'workstation', 'field_type': 'text', 'is_system': True, 'is_visible': True, 'sort': 11},
-        {'name': '设备状态', 'field_key': 'status', 'field_type': 'select', 'is_system': True, 'is_visible': True, 'sort': 12, 'options': '["normal", "fault", "scrapped", "unused"]'},
-        {'name': 'MAC地址', 'field_key': 'mac_address', 'field_type': 'text', 'is_system': True, 'is_visible': False, 'sort': 13},
-        {'name': 'IP地址', 'field_key': 'ip_address', 'field_type': 'text', 'is_system': True, 'is_visible': False, 'sort': 14},
-        {'name': '操作系统', 'field_key': 'os_name', 'field_type': 'text', 'is_system': True, 'is_visible': False, 'sort': 15},
-        {'name': '安装时间', 'field_key': 'install_date', 'field_type': 'date', 'is_system': True, 'is_visible': False, 'sort': 16},
-        {'name': '硬盘序列号', 'field_key': 'disk_serial', 'field_type': 'text', 'is_system': True, 'is_visible': False, 'sort': 17},
-        {'name': '购入日期', 'field_key': 'purchase_date', 'field_type': 'date', 'is_system': True, 'is_visible': False, 'sort': 18},
-        {'name': '启用时间', 'field_key': 'enable_date', 'field_type': 'date', 'is_system': True, 'is_visible': False, 'sort': 19},
-        {'name': '用途', 'field_key': 'purpose', 'field_type': 'text', 'is_system': True, 'is_visible': False, 'sort': 20},
-        {'name': '备注', 'field_key': 'remarks', 'field_type': 'textarea', 'is_system': True, 'is_visible': True, 'sort': 21},
-        {'name': '固资在账', 'field_key': 'is_fixed', 'field_type': 'checkbox', 'is_system': True, 'is_visible': False, 'sort': 22},
-        {'name': '卡片编号', 'field_key': 'asset_card_no', 'field_type': 'text', 'is_system': True, 'is_visible': False, 'sort': 23},
-        {'name': '保密台账', 'field_key': 'is_secret', 'field_type': 'checkbox', 'is_system': True, 'is_visible': False, 'sort': 24},
-        {'name': '台账分类', 'field_key': 'secret_category', 'field_type': 'text', 'is_system': True, 'is_visible': False, 'sort': 25},
-        {'name': '二维码', 'field_key': 'qrcode', 'field_type': 'text', 'is_system': True, 'is_visible': False, 'sort': 26},
-        {'name': '设备照片', 'field_key': 'photo', 'field_type': 'text', 'is_system': True, 'is_visible': False, 'sort': 27},
-        {'name': '创建时间', 'field_key': 'created_at', 'field_type': 'datetime', 'is_system': True, 'is_visible': False, 'sort': 28},
-        {'name': '更新时间', 'field_key': 'updated_at', 'field_type': 'datetime', 'is_system': True, 'is_visible': False, 'sort': 29},
+        {'name': '资产分类', 'field_key': 'category', 'field_type': 'text', 'is_system': True, 'is_visible': True, 'is_card_visible': True, 'sort': 1},
+        {'name': '资产编号', 'field_key': 'asset_no', 'field_type': 'text', 'is_system': True, 'is_visible': True, 'is_card_visible': True, 'sort': 2},
+        {'name': '设备编号', 'field_key': 'device_no', 'field_type': 'text', 'is_system': True, 'is_visible': True, 'is_card_visible': True, 'sort': 3},
+        {'name': '设备名称', 'field_key': 'name', 'field_type': 'text', 'is_system': True, 'is_visible': True, 'is_card_visible': True, 'sort': 4},
+        {'name': '型号', 'field_key': 'model', 'field_type': 'text', 'is_system': True, 'is_visible': True, 'is_card_visible': True, 'sort': 5},
+        {'name': '序列号', 'field_key': 'serial_no', 'field_type': 'text', 'is_system': True, 'is_visible': True, 'is_card_visible': False, 'sort': 6},
+        {'name': '密级', 'field_key': 'secret_level', 'field_type': 'select', 'is_system': True, 'is_visible': True, 'is_card_visible': True, 'sort': 7, 'options': '["public", "internal", "confidential", "secret", "top_secret", "commercial_secret"]'},
+        {'name': '所属部门', 'field_key': 'department', 'field_type': 'text', 'is_system': True, 'is_visible': True, 'is_card_visible': True, 'sort': 8},
+        {'name': '使用人', 'field_key': 'user', 'field_type': 'text', 'is_system': True, 'is_visible': True, 'is_card_visible': True, 'sort': 9},
+        {'name': '位置', 'field_key': 'location', 'field_type': 'text', 'is_system': True, 'is_visible': True, 'is_card_visible': True, 'sort': 10},
+        {'name': '工位', 'field_key': 'workstation', 'field_type': 'text', 'is_system': True, 'is_visible': True, 'is_card_visible': False, 'sort': 11},
+        {'name': '设备状态', 'field_key': 'status', 'field_type': 'select', 'is_system': True, 'is_visible': True, 'is_card_visible': True, 'sort': 12, 'options': '["normal", "fault", "scrapped", "unused"]'},
+        {'name': 'MAC地址', 'field_key': 'mac_address', 'field_type': 'text', 'is_system': True, 'is_visible': False, 'is_card_visible': False, 'sort': 13},
+        {'name': 'IP地址', 'field_key': 'ip_address', 'field_type': 'text', 'is_system': True, 'is_visible': False, 'is_card_visible': False, 'sort': 14},
+        {'name': '操作系统', 'field_key': 'os_name', 'field_type': 'text', 'is_system': True, 'is_visible': False, 'is_card_visible': False, 'sort': 15},
+        {'name': '安装时间', 'field_key': 'install_date', 'field_type': 'date', 'is_system': True, 'is_visible': False, 'is_card_visible': False, 'sort': 16},
+        {'name': '硬盘序列号', 'field_key': 'disk_serial', 'field_type': 'text', 'is_system': True, 'is_visible': False, 'is_card_visible': False, 'sort': 17},
+        {'name': '购入日期', 'field_key': 'purchase_date', 'field_type': 'date', 'is_system': True, 'is_visible': False, 'is_card_visible': False, 'sort': 18},
+        {'name': '启用时间', 'field_key': 'enable_date', 'field_type': 'date', 'is_system': True, 'is_visible': False, 'is_card_visible': False, 'sort': 19},
+        {'name': '用途', 'field_key': 'purpose', 'field_type': 'text', 'is_system': True, 'is_visible': False, 'is_card_visible': False, 'sort': 20},
+        {'name': '备注', 'field_key': 'remarks', 'field_type': 'textarea', 'is_system': True, 'is_visible': True, 'is_card_visible': False, 'sort': 21},
+        {'name': '固资在账', 'field_key': 'is_fixed', 'field_type': 'checkbox', 'is_system': True, 'is_visible': False, 'is_card_visible': False, 'sort': 22},
+        {'name': '卡片编号', 'field_key': 'asset_card_no', 'field_type': 'text', 'is_system': True, 'is_visible': False, 'is_card_visible': False, 'sort': 23},
+        {'name': '保密台账', 'field_key': 'is_secret', 'field_type': 'checkbox', 'is_system': True, 'is_visible': False, 'is_card_visible': False, 'sort': 24},
+        {'name': '台账分类', 'field_key': 'secret_category', 'field_type': 'text', 'is_system': True, 'is_visible': False, 'is_card_visible': False, 'sort': 25},
+        {'name': '二维码', 'field_key': 'qrcode', 'field_type': 'text', 'is_system': True, 'is_visible': False, 'is_card_visible': False, 'sort': 26},
+        {'name': '设备照片', 'field_key': 'photo', 'field_type': 'text', 'is_system': True, 'is_visible': False, 'is_card_visible': False, 'sort': 27},
+        {'name': '创建时间', 'field_key': 'created_at', 'field_type': 'datetime', 'is_system': True, 'is_visible': False, 'is_card_visible': False, 'sort': 28},
+        {'name': '更新时间', 'field_key': 'updated_at', 'field_type': 'datetime', 'is_system': True, 'is_visible': False, 'is_card_visible': False, 'sort': 29},
     ]
     
     for field_data in system_fields:
@@ -427,7 +433,39 @@ def init_device_fields():
             field_key=field_key,
             defaults=field_data
         )
-    print(f"已初始化 {len(system_fields)} 个系统字段")
+    print(f"已初始化 {len(system_fields)} 个设备系统字段")
+
+
+def init_software_fields():
+    print("初始化软件系统字段...")
+    
+    from apps.assets.models import SoftwareField
+    
+    system_fields = [
+        {'name': '软件名称', 'field_key': 'name', 'field_type': 'text', 'is_system': True, 'is_visible': True, 'is_card_visible': True, 'sort': 1},
+        {'name': '资产编号', 'field_key': 'asset_no', 'field_type': 'text', 'is_system': True, 'is_visible': True, 'is_card_visible': True, 'sort': 2},
+        {'name': '编号', 'field_key': 'device_no', 'field_type': 'text', 'is_system': True, 'is_visible': True, 'is_card_visible': True, 'sort': 3},
+        {'name': '版本', 'field_key': 'version', 'field_type': 'text', 'is_system': True, 'is_visible': True, 'is_card_visible': True, 'sort': 4},
+        {'name': '供应商', 'field_key': 'vendor', 'field_type': 'text', 'is_system': True, 'is_visible': True, 'is_card_visible': True, 'sort': 5},
+        {'name': '授权类型', 'field_key': 'license_type', 'field_type': 'select', 'is_system': True, 'is_visible': True, 'is_card_visible': True, 'sort': 6},
+        {'name': '授权数量', 'field_key': 'license_count', 'field_type': 'number', 'is_system': True, 'is_visible': True, 'is_card_visible': True, 'sort': 7},
+        {'name': '价格', 'field_key': 'price', 'field_type': 'number', 'is_system': True, 'is_visible': True, 'is_card_visible': True, 'sort': 8},
+        {'name': '购买日期', 'field_key': 'purchase_date', 'field_type': 'date', 'is_system': True, 'is_visible': False, 'is_card_visible': False, 'sort': 9},
+        {'name': '到期日期', 'field_key': 'expire_date', 'field_type': 'date', 'is_system': True, 'is_visible': False, 'is_card_visible': False, 'sort': 10},
+        {'name': '固资在账', 'field_key': 'is_fixed', 'field_type': 'checkbox', 'is_system': True, 'is_visible': True, 'is_card_visible': True, 'sort': 11},
+        {'name': '卡片编号', 'field_key': 'asset_card_no', 'field_type': 'text', 'is_system': True, 'is_visible': True, 'is_card_visible': True, 'sort': 12},
+        {'name': '描述', 'field_key': 'description', 'field_type': 'textarea', 'is_system': True, 'is_visible': True, 'is_card_visible': False, 'sort': 13},
+        {'name': '创建时间', 'field_key': 'created_at', 'field_type': 'datetime', 'is_system': True, 'is_visible': False, 'is_card_visible': False, 'sort': 14},
+        {'name': '更新时间', 'field_key': 'updated_at', 'field_type': 'datetime', 'is_system': True, 'is_visible': False, 'is_card_visible': False, 'sort': 15},
+    ]
+    
+    for field_data in system_fields:
+        field_key = field_data.pop('field_key')
+        SoftwareField.objects.update_or_create(
+            field_key=field_key,
+            defaults=field_data
+        )
+    print(f"已初始化 {len(system_fields)} 个软件系统字段")
 
 
 def run():
@@ -442,6 +480,7 @@ def run():
     init_system_config()
     init_org()
     init_device_fields()
+    init_software_fields()
     create_superuser()
     
     print("数据初始化完成!")
