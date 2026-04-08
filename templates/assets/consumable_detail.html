@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block title %}{{ consumable.name }} - 耗材详情 - 驰达IT资产管理系统{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+<h4>耗材详情</h4>
+<div>
+<a href="{% url 'consumable_edit' consumable.id %}" class="btn btn-primary"><i class="fas fa-edit"></i> 编辑</a>
+<a href="{% url 'consumable_list' %}" class="btn btn-outline-secondary">返回列表</a>
+</div>
+</div>
+
+<div class="row">
+<div class="col-md-6">
+<div class="card mb-4">
+    <div class="card-header"><h5 class="mb-0">基本信息</h5></div>
+    <div class="card-body">
+        <table class="table table-borderless">
+        <tr><th width="120">耗材名称</th><td>{{ consumable.name }}</td></tr>
+        <tr><th>分类</th><td>{{ consumable.category.name|default:'-' }}</td></tr>
+        <tr><th>规格型号</th><td>{{ consumable.specification|default:'-' }}</td></tr>
+        <tr><th>适用机型</th><td>{{ consumable.applicable_models|default:'-' }}</td></tr>
+        <tr><th>库存数量</th><td><span class="badge {% if consumable.stock_quantity <= consumable.min_stock %}bg-danger{% else %}bg-success{% endif %}">{{ consumable.stock_quantity }}</span></td></tr>
+        <tr><th>最低预警</th><td>{{ consumable.min_stock }}</td></tr>
+        <tr><th>描述</th><td>{{ consumable.description|default:'-' }}</td></tr>
+        <tr><th>创建时间</th><td>{{ consumable.created_at|date:"Y-m-d H:i" }}</td></tr>
+        <tr><th>更新时间</th><td>{{ consumable.updated_at|date:"Y-m-d H:i" }}</td></tr>
+        </table>
+    </div>
+</div>
+</div>
+
+<div class="col-md-6">
+<div class="card mb-4">
+    <div class="card-header"><h5 class="mb-0">入库/领取记录</h5></div>
+    <div class="card-body p-0">
+    {% if records %}
+    <div style="max-height: 500px; overflow-y: auto;">
+    <table class="table table-sm table-hover mb-0">
+    <thead class="table-light sticky-top"><tr><th>类型</th><th>数量</th><th>人</th><th>部门</th><th>时间</th></tr></thead>
+    <tbody>
+    {% for r in records %}
+    <tr><td>{% if r.record_type == 'receive' %}<span class="badge bg-success">入库</span>{% else %}<span class="badge bg-warning">领用</span>{% endif %}</td>
+    <td>{{ r.quantity }}</td>
+    <td>{{ r.user.realname|default:r.approved_by.realname|default:'-' }}</td>
+    <td>{{ r.department.name|default:'-' }}</td>
+    <td>{{ r.created_at|date:"m-d H:i" }}</td></tr>
+    {% endfor %}
+    </tbody>
+    </table>
+    </div>
+    {% else %}
+    <div class="text-center text-muted py-4">暂无记录</div>
+    {% endif %}
+    </div>
+</div>
+</div>
+</div>
+{% endblock %}

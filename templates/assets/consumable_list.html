@@ -1,15 +1,124 @@
 {% extends 'base.html' %}
+
 {% block title %}耗材管理 - 驰达IT资产管理系统{% endblock %}
+
+{% block extra_css %}
+<style>
+.consumable-table-container { display: block !important; }
+.consumable-cards-container { display: none !important; }
+
+@media (max-width: 992px) {
+    .consumable-table-container { display: none !important; }
+    .consumable-cards-container { display: block !important; }
+    
+    .consumable-card {
+        background: #fff;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+    
+    .consumable-card-body { padding: 12px; }
+    
+    .card-field {
+        display: flex;
+        padding: 8px 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .card-field:last-child { border-bottom: none; }
+    
+    .card-field-half {
+        flex: 1;
+        display: flex;
+        align-items: center;
+    }
+    
+    .card-field-half:first-child { padding-right: 10px; border-right: 1px solid #f0f0f0; }
+    .card-field-half:last-child { padding-left: 10px; }
+    
+    .field-label {
+        font-size: 12px;
+        color: #888;
+        white-space: nowrap;
+        margin-right: 8px;
+    }
+    
+    .field-value {
+        font-size: 13px;
+        color: #333;
+        word-break: break-all;
+    }
+    
+    .consumable-card-footer {
+        background: #f8f9fa;
+        padding: 10px 12px;
+        border-top: 1px solid #e0e0e0;
+        display: flex;
+        justify-content: flex-end;
+        gap: 6px;
+    }
+    
+    .consumable-card-footer .btn { padding: 4px 8px; font-size: 12px; }
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
 <h4>耗材管理</h4>
-<div>
-<a href="{% url 'consumable_receive' %}" class="btn btn-success"><i class="fas fa-plus"></i> 入库</a>
-<a href="{% url 'consumable_use' %}" class="btn btn-warning"><i class="fas fa-minus"></i> 领用</a>
 <a href="{% url 'consumable_create' %}" class="btn btn-primary"><i class="fas fa-plus"></i> 新增耗材</a>
 </div>
+
+<!-- 桌面端表格 -->
+<div class="card consumable-table-container">
+<div class="card-body p-0">
+<table class="table table-hover mb-0">
+<thead><tr><th>耗材名称</th><th>规格</th><th>适用机型</th><th>库存</th><th>最低预警</th><th>描述</th><th>操作</th></tr></thead>
+<tbody>{% for c in consumables %}<tr>
+<td>{{ c.name }}</td>
+<td>{{ c.specification|default:'-' }}</td>
+<td>{{ c.applicable_models|default:'-' }}</td>
+<td>{{ c.stock_quantity }}</td>
+<td>{{ c.min_stock }}</td>
+<td>{{ c.description|default:'-' }}</td>
+<td>
+<a href="{% url 'consumable_receive' %}?consumable_id={{ c.id }}" class="btn btn-success btn-sm" title="入库"><i class="fas fa-plus"></i></a>
+<a href="{% url 'consumable_use' %}?consumable_id={{ c.id }}" class="btn btn-warning btn-sm" title="领用"><i class="fas fa-minus"></i></a>
+<a href="{% url 'consumable_detail' c.id %}" class="btn btn-info btn-sm" title="查看"><i class="fas fa-eye"></i></a>
+<a href="{% url 'consumable_edit' c.id %}" class="btn btn-primary btn-sm" title="编辑"><i class="fas fa-edit"></i></a>
+<a href="{% url 'consumable_delete' c.id %}" class="btn btn-danger btn-sm" title="删除"><i class="fas fa-trash"></i></a>
+</td>
+</tr>{% empty %}<tr><td colspan="7" class="text-center text-muted">暂无数据</td></tr>{% endfor %}</tbody></table>
 </div>
-<div class="card"><div class="card-body">
-<table class="table table-hover"><thead><tr><th>耗材名称</th><th>规格</th><th>适用机型</th><th>库存</th><th>最低预警</th><th>描述</th></tr></thead>
-<tbody>{% for c in consumables %}<tr><td>{{ c.name }}</td><td>{{ c.specification|default:'-' }}</td><td>{{ c.applicable_models|default:'-' }}</td><td>{{ c.stock_quantity }}</td><td>{{ c.min_stock }}</td><td>{{ c.description|default:'-' }}</td></tr>{% empty %}<tr><td colspan="6" class="text-center text-muted">暂无数据</td></tr>{% endfor %}</tbody></table>
-</div></div>{% endblock %}
+</div>
+
+<!-- 移动端卡片 -->
+<div class="consumable-cards-container">
+{% for c in consumables %}
+<div class="consumable-card">
+<div class="consumable-card-body">
+<div class="card-field"><span class="field-label">耗材名称</span><span class="field-value">{{ c.name }}</span></div>
+<div class="card-field"><span class="field-label">规格</span><span class="field-value">{{ c.specification|default:'-' }}</span></div>
+<div class="card-field"><span class="field-label">适用机型</span><span class="field-value">{{ c.applicable_models|default:'-' }}</span></div>
+<div class="card-field">
+<div class="card-field-half"><span class="field-label">库存</span><span class="field-value">{{ c.stock_quantity }}</span></div>
+<div class="card-field-half"><span class="field-label">最低预警</span><span class="field-value">{{ c.min_stock }}</span></div>
+</div>
+<div class="card-field"><span class="field-label">描述</span><span class="field-value">{{ c.description|default:'-' }}</span></div>
+</div>
+<div class="consumable-card-footer">
+<a href="{% url 'consumable_receive' %}?consumable_id={{ c.id }}" class="btn btn-success btn-sm" title="入库"><i class="fas fa-plus"></i></a>
+<a href="{% url 'consumable_use' %}?consumable_id={{ c.id }}" class="btn btn-warning btn-sm" title="领用"><i class="fas fa-minus"></i></a>
+<a href="{% url 'consumable_detail' c.id %}" class="btn btn-info btn-sm" title="查看"><i class="fas fa-eye"></i></a>
+<a href="{% url 'consumable_edit' c.id %}" class="btn btn-primary btn-sm" title="编辑"><i class="fas fa-edit"></i></a>
+<a href="{% url 'consumable_delete' c.id }}" class="btn btn-danger btn-sm" title="删除"><i class="fas fa-trash"></i></a>
+</div>
+</div>
+{% empty %}
+<div class="text-center text-muted py-4">暂无数据</div>
+{% endfor %}
+</div>
+{% endblock %}

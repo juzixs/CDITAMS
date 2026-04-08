@@ -98,6 +98,9 @@ urlpatterns = [
     
     path('consumables/', views.consumable_list, name='consumable_list'),
     path('consumables/create/', views.consumable_create, name='consumable_create'),
+    path('consumables/<int:pk>/', views.consumable_detail, name='consumable_detail'),
+    path('consumables/<int:pk>/edit/', views.consumable_edit, name='consumable_edit'),
+    path('consumables/<int:pk>/delete/', views.consumable_delete, name='consumable_delete'),
     path('consumables/receive/', views.consumable_receive_view, name='consumable_receive'),
     path('consumables/use/', views.consumable_use_view, name='consumable_use'),
     path('consumables/api/users/', views.consumable_users_api, name='consumable_users_api'),

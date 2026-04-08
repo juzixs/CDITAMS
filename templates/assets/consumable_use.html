@@ -20,7 +20,7 @@
 <div class="col-md-6"><label class="form-label">选择耗材 <span class="text-danger">*</span></label>
 <select name="consumable" class="form-select" id="consumableSelect" required>
 <option value="">请选择耗材</option>
-{% for c in consumables %}<option value="{{ c.id }}" data-models="{{ c.applicable_models }}" data-stock="{{ c.stock_quantity }}">{{ c.name }}</option>{% endfor %}
+{% for c in consumables %}<option value="{{ c.id }}" data-models="{{ c.applicable_models }}" data-stock="{{ c.stock_quantity }}" {% if selected_id == c.id %}selected{% endif %}>{{ c.name }}</option>{% endfor %}
 </select>
 <div class="form-text text-muted" id="modelHint" style="display:none;">适用机型: <span id="applicableModels"></span></div>
 </div>
@@ -50,13 +50,22 @@ const currentUserText = "{{ current_user.emp_no }}-{{ current_user.realname }}({
 
 // 耗材选择事件
 document.getElementById('consumableSelect').addEventListener('change', function() {
-    var option = this.options[this.selectedIndex];
+    updateConsumableHint();
+});
+
+function updateConsumableHint() {
+    var option = document.getElementById('consumableSelect').options[document.getElementById('consumableSelect').selectedIndex];
     var models = option.getAttribute('data-models') || '';
     var stock = option.getAttribute('data-stock') || '0';
     document.getElementById('applicableModels').textContent = models || '-';
     document.getElementById('modelHint').style.display = models ? 'block' : 'none';
     document.getElementById('currentStock').textContent = stock;
     document.getElementById('stockHint').style.display = 'block';
+}
+
+// 页面加载后，如果已选中耗材，自动更新提示
+document.addEventListener('DOMContentLoaded', function() {
+    updateConsumableHint();
 });
 
 // 领用人选择 - 使用 Select2 + AJAX

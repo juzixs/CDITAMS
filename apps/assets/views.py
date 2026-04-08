@@ -1982,7 +1982,7 @@ def software_field_delete(request, pk):
 
 @login_required
 def consumable_list(request):
-    consumables = Consumable.objects.all().order_by('name')
+    consumables = Consumable.objects.all().order_by('created_at')
     return render(request, 'assets/consumable_list.html', {'consumables': consumables})
 
 
@@ -2029,7 +2029,12 @@ def consumable_receive_view(request):
     
     consumables = Consumable.objects.all().order_by('name')
     consumables_json = [{'id': c.id, 'name': c.name, 'stock_quantity': c.stock_quantity} for c in consumables]
-    return render(request, 'assets/consumable_receive.html', {'consumables': consumables, 'consumables_json': consumables_json})
+    selected_id = request.GET.get('consumable_id')
+    return render(request, 'assets/consumable_receive.html', {
+        'consumables': consumables, 
+        'consumables_json': consumables_json,
+        'selected_id': int(selected_id) if selected_id else None
+    })
 
 
 @login_required
@@ -2063,7 +2068,13 @@ def consumable_use_view(request):
     
     consumables = Consumable.objects.all().order_by('name')
     users = User.objects.filter(is_active=True).select_related('department').order_by('emp_no')
-    return render(request, 'assets/consumable_use.html', {'consumables': consumables, 'users': users, 'current_user': request.user})
+    selected_id = request.GET.get('consumable_id')
+    return render(request, 'assets/consumable_use.html', {
+        'consumables': consumables, 
+        'users': users, 
+        'current_user': request.user,
+        'selected_id': int(selected_id) if selected_id else None
+    })
 
 
 def consumable_users_api(request):
@@ -2074,6 +2085,47 @@ def consumable_users_api(request):
     users = users.select_related('department')[:20]
     results = [{'id': u.id, 'text': f"{u.emp_no}-{u.realname}({u.department.name if u.department else ''})", 'display': f"{u.emp_no}-{u.realname}"} for u in users]
     return JsonResponse(results, safe=False)
+
+
+@login_required
+def consumable_detail(request, pk):
+    consumable = get_object_or_404(Consumable, pk=pk)
+    records = ConsumableRecord.objects.filter(consumable=consumable).select_related('user', 'department', 'approved_by').order_by('-created_at')
+    return render(request, 'assets/consumable_detail.html', {
+        'consumable': consumable,
+        'records': records
+    })
+
+
+@login_required
+def consumable_edit(request, pk):
+    consumable = get_object_or_404(Consumable, pk=pk)
+    if request.method == 'POST':
+        consumable.name = request.POST.get('name')
+        consumable.category_id = request.POST.get('category') or None
+        consumable.specification = request.POST.get('specification')
+        consumable.applicable_models = request.POST.get('applicable_models')
+        consumable.min_stock = request.POST.get('min_stock') or 0
+        consumable.description = request.POST.get('description')
+        consumable.save()
+        messages.success(request, '耗材更新成功')
+        return redirect('consumable_detail', pk=consumable.pk)
+    
+    categories = ConsumableCategory.objects.all()
+    return render(request, 'assets/consumable_form.html', {
+        'consumable': consumable,
+        'categories': categories
+    })
+
+
+@login_required
+def consumable_delete(request, pk):
+    consumable = get_object_or_404(Consumable, pk=pk)
+    if request.method == 'POST':
+        consumable.delete()
+        messages.success(request, '耗材删除成功')
+        return redirect('consumable_list')
+    return render(request, 'assets/consumable_confirm_delete.html', {'consumable': consumable})
 
 
 @login_required

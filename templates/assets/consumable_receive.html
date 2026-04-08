@@ -8,7 +8,7 @@
 <div class="col-md-6"><label class="form-label">选择耗材 <span class="text-danger">*</span></label>
 <select name="consumable" class="form-select" id="consumableSelect" required>
 <option value="">请选择耗材</option>
-{% for c in consumables %}<option value="{{ c.id }}" data-models="{{ c.applicable_models }}">{{ c.name }}</option>{% endfor %}
+{% for c in consumables %}<option value="{{ c.id }}" data-models="{{ c.applicable_models }}" {% if selected_id == c.id %}selected{% endif %}>{{ c.name }}</option>{% endfor %}
 </select>
 <div class="form-text text-muted" id="modelHint" style="display:none;">适用机型: <span id="applicableModels"></span></div>
 </div>
@@ -21,20 +21,25 @@
 <div class="mt-4"><button type="submit" class="btn btn-success">确认入库</button><a href="{% url 'consumable_list' %}" class="btn btn-outline-secondary">返回</a></div>
 </form></div></div>
 <script>
-document.getElementById('consumableSelect').addEventListener('change', function() {
-    var option = this.options[this.selectedIndex];
-    var models = option.getAttribute('data-models') || '';
-    document.getElementById('applicableModels').textContent = models || '-';
-    document.getElementById('modelHint').style.display = models ? 'block' : 'none';
-    
-    var consumables = {{ consumables_json|safe }};
-    var selected = consumables.find(function(c) { return c.id == option.value; });
-    if (selected) {
-        document.getElementById('currentStock').textContent = selected.stock_quantity;
-        document.getElementById('stockHint').style.display = 'block';
-    } else {
-        document.getElementById('stockHint').style.display = 'none';
+document.addEventListener('DOMContentLoaded', function() {
+    var select = document.getElementById('consumableSelect');
+    function updateHint() {
+        var option = select.options[select.selectedIndex];
+        var models = option.getAttribute('data-models') || '';
+        document.getElementById('applicableModels').textContent = models || '-';
+        document.getElementById('modelHint').style.display = models ? 'block' : 'none';
+        
+        var consumables = {{ consumables_json|safe }};
+        var selected = consumables.find(function(c) { return c.id == option.value; });
+        if (selected) {
+            document.getElementById('currentStock').textContent = selected.stock_quantity;
+            document.getElementById('stockHint').style.display = 'block';
+        } else {
+            document.getElementById('stockHint').style.display = 'none';
+        }
     }
+    select.addEventListener('change', updateHint);
+    updateHint();
 });
 </script>
 {% endblock %}
