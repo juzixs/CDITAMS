@@ -2,6 +2,117 @@
 
 {% block title %}软件管理 - 驰达IT资产管理系统{% endblock %}
 
+{% block extra_css %}
+<style>
+/* 默认样式 - 桌面端显示表格，隐藏卡片 */
+.content .software-table-container {
+    display: block !important;
+}
+.content .software-cards-container {
+    display: none !important;
+}
+
+/* 移动端样式 */
+@media (max-width: 992px) {
+    /* 隐藏表格，显示卡片 */
+    .content .software-table-container {
+        display: none !important;
+    }
+    .content .software-cards-container {
+        display: block !important;
+    }
+    
+    /* 卡片样式 */
+    .content .software-card {
+        background: #fff;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+    
+    .content .software-card-body {
+        padding: 12px;
+    }
+    
+    /* 单行字段 */
+    .content .card-field {
+        display: flex;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .content .card-field:last-child {
+        border-bottom: none;
+    }
+    
+    /* 双字段行 */
+    .content .card-field-row {
+        display: flex;
+        padding: 8px 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .content .card-field-half {
+        flex: 1;
+        display: flex;
+        align-items: center;
+    }
+    
+    .content .card-field-half:first-child {
+        padding-right: 10px;
+        border-right: 1px solid #f0f0f0;
+    }
+    
+    .content .card-field-half:last-child {
+        padding-left: 10px;
+    }
+    
+    /* 字段标签 */
+    .content .field-label {
+        font-size: 12px;
+        color: #888;
+        white-space: nowrap;
+        margin-right: 8px;
+    }
+    
+    /* 字段值 */
+    .content .field-value {
+        font-size: 13px;
+        color: #333;
+        word-break: break-all;
+    }
+    
+    /* 卡片底部 */
+    .content .software-card-footer {
+        background: #f8f9fa;
+        padding: 10px 12px;
+        border-top: 1px solid #e0e0e0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .content .software-card-footer .checkbox-cell {
+        display: flex;
+        align-items: center;
+    }
+    
+    .content .software-card-footer .action-cell {
+        display: flex;
+        gap: 4px;
+    }
+    
+    .content .software-card-footer .btn {
+        padding: 4px 8px;
+        font-size: 12px;
+    }
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h4><i class="fas fa-desktop me-2"></i>软件管理</h4>
@@ -49,7 +160,7 @@
                 </div>
             </div>
             
-            <div class="table-responsive">
+            <div class="table-responsive software-table-container">
                 <table class="table table-hover">
                     <thead>
                         <tr>
@@ -90,18 +201,114 @@
                 </table>
             </div>
             
+            <!-- 移动端卡片容器 -->
+            <div class="software-cards-container" style="display: none;">
+                {% for s in software_list %}
+                <div class="software-card">
+                    <div class="software-card-body">
+                        <!-- 软件名称 -->
+                        <div class="card-field">
+                            <span class="field-label">软件名称</span>
+                            <span class="field-value">{{ s.name|default:'-' }}</span>
+                        </div>
+                        <!-- 资产编号 -->
+                        <div class="card-field">
+                            <span class="field-label">资产编号</span>
+                            <span class="field-value">{{ s.asset_no|default:'-' }}</span>
+                        </div>
+                        <!-- 编号 -->
+                        <div class="card-field">
+                            <span class="field-label">编号</span>
+                            <span class="field-value">{{ s.device_no|default:'-' }}</span>
+                        </div>
+                        <!-- 版本 -->
+                        <div class="card-field">
+                            <span class="field-label">版本</span>
+                            <span class="field-value">{{ s.version|default:'-' }}</span>
+                        </div>
+                        <!-- 供应商 -->
+                        <div class="card-field">
+                            <span class="field-label">供应商</span>
+                            <span class="field-value">{{ s.vendor|default:'-' }}</span>
+                        </div>
+                        <!-- 授权类型 + 授权数量 -->
+                        <div class="card-field-row">
+                            <div class="card-field-half">
+                                <span class="field-label">授权类型</span>
+                                <span class="field-value">{{ s.get_license_type_display|default:'-' }}</span>
+                            </div>
+                            <div class="card-field-half">
+                                <span class="field-label">授权数量</span>
+                                <span class="field-value">{% if s.license_count == -1 %}<span class="text-success">无限制</span>{% else %}{{ s.license_count|default:'-' }}{% endif %}</span>
+                            </div>
+                        </div>
+                        <!-- 价格 -->
+                        <div class="card-field">
+                            <span class="field-label">价格</span>
+                            <span class="field-value">{{ s.price|default:'-' }}</span>
+                        </div>
+                        <!-- 固资在账 + 卡片编号 -->
+                        <div class="card-field-row">
+                            <div class="card-field-half">
+                                <span class="field-label">固资在账</span>
+                                <span class="field-value">{% if s.is_fixed %}<span class="badge bg-success">是</span>{% else %}<span class="badge bg-secondary">否</span>{% endif %}</span>
+                            </div>
+                            <div class="card-field-half">
+                                <span class="field-label">卡片编号</span>
+                                <span class="field-value">{{ s.asset_card_no|default:'-' }}</span>
+                            </div>
+                        </div>
+                        <!-- 描述 -->
+                        <div class="card-field">
+                            <span class="field-label">描述</span>
+                            <span class="field-value">{{ s.description|default:'-'|truncatechars:30 }}</span>
+                        </div>
+                    </div>
+                    <div class="software-card-footer">
+                        <div class="checkbox-cell">
+                            <input type="checkbox" name="software_ids" value="{{ s.id }}">
+                        </div>
+                        <div class="action-cell">
+                            <a href="{% url 'software_detail' s.id %}" class="btn btn-outline-primary"><i class="fas fa-eye"></i></a>
+                            <a href="{% url 'software_edit' s.id %}" class="btn btn-outline-secondary"><i class="fas fa-edit"></i></a>
+                            <button type="button" class="btn btn-outline-danger" onclick="deleteSoftware({{ s.id }})"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center text-muted py-5">暂无数据</div>
+                {% endfor %}
+            </div>
+            
             {% if software_list.has_other_pages %}
             <nav>
-                <ul class="pagination justify-content-center">
+                <ul class="pagination justify-content-center mb-0">
                     {% if software_list.has_previous %}
-                    <li class="page-item"><a class="page-link" href="#" onclick="goToPage({{ software_list.previous_page_number }}); return false;">上一页</a></li>
+                    <li class="page-item"><a class="page-link" href="#" onclick="goToPage({{ software_list.previous_page_number }}); return false;"><i class="fas fa-chevron-left"></i></a></li>
                     {% endif %}
-                    {% for num in software_list.paginator.page_range %}
-                    <li class="page-item {% if software_list.number == num %}active{% endif %}"><a class="page-link" href="#" onclick="goToPage({{ num }}); return false;">{{ num }}</a></li>
+                    
+                    {% for num in page_range %}
+                        {% if num == '...' %}
+                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                        {% else %}
+                        <li class="page-item {% if software_list.number == num %}active{% endif %}">
+                            <a class="page-link" href="#" onclick="goToPage({{ num }}); return false;">{{ num }}</a>
+                        </li>
+                        {% endif %}
                     {% endfor %}
+                    
                     {% if software_list.has_next %}
-                    <li class="page-item"><a class="page-link" href="#" onclick="goToPage({{ software_list.next_page_number }}); return false;">下一页</a></li>
+                    <li class="page-item"><a class="page-link" href="#" onclick="goToPage({{ software_list.next_page_number }}); return false;"><i class="fas fa-chevron-right"></i></a></li>
                     {% endif %}
+                    
+                    <li class="page-item ms-3">
+                        <select class="form-select form-select-sm" style="width: auto;" onchange="changePageSize(this.value)">
+                            <option value="20" {% if page_size == 20 %}selected{% endif %}>20</option>
+                            <option value="50" {% if page_size == 50 %}selected{% endif %}>50</option>
+                            <option value="100" {% if page_size == 100 %}selected{% endif %}>100</option>
+                            <option value="200" {% if page_size == 200 %}selected{% endif %}>200</option>
+                        </select>
+                    </li>
                 </ul>
             </nav>
             {% endif %}
@@ -117,6 +324,15 @@
         const formData = new FormData(form);
         const params = new URLSearchParams(formData);
         params.set('page', pageNum);
+        window.location.href = '?' + params.toString();
+    }
+    
+    function changePageSize(size) {
+        const form = document.querySelector('form[method="get"]');
+        const formData = new FormData(form);
+        const params = new URLSearchParams(formData);
+        params.set('page_size', size);
+        params.set('page', 1);
         window.location.href = '?' + params.toString();
     }
     

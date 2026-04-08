@@ -1573,16 +1573,45 @@ def software_list(request):
     if license_type:
         software_list = software_list.filter(license_type=license_type)
     
-    paginator = Paginator(software_list, 20)
+    # 获取页码大小，默认20
+    page_size = int(request.GET.get('page_size', 20))
+    if page_size not in [20, 50, 100, 200]:
+        page_size = 20
+    
+    paginator = Paginator(software_list, page_size)
     page = request.GET.get('page', 1)
     software_list = paginator.get_page(page)
     
+    # 计算分页范围
+    current_page = software_list.number
+    total_pages = paginator.num_pages
+    
+    page_range = []
+    if total_pages <= 7:
+        page_range = list(range(1, total_pages + 1))
+    else:
+        page_range.extend([1, 2])
+        start = max(3, current_page - 2)
+        end = min(total_pages - 1, current_page + 2)
+        if start > 3:
+            page_range.append('...')
+        page_range.extend(range(start, end + 1))
+        if end < total_pages - 1:
+            page_range.append('...')
+        page_range.extend([total_pages - 1, total_pages])
+    
     categories = SoftwareCategory.objects.all()
+    
+    # 获取卡片可见字段
+    card_visible_fields = SoftwareField.objects.filter(is_card_visible=True).order_by('sort')
     
     return render(request, 'assets/software_list.html', {
         'software_list': software_list,
         'categories': categories,
         'software_fields': SoftwareField.objects.filter(is_visible=True),
+        'card_visible_fields': card_visible_fields,
+        'page_range': page_range,
+        'page_size': page_size,
     })
 
 
@@ -1893,6 +1922,7 @@ def software_field_create(request):
         field_type = request.POST.get('field_type')
         is_required = request.POST.get('is_required') == 'on'
         is_visible = request.POST.get('is_visible') == 'on'
+        is_card_visible = request.POST.get('is_card_visible') == 'on'
         options = request.POST.get('options')
         default_value = request.POST.get('default_value')
         sort = request.POST.get('sort', 0)
@@ -1903,6 +1933,7 @@ def software_field_create(request):
             field_type=field_type,
             is_required=is_required,
             is_visible=is_visible,
+            is_card_visible=is_card_visible,
             options=options,
             default_value=default_value,
             sort=sort,
@@ -1922,6 +1953,7 @@ def software_field_edit(request, pk):
         field.field_type = request.POST.get('field_type')
         field.is_required = request.POST.get('is_required') == 'on'
         field.is_visible = request.POST.get('is_visible') == 'on'
+        field.is_card_visible = request.POST.get('is_card_visible') == 'on'
         field.options = request.POST.get('options')
         field.default_value = request.POST.get('default_value')
         field.sort = request.POST.get('sort', 0)

@@ -27,6 +27,7 @@
                     <th>系统字段</th>
                     <th>必填</th>
                     <th>列表显示</th>
+                    <th>卡片显示</th>
                     <th>排序</th>
                     <th>操作</th>
                 </tr>
@@ -40,6 +41,7 @@
                     <td>{% if field.is_system %}<span class="badge bg-warning">系统</span>{% else %}<span class="badge bg-secondary">自定义</span>{% endif %}</td>
                     <td>{% if field.is_required %}<span class="badge bg-danger">是</span>{% else %}否{% endif %}</td>
                     <td>{% if field.is_visible %}<span class="badge bg-success">是</span>{% else %}否{% endif %}</td>
+                    <td>{% if field.is_card_visible %}<span class="badge bg-success">是</span>{% else %}否{% endif %}</td>
                     <td>{{ field.sort }}</td>
                     <td>
                         <a href="{% url 'software_field_edit' field.id %}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-edit"></i></a>
@@ -50,7 +52,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="8" class="text-center text-muted">暂无数据</td>
+                    <td colspan="9" class="text-center text-muted">暂无数据</td>
                 </tr>
                 {% endfor %}
             </tbody>
