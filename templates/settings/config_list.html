@@ -48,6 +48,13 @@
                                 {% endif %}
                             </label>
                         </div>
+                    {% elif config.config_key == 'llm_api_key' %}
+                        <input type="password" 
+                               name="config_value_{{ config.id }}" 
+                               class="form-control" 
+                               value="{{ config.config_value }}"
+                               placeholder="请输入 API Key"
+                               autocomplete="off">
                     {% elif config.value_type == 'int' %}
                         <input type="number" 
                                name="config_value_{{ config.id }}" 

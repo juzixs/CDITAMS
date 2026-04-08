@@ -32,7 +32,7 @@ def get_config_value(key, default=None):
 def config_list(request):
     group = request.GET.get('group', 'basic')
     groups = SystemConfig.GROUP_CHOICES
-    configs = SystemConfig.objects.filter(config_group=group)
+    configs = SystemConfig.objects.filter(config_group=group).order_by('sort', 'id')
     return render(request, 'settings/config_list.html', {
         'configs': configs,
         'groups': groups,

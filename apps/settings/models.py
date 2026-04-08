@@ -14,6 +14,7 @@ class SystemConfig(models.Model):
         ('basic', '基础设置'),
         ('security', '安全设置'),
         ('asset', '资产设置'),
+        ('model', '模型设置'),
     ]
     
     config_key = models.CharField(max_length=64, unique=True, verbose_name='配置键')
@@ -23,6 +24,7 @@ class SystemConfig(models.Model):
     description = models.CharField(max_length=256, blank=True, verbose_name='说明')
     options = models.TextField(blank=True, verbose_name='选项(JSON)')
     is_system = models.BooleanField(default=False, verbose_name='系统级配置')
+    sort = models.IntegerField(default=0, verbose_name='排序')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
 
@@ -30,7 +32,7 @@ class SystemConfig(models.Model):
         db_table = 'system_configs'
         verbose_name = '系统配置'
         verbose_name_plural = '系统配置'
-        ordering = ['config_group', 'id']
+        ordering = ['config_group', 'sort', 'id']
 
     def __str__(self):
         return self.config_key

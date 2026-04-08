@@ -16,7 +16,7 @@ from apps.assets.models import (
 )
 from apps.inventory.models import InventoryPlan, InventoryTask, InventoryRecord
 from apps.todos.models import Todo, Notification
-from apps.logs.models import LoginLog
+from apps.accounts.models import LoginLog
 from apps.settings.models import SystemConfig, Organization
 
 
@@ -342,21 +342,31 @@ def init_system_config():
     print("初始化系统配置...")
     configs = [
         # 基础设置
-        {'config_key': 'system_name', 'config_value': '驰达IT资产管理系统', 'config_group': 'basic', 'description': '系统名称'},
-        {'config_key': 'system_short_name', 'config_value': 'CDITAMS', 'value_type': 'string', 'config_group': 'basic', 'description': '系统简称'},
-        {'config_key': 'app_url', 'config_value': 'http://127.0.0.1:8000', 'config_group': 'basic', 'description': '应用URL（用于生成二维码等外部链接）'},
+        {'config_key': 'system_name', 'config_value': '驰达IT资产管理系统', 'config_group': 'basic', 'description': '系统名称', 'sort': 1},
+        {'config_key': 'system_short_name', 'config_value': 'CDITAMS', 'value_type': 'string', 'config_group': 'basic', 'description': '系统简称', 'sort': 2},
+        {'config_key': 'app_url', 'config_value': 'http://127.0.0.1:8000', 'config_group': 'basic', 'description': '应用URL（用于生成二维码等外部链接）', 'sort': 3},
+        {'config_key': 'timezone', 'config_value': 'Asia/Shanghai', 'value_type': 'select', 'config_group': 'basic', 'description': '系统时区', 'sort': 4, 'options': '[["Asia/Shanghai", "Asia/Shanghai (UTC+8)"], ["UTC", "UTC (UTC+0)"], ["America/New_York", "America/New_York (UTC-5)"]]'},
         # 安全设置
-        {'config_key': 'password_expire_days', 'config_value': '90', 'value_type': 'int', 'config_group': 'security', 'description': '密码过期天数（0表示永不过期）'},
-        {'config_key': 'login_lock_attempts', 'config_value': '5', 'value_type': 'int', 'config_group': 'security', 'description': '登录失败锁定次数（0表示不锁定）'},
-        {'config_key': 'session_timeout_minutes', 'config_value': '120', 'value_type': 'int', 'config_group': 'security', 'description': '会话超时时间（分钟）'},
+        {'config_key': 'password_expire_days', 'config_value': '0', 'value_type': 'int', 'config_group': 'security', 'description': '密码过期天数（0表示永不过期）', 'sort': 1},
+        {'config_key': 'login_lock_attempts', 'config_value': '0', 'value_type': 'int', 'config_group': 'security', 'description': '登录失败锁定次数（0表示不锁定）', 'sort': 2},
+        {'config_key': 'session_timeout_minutes', 'config_value': '120', 'value_type': 'int', 'config_group': 'security', 'description': '会话超时时间（分钟）', 'sort': 3},
         # 资产设置
-        {'config_key': 'asset_auto_number', 'config_value': 'true', 'value_type': 'boolean', 'config_group': 'asset', 'description': '资产自动编号开关'},
-        # 时区设置
-        {'config_key': 'timezone', 'config_value': 'Asia/Shanghai', 'value_type': 'select', 'config_group': 'basic', 'description': '系统时区', 'options': '[["Asia/Shanghai", "Asia/Shanghai (UTC+8)"], ["UTC", "UTC (UTC+0)"], ["America/New_York", "America/New_York (UTC-5)"]]'},
+        {'config_key': 'asset_auto_number', 'config_value': 'true', 'value_type': 'boolean', 'config_group': 'asset', 'description': '资产自动编号开关', 'sort': 1},
+        # 模型设置
+        {'config_key': 'llm_enabled', 'config_value': 'false', 'value_type': 'boolean', 'config_group': 'model', 'description': '启用大语言模型', 'sort': 1},
+        {'config_key': 'llm_api_base', 'config_value': 'https://api.xiaomimimo.com/v1', 'value_type': 'string', 'config_group': 'model', 'description': 'API 基础地址 (base_url)', 'sort': 2},
+        {'config_key': 'llm_api_key', 'config_value': '', 'value_type': 'string', 'config_group': 'model', 'description': 'API Key', 'sort': 3},
+        {'config_key': 'llm_model_name', 'config_value': 'mimo-v2-pro', 'value_type': 'string', 'config_group': 'model', 'description': '模型名称 (model)', 'sort': 4},
+        {'config_key': 'llm_temperature', 'config_value': '1.0', 'value_type': 'string', 'config_group': 'model', 'description': '温度 (temperature) 取值范围 0~2', 'sort': 5},
+        {'config_key': 'llm_top_p', 'config_value': '0.95', 'value_type': 'string', 'config_group': 'model', 'description': '核采样 (top_p) 取值范围 0~1', 'sort': 6},
+        {'config_key': 'llm_max_tokens', 'config_value': '1024', 'value_type': 'int', 'config_group': 'model', 'description': '最大生成长度 (max_completion_tokens)', 'sort': 7},
+        {'config_key': 'llm_frequency_penalty', 'config_value': '0', 'value_type': 'string', 'config_group': 'model', 'description': '频率惩罚 (frequency_penalty) 取值范围 -2~2', 'sort': 8},
+        {'config_key': 'llm_presence_penalty', 'config_value': '0', 'value_type': 'string', 'config_group': 'model', 'description': '存在惩罚 (presence_penalty) 取值范围 -2~2', 'sort': 9},
+        {'config_key': 'llm_stream', 'config_value': 'false', 'value_type': 'boolean', 'config_group': 'model', 'description': '流式输出 (stream)', 'sort': 10},
     ]
     
     for c in configs:
-        SystemConfig.objects.get_or_create(config_key=c['config_key'], defaults=c)
+        SystemConfig.objects.update_or_create(config_key=c['config_key'], defaults=c)
 
 
 def init_org():
