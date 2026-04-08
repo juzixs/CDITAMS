@@ -623,6 +623,26 @@ class ServiceLog(models.Model):
         return f"{self.request.request_no} - {self.action}"
 
 
+class ServiceContract(models.Model):
+    name = models.CharField(max_length=128, verbose_name='服务名称')
+    service_type = models.CharField(max_length=64, blank=True, verbose_name='服务类型')
+    price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name='服务价格')
+    start_date = models.DateField(verbose_name='服务开始日期')
+    end_date = models.DateField(verbose_name='服务结束日期')
+    description = models.TextField(blank=True, verbose_name='描述')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
+
+    class Meta:
+        db_table = 'service_contracts'
+        verbose_name = '服务合同'
+        verbose_name_plural = '服务合同'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.name
+
+
 class AssetLog(models.Model):
     ACTIONS = [
         ('create', '创建'),

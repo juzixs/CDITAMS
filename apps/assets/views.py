@@ -24,7 +24,7 @@ from .models import (
     Workstation, MapElement, MapBackground, LocationAreaBinding,
     Software, SoftwareCategory, SoftwareLicense, SoftwareField, SoftwareFieldValue,
     Consumable, ConsumableCategory, ConsumableRecord,
-    ServiceType, ServiceRequest, ServiceLog, AssetLog, LabelTemplate
+    ServiceType, ServiceRequest, ServiceLog, ServiceContract, AssetLog, LabelTemplate
 )
 from apps.accounts.models import User, Department
 from apps.settings.views import get_config_value
@@ -3903,3 +3903,153 @@ def software_import_progress_api(request):
     if task_id and task_id in software_import_progress:
         return JsonResponse(software_import_progress[task_id])
     return JsonResponse({'status': 'not_found'})
+
+
+@login_required
+def service_contract_list(request):
+    search = request.GET.get('search', '')
+    service_type = request.GET.get('service_type', '')
+    
+    contracts = ServiceContract.objects.all().order_by('-created_at')
+    
+    if search:
+        contracts = contracts.filter(
+            Q(name__icontains=search) |
+            Q(service_type__icontains=search) |
+            Q(description__icontains=search)
+        )
+    if service_type:
+        contracts = contracts.filter(service_type=service_type)
+    
+    page_size = int(request.GET.get('page_size', 20))
+    if page_size not in [20, 50, 100, 200]:
+        page_size = 20
+    
+    paginator = Paginator(contracts, page_size)
+    page = request.GET.get('page', 1)
+    contracts = paginator.get_page(page)
+    
+    current_page = contracts.number
+    total_pages = paginator.num_pages
+    
+    page_range = []
+    if total_pages <= 7:
+        page_range = list(range(1, total_pages + 1))
+    else:
+        page_range.extend([1, 2])
+        start = max(3, current_page - 2)
+        end = min(total_pages - 1, current_page + 2)
+        if start > 3:
+            page_range.append('...')
+        page_range.extend(range(start, end + 1))
+        if end < total_pages - 1:
+            page_range.append('...')
+        page_range.extend([total_pages - 1, total_pages])
+    
+    service_types = ['维保服务', '技术支持', '售后服务', '软件更新服务', '培训服务', '其他']
+    
+    return render(request, 'assets/service_contract_list.html', {
+        'contracts': contracts,
+        'service_types': service_types,
+        'page_range': page_range,
+        'page_size': page_size,
+    })
+
+
+@login_required
+def service_contract_create(request):
+    if request.method == 'POST':
+        name = request.POST.get('name')
+        service_type = request.POST.get('service_type')
+        price = request.POST.get('price')
+        start_date = request.POST.get('start_date')
+        end_date = request.POST.get('end_date')
+        description = request.POST.get('description')
+        
+        if not name or not start_date or not end_date:
+            messages.error(request, '服务名称和服务期限为必填项')
+            return redirect('service_contract_create')
+        
+        ServiceContract.objects.create(
+            name=name,
+            service_type=service_type or '',
+            price=price or None,
+            start_date=start_date,
+            end_date=end_date,
+            description=description or '',
+        )
+        messages.success(request, '服务创建成功')
+        return redirect('service_contract_list')
+    
+    service_types = ['维保服务', '技术支持', '售后服务', '软件更新服务', '培训服务', '其他']
+    return render(request, 'assets/service_contract_form.html', {'service_types': service_types})
+
+
+@login_required
+def service_contract_detail(request, pk):
+    contract = get_object_or_404(ServiceContract, pk=pk)
+    from datetime import date
+    today = date.today()
+    return render(request, 'assets/service_contract_detail.html', {
+        'contract': contract,
+        'today': today
+    })
+
+
+@login_required
+def service_contract_edit(request, pk):
+    contract = get_object_or_404(ServiceContract, pk=pk)
+    
+    if request.method == 'POST':
+        contract.name = request.POST.get('name')
+        contract.service_type = request.POST.get('service_type') or ''
+        contract.price = request.POST.get('price') or None
+        contract.start_date = request.POST.get('start_date')
+        contract.end_date = request.POST.get('end_date')
+        contract.description = request.POST.get('description') or ''
+        contract.save()
+        messages.success(request, '服务更新成功')
+        return redirect('service_contract_detail', pk=pk)
+    
+    service_types = ['维保服务', '技术支持', '售后服务', '软件更新服务', '培训服务', '其他']
+    return render(request, 'assets/service_contract_form.html', {
+        'contract': contract,
+        'service_types': service_types
+    })
+
+
+@login_required
+def service_contract_renew(request, pk):
+    contract = get_object_or_404(ServiceContract, pk=pk)
+    
+    if request.method == 'POST':
+        new_start_date = request.POST.get('new_start_date')
+        new_end_date = request.POST.get('new_end_date')
+        new_price = request.POST.get('new_price')
+        new_description = request.POST.get('new_description')
+        
+        if not new_start_date or not new_end_date:
+            messages.error(request, '新的服务期限为必填项')
+            return redirect('service_contract_renew', pk=pk)
+        
+        contract.start_date = new_start_date
+        contract.end_date = new_end_date
+        if new_price:
+            contract.price = new_price
+        if new_description:
+            contract.description = new_description
+        contract.save()
+        
+        messages.success(request, '服务续期成功')
+        return redirect('service_contract_detail', pk=pk)
+    
+    return render(request, 'assets/service_contract_renew.html', {'contract': contract})
+
+
+@login_required
+@require_http_methods(["POST"])
+def service_contract_delete(request, pk):
+    contract = get_object_or_404(ServiceContract, pk=pk)
+    contract.delete()
+    messages.success(request, '服务删除成功')
+    return redirect('service_contract_list')

@@ -252,6 +252,18 @@
             </a>
             
             <div class="nav-item">
+                <a class="nav-link" href="javascript:void(0)" data-bs-toggle="collapse" data-bs-target="#todoMenu">
+                    <i class="fas fa-tasks"></i>
+                    <span>待办事项</span>
+                    <i class="fas fa-chevron-down ms-auto"></i>
+                </a>
+                <div class="submenu collapse" id="todoMenu">
+                    <a href="{% url 'todo_list' %}" class="nav-link">我的待办</a>
+                    <a href="{% url 'notification_list' %}" class="nav-link">通知消息</a>
+                </div>
+            </div>
+            
+            <div class="nav-item">
                 <a class="nav-link" href="javascript:void(0)" data-bs-toggle="collapse" data-bs-target="#assetMenu">
                     <i class="fas fa-desktop"></i>
                     <span>资产管理</span>
@@ -260,7 +272,7 @@
                 <div class="submenu collapse" id="assetMenu">
                     <a href="{% url 'device_list' %}" class="nav-link">设备管理</a>
                     <a href="{% url 'software_list' %}" class="nav-link">软件管理</a>
-                    <a href="{% url 'service_list' %}" class="nav-link">服务管理</a>
+                    <a href="{% url 'service_contract_list' %}" class="nav-link">服务管理</a>
                     <a href="{% url 'consumable_list' %}" class="nav-link">耗材管理</a>
                 </div>
             </div>
@@ -292,14 +304,14 @@
             </div>
             
             <div class="nav-item">
-                <a class="nav-link" href="javascript:void(0)" data-bs-toggle="collapse" data-bs-target="#todoMenu">
-                    <i class="fas fa-tasks"></i>
-                    <span>待办</span>
+                <a class="nav-link" href="javascript:void(0)" data-bs-toggle="collapse" data-bs-target="#workOrderMenu">
+                    <i class="fas fa-tools"></i>
+                    <span>工单服务</span>
                     <i class="fas fa-chevron-down ms-auto"></i>
                 </a>
-                <div class="submenu collapse" id="todoMenu">
-                    <a href="{% url 'todo_list' %}" class="nav-link">我的待办</a>
-                    <a href="{% url 'notification_list' %}" class="nav-link">通知消息</a>
+                <div class="submenu collapse" id="workOrderMenu">
+                    <a href="{% url 'service_list' %}" class="nav-link">服务请求</a>
+                    <a href="{% url 'service_create' %}" class="nav-link">创建工单</a>
                 </div>
             </div>
             

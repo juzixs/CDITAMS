@@ -101,6 +101,13 @@ urlpatterns = [
     path('services/', views.service_list, name='service_list'),
     path('services/create/', views.service_create, name='service_create'),
     
+    path('service-contracts/', views.service_contract_list, name='service_contract_list'),
+    path('service-contracts/create/', views.service_contract_create, name='service_contract_create'),
+    path('service-contracts/<int:pk>/', views.service_contract_detail, name='service_contract_detail'),
+    path('service-contracts/<int:pk>/edit/', views.service_contract_edit, name='service_contract_edit'),
+    path('service-contracts/<int:pk>/renew/', views.service_contract_renew, name='service_contract_renew'),
+    path('service-contracts/<int:pk>/delete/', views.service_contract_delete, name='service_contract_delete'),
+    
     path('import/', views.device_import, name='device_import'),
     path('import-progress/', views.device_import_progress_api, name='device_import_progress_api'),
     path('download-template/', views.device_download_template, name='device_download_template'),

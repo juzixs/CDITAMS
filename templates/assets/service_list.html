@@ -1,14 +1,186 @@
 {% extends 'base.html' %}
-{% block title %}服务管理 - 驰达IT资产管理系统{% endblock %}
+
+{% block title %}工单服务 - 驰达IT资产管理系统{% endblock %}
+
+{% block extra_css %}
+<style>
+.content .service-table-container {
+    display: block !important;
+}
+.content .service-cards-container {
+    display: none !important;
+}
+
+@media (max-width: 992px) {
+    .content .service-table-container {
+        display: none !important;
+    }
+    .content .service-cards-container {
+        display: block !important;
+    }
+    
+    .content .service-card {
+        background: #fff;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+    
+    .content .service-card-body {
+        padding: 12px;
+    }
+    
+    .content .card-field {
+        display: flex;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .content .card-field:last-child {
+        border-bottom: none;
+    }
+    
+    .content .field-label {
+        font-size: 12px;
+        color: #888;
+        white-space: nowrap;
+        margin-right: 8px;
+    }
+    
+    .content .field-value {
+        font-size: 13px;
+        color: #333;
+        word-break: break-all;
+    }
+    
+    .content .service-card-footer {
+        background: #f8f9fa;
+        padding: 10px 12px;
+        border-top: 1px solid #e0e0e0;
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+    }
+    
+    .content .service-card-footer .btn {
+        padding: 4px 8px;
+        font-size: 12px;
+        margin-left: 4px;
+    }
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-<h4>服务管理</h4>
-<a href="{% url 'service_create' %}" class="btn btn-primary"><i class="fas fa-plus"></i> 新建服务请求</a>
+    <h4><i class="fas fa-tools me-2"></i>工单服务</h4>
+    <a href="{% url 'service_create' %}" class="btn btn-primary"><i class="fas fa-plus"></i> 创建工单</a>
 </div>
-<div class="card"><div class="card-body">
-<table class="table table-hover"><thead><tr><th>请求编号</th><th>标题</th><th>类型</th><th>优先级</th><th>状态</th><th>请求人</th><th>创建时间</th></tr></thead>
-<tbody>{% for s in requests %}<tr><td>{{ s.request_no }}</td><td>{{ s.title }}</td><td>{{ s.service_type.name|default:'-' }}</td>
-<td>{% if s.priority == 'high' %}<span class="badge bg-danger">高</span>{% elif s.priority == 'urgent' %}<span class="badge bg-warning">紧急</span>{% else %}<span class="badge bg-info">普通</span>{% endif %}</td>
-<td>{% if s.status == 'pending' %}<span class="badge bg-secondary">待处理</span>{% elif s.status == 'processing' %}<span class="badge bg-primary">处理中</span>{% else %}<span class="badge bg-success">已解决</span>{% endif %}</td>
-<td>{{ s.requester.realname|default:'-' }}</td><td>{{ s.created_at|date:"Y-m-d" }}</td></tr>{% empty %}<tr><td colspan="7" class="text-center text-muted">暂无数据</td></tr>{% endfor %}</tbody></table>
-</div></div>{% endblock %}
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive service-table-container">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>请求编号</th>
+                        <th>标题</th>
+                        <th>类型</th>
+                        <th>优先级</th>
+                        <th>状态</th>
+                        <th>请求人</th>
+                        <th>创建时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in requests %}
+                    <tr>
+                        <td>{{ s.request_no }}</td>
+                        <td>{{ s.title }}</td>
+                        <td>{{ s.service_type.name|default:'-' }}</td>
+                        <td>
+                            {% if s.priority == 'high' %}<span class="badge bg-danger">高</span>
+                            {% elif s.priority == 'urgent' %}<span class="badge bg-warning">紧急</span>
+                            {% elif s.priority == 'low' %}<span class="badge bg-info">低</span>
+                            {% else %}<span class="badge bg-secondary">普通</span>{% endif %}
+                        </td>
+                        <td>
+                            {% if s.status == 'pending' %}<span class="badge bg-secondary">待处理</span>
+                            {% elif s.status == 'processing' %}<span class="badge bg-primary">处理中</span>
+                            {% elif s.status == 'solved' %}<span class="badge bg-success">已解决</span>
+                            {% else %}<span class="badge bg-dark">已关闭</span>{% endif %}
+                        </td>
+                        <td>{{ s.requester.realname|default:'-' }}</td>
+                        <td>{{ s.created_at|date:"Y-m-d" }}</td>
+                        <td>
+                            <a href="#" class="btn btn-sm btn-outline-primary"><i class="fas fa-eye"></i></a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center text-muted">暂无数据</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- 移动端卡片 -->
+        <div class="service-cards-container" style="display: none;">
+            {% for s in requests %}
+            <div class="service-card">
+                <div class="service-card-body">
+                    <div class="card-field">
+                        <span class="field-label">请求编号</span>
+                        <span class="field-value">{{ s.request_no }}</span>
+                    </div>
+                    <div class="card-field">
+                        <span class="field-label">标题</span>
+                        <span class="field-value">{{ s.title }}</span>
+                    </div>
+                    <div class="card-field">
+                        <span class="field-label">类型</span>
+                        <span class="field-value">{{ s.service_type.name|default:'-' }}</span>
+                    </div>
+                    <div class="card-field">
+                        <span class="field-label">优先级</span>
+                        <span class="field-value">
+                            {% if s.priority == 'high' %}<span class="badge bg-danger">高</span>
+                            {% elif s.priority == 'urgent' %}<span class="badge bg-warning">紧急</span>
+                            {% elif s.priority == 'low' %}<span class="badge bg-info">低</span>
+                            {% else %}<span class="badge bg-secondary">普通</span>{% endif %}
+                        </span>
+                    </div>
+                    <div class="card-field">
+                        <span class="field-label">状态</span>
+                        <span class="field-value">
+                            {% if s.status == 'pending' %}<span class="badge bg-secondary">待处理</span>
+                            {% elif s.status == 'processing' %}<span class="badge bg-primary">处理中</span>
+                            {% elif s.status == 'solved' %}<span class="badge bg-success">已解决</span>
+                            {% else %}<span class="badge bg-dark">已关闭</span>{% endif %}
+                        </span>
+                    </div>
+                    <div class="card-field">
+                        <span class="field-label">请求人</span>
+                        <span class="field-value">{{ s.requester.realname|default:'-' }}</span>
+                    </div>
+                    <div class="card-field">
+                        <span class="field-label">创建时间</span>
+                        <span class="field-value">{{ s.created_at|date:"Y-m-d" }}</span>
+                    </div>
+                </div>
+                <div class="service-card-footer">
+                    <a href="#" class="btn btn-outline-primary"><i class="fas fa-eye"></i> 查看</a>
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center text-muted py-5">暂无数据</div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

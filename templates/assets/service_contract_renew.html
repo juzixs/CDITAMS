@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+
+{% block title %}服务续期 - 驰达IT资产管理系统{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" rel="stylesheet" />
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4>服务续期</h4>
+    <a href="{% url 'service_contract_detail' contract.id %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> 返回详情</a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            
+            <div class="alert alert-info mb-4">
+                <strong>当前服务信息</strong>
+                <hr>
+                <p class="mb-1"><strong>服务名称：</strong>{{ contract.name }}</p>
+                <p class="mb-1"><strong>原服务期限：</strong>{{ contract.start_date }} ~ {{ contract.end_date }}</p>
+                {% if contract.price %}
+                <p class="mb-0"><strong>当前价格：</strong>{{ contract.price }} 元</p>
+                {% endif %}
+            </div>
+            
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">新的服务开始日期 <span class="text-danger">*</span></label>
+                    <input type="text" name="new_start_date" class="form-control" value="{{ contract.end_date }}" placeholder="请选择日期" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">新的服务结束日期 <span class="text-danger">*</span></label>
+                    <input type="text" name="new_end_date" class="form-control" placeholder="请选择日期" required>
+                </div>
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">更新服务价格（可选）</label>
+                <input type="number" name="new_price" class="form-control" value="{{ contract.price|default:'' }}" step="0.01" min="0" placeholder="留空则保持原价格">
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">更新描述（可选）</label>
+                <textarea name="new_description" class="form-control" rows="4" placeholder="留空则保持原描述">{{ contract.description }}</textarea>
+            </div>
+            
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">确认续期</button>
+                <a href="{% url 'service_contract_detail' contract.id %}" class="btn btn-outline-secondary">取消</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/zh.js"></script>
+<script>
+flatpickr('input[name="new_start_date"], input[name="new_end_date"]', {
+    locale: 'zh',
+    dateFormat: 'Y-m-d',
+    allowInput: true
+});
+</script>
+{% endblock %}

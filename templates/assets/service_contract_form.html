@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if contract %}编辑{% else %}新增{% endif %}服务 - 驰达IT资产管理系统{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" rel="stylesheet" />
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4>{% if contract %}编辑{% else %}新增{% endif %}服务</h4>
+    <a href="{% url 'service_contract_list' %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> 返回</a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">服务名称 <span class="text-danger">*</span></label>
+                    <input type="text" name="name" class="form-control" value="{{ contract.name|default:'' }}" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">服务类型</label>
+                    <select name="service_type" class="form-select">
+                        <option value="">请选择服务类型</option>
+                        {% for st in service_types %}
+                        <option value="{{ st }}" {% if contract.service_type == st %}selected{% endif %}>{{ st }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">服务价格</label>
+                    <input type="number" name="price" class="form-control" value="{{ contract.price|default:'' }}" step="0.01" min="0" placeholder="请输入服务价格">
+                </div>
+            </div>
+            
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">服务开始日期 <span class="text-danger">*</span></label>
+                    <input type="text" name="start_date" class="form-control" value="{{ contract.start_date|date:'Y-m-d'|default:'' }}" placeholder="请选择日期" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">服务结束日期 <span class="text-danger">*</span></label>
+                    <input type="text" name="end_date" class="form-control" value="{{ contract.end_date|date:'Y-m-d'|default:'' }}" placeholder="请选择日期" required>
+                </div>
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">描述</label>
+                <textarea name="description" class="form-control" rows="4" placeholder="请输入服务描述">{{ contract.description|default:'' }}</textarea>
+            </div>
+            
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">保存</button>
+                <a href="{% url 'service_contract_list' %}" class="btn btn-outline-secondary">取消</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/zh.js"></script>
+<script>
+flatpickr('input[name="start_date"], input[name="end_date"]', {
+    locale: 'zh',
+    dateFormat: 'Y-m-d',
+    allowInput: true
+});
+</script>
+{% endblock %}
