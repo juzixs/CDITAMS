@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block title %}耗材入库 - 驰达IT资产管理系统{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4"><h4>耗材入库</h4></div>
+<div class="card"><div class="card-body">
+<form method="post">{% csrf_token %}
+<div class="row mb-3">
+<div class="col-md-6"><label class="form-label">选择耗材 <span class="text-danger">*</span></label>
+<select name="consumable" class="form-select" id="consumableSelect" required>
+<option value="">请选择耗材</option>
+{% for c in consumables %}<option value="{{ c.id }}" data-models="{{ c.applicable_models }}">{{ c.name }}</option>{% endfor %}
+</select>
+<div class="form-text text-muted" id="modelHint" style="display:none;">适用机型: <span id="applicableModels"></span></div>
+</div>
+<div class="col-md-6"><label class="form-label">入库数量 <span class="text-danger">*</span></label>
+<input type="number" name="quantity" class="form-control" min="1" value="1" required>
+<div class="form-text text-muted" id="stockHint" style="display:none;">当前库存: <span id="currentStock"></span></div>
+</div>
+</div>
+<div class="mb-3"><label class="form-label">用途</label><input type="text" name="purpose" class="form-control" placeholder="可选填写"></div>
+<div class="mt-4"><button type="submit" class="btn btn-success">确认入库</button><a href="{% url 'consumable_list' %}" class="btn btn-outline-secondary">返回</a></div>
+</form></div></div>
+<script>
+document.getElementById('consumableSelect').addEventListener('change', function() {
+    var option = this.options[this.selectedIndex];
+    var models = option.getAttribute('data-models') || '';
+    document.getElementById('applicableModels').textContent = models || '-';
+    document.getElementById('modelHint').style.display = models ? 'block' : 'none';
+    
+    var consumables = {{ consumables_json|safe }};
+    var selected = consumables.find(function(c) { return c.id == option.value; });
+    if (selected) {
+        document.getElementById('currentStock').textContent = selected.stock_quantity;
+        document.getElementById('stockHint').style.display = 'block';
+    } else {
+        document.getElementById('stockHint').style.display = 'none';
+    }
+});
+</script>
+{% endblock %}

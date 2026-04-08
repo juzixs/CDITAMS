@@ -1982,7 +1982,7 @@ def software_field_delete(request, pk):
 
 @login_required
 def consumable_list(request):
-    consumables = Consumable.objects.all()
+    consumables = Consumable.objects.all().order_by('name')
     return render(request, 'assets/consumable_list.html', {'consumables': consumables})
 
 
@@ -1991,13 +1991,11 @@ def consumable_create(request):
     if request.method == 'POST':
         Consumable.objects.create(
             name=request.POST.get('name'),
-            category_id=request.POST.get('category'),
-            code=request.POST.get('code'),
+            category_id=request.POST.get('category') or None,
             specification=request.POST.get('specification'),
-            unit=request.POST.get('unit', '个'),
-            stock_quantity=request.POST.get('stock_quantity', 0),
-            min_stock=request.POST.get('min_stock', 0),
-            price=request.POST.get('price') or None,
+            applicable_models=request.POST.get('applicable_models'),
+            stock_quantity=0,
+            min_stock=request.POST.get('min_stock') or 0,
             description=request.POST.get('description'),
         )
         messages.success(request, '耗材创建成功')
@@ -2005,6 +2003,91 @@ def consumable_create(request):
     
     categories = ConsumableCategory.objects.all()
     return render(request, 'assets/consumable_form.html', {'categories': categories})
+
+
+@login_required
+def consumable_receive_view(request):
+    if request.method == 'POST':
+        consumable_id = request.POST.get('consumable')
+        quantity = int(request.POST.get('quantity', 0))
+        purpose = request.POST.get('purpose', '')
+        
+        consumable = Consumable.objects.get(pk=consumable_id)
+        consumable.stock_quantity += quantity
+        consumable.save()
+        
+        ConsumableRecord.objects.create(
+            consumable=consumable,
+            quantity=quantity,
+            record_type='receive',
+            purpose=purpose,
+            user=request.user,
+            department=request.user.department if hasattr(request.user, 'department') else None,
+        )
+        messages.success(request, '入库成功')
+        return redirect('consumable_list')
+    
+    consumables = Consumable.objects.all().order_by('name')
+    consumables_json = [{'id': c.id, 'name': c.name, 'stock_quantity': c.stock_quantity} for c in consumables]
+    return render(request, 'assets/consumable_receive.html', {'consumables': consumables, 'consumables_json': consumables_json})
+
+
+@login_required
+def consumable_use_view(request):
+    if request.method == 'POST':
+        consumable_id = request.POST.get('consumable')
+        quantity = int(request.POST.get('quantity', 1))
+        user_id = request.POST.get('user')
+        purpose = request.POST.get('purpose', '')
+        
+        consumable = Consumable.objects.get(pk=consumable_id)
+        if consumable.stock_quantity < quantity:
+            messages.error(request, '库存不足')
+            return redirect('consumable_use')
+        
+        consumable.stock_quantity -= quantity
+        consumable.save()
+        
+        selected_user = User.objects.get(pk=user_id)
+        ConsumableRecord.objects.create(
+            consumable=consumable,
+            user=selected_user,
+            department=selected_user.department if hasattr(selected_user, 'department') else None,
+            quantity=quantity,
+            record_type='领用',
+            purpose=purpose,
+            approved_by=request.user,
+        )
+        messages.success(request, '领用成功')
+        return redirect('consumable_list')
+    
+    consumables = Consumable.objects.all().order_by('name')
+    users = User.objects.filter(is_active=True).select_related('department').order_by('emp_no')
+    return render(request, 'assets/consumable_use.html', {'consumables': consumables, 'users': users, 'current_user': request.user})
+
+
+def consumable_users_api(request):
+    q = request.GET.get('q', '')
+    users = User.objects.filter(is_active=True)
+    if q:
+        users = users.filter(Q(emp_no__icontains=q) | Q(realname__icontains=q) | Q(department__name__icontains=q))
+    users = users.select_related('department')[:20]
+    results = [{'id': u.id, 'text': f"{u.emp_no}-{u.realname}({u.department.name if u.department else ''})", 'display': f"{u.emp_no}-{u.realname}"} for u in users]
+    return JsonResponse(results, safe=False)
+
+
+@login_required
+def api_users_search(request):
+    q = request.GET.get('q', '')
+    department_id = request.GET.get('department_id', '')
+    users = User.objects.filter(is_active=True)
+    if department_id:
+        users = users.filter(department_id=department_id)
+    if q:
+        users = users.filter(Q(emp_no__icontains=q) | Q(realname__icontains=q) | Q(department__name__icontains=q))
+    users = users.select_related('department')[:20]
+    results = [{'id': u.id, 'text': f"{u.emp_no}-{u.realname}（{u.department.name if u.department else ''}）", 'department_id': u.department_id or ''} for u in users]
+    return JsonResponse(results, safe=False)
 
 
 @login_required

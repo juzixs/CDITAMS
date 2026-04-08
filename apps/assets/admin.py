@@ -46,9 +46,9 @@ class SoftwareAdmin(admin.ModelAdmin):
 
 @admin.register(Consumable)
 class ConsumableAdmin(admin.ModelAdmin):
-    list_display = ['name', 'category', 'code', 'stock_quantity', 'min_stock', 'unit', 'price']
+    list_display = ['name', 'category', 'applicable_models', 'stock_quantity', 'min_stock', 'description']
     list_filter = ['category']
-    search_fields = ['name', 'code']
+    search_fields = ['name', 'applicable_models']
 
 
 @admin.register(ServiceRequest)

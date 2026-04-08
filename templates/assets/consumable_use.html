@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+{% block title %}耗材领用 - 驰达IT资产管理系统{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+.select2-container--default .select2-selection--single { height: 38px; border: 1px solid #ced4da; border-radius: 4px; }
+.select2-container--default .select2-selection--single .select2-selection__rendered { line-height: 38px; padding-left: 12px; }
+.select2-container--default .select2-selection--single .select2-selection__arrow { height: 36px; }
+.select2-dropdown { border: 1px solid #ced4da; border-radius: 4px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+.select2-container--default .select2-results > .select2-results__options { max-height: 400px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4"><h4>耗材领用</h4></div>
+<div class="card"><div class="card-body">
+<form method="post">{% csrf_token %}
+<div class="row mb-3">
+<div class="col-md-6"><label class="form-label">选择耗材 <span class="text-danger">*</span></label>
+<select name="consumable" class="form-select" id="consumableSelect" required>
+<option value="">请选择耗材</option>
+{% for c in consumables %}<option value="{{ c.id }}" data-models="{{ c.applicable_models }}" data-stock="{{ c.stock_quantity }}">{{ c.name }}</option>{% endfor %}
+</select>
+<div class="form-text text-muted" id="modelHint" style="display:none;">适用机型: <span id="applicableModels"></span></div>
+</div>
+<div class="col-md-6"><label class="form-label">领用数量 <span class="text-danger">*</span></label>
+<input type="number" name="quantity" class="form-control" id="quantityInput" min="1" value="1" required>
+<div class="form-text text-muted" id="stockHint" style="display:none;">当前库存: <span id="currentStock"></span></div>
+</div>
+</div>
+<div class="row mb-3">
+<div class="col-md-6"><label class="form-label">领用人 <span class="text-danger">*</span></label>
+<select name="user" class="form-select" id="userSelect" required>
+<option value="">请选择领用人</option>
+</select>
+</div>
+<div class="col-md-6"><label class="form-label">用途</label><input type="text" name="purpose" class="form-control" placeholder="可选填写"></div>
+</div>
+<div class="mt-4"><button type="submit" class="btn btn-warning">确认领用</button><a href="{% url 'consumable_list' %}" class="btn btn-outline-secondary">返回</a></div>
+</form></div></div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/i18n/zh-CN.js"></script>
+<script>
+const currentUserId = {{ current_user.id }};
+const currentUserText = "{{ current_user.emp_no }}-{{ current_user.realname }}({{ current_user.department.name|default:'' }})";
+
+// 耗材选择事件
+document.getElementById('consumableSelect').addEventListener('change', function() {
+    var option = this.options[this.selectedIndex];
+    var models = option.getAttribute('data-models') || '';
+    var stock = option.getAttribute('data-stock') || '0';
+    document.getElementById('applicableModels').textContent = models || '-';
+    document.getElementById('modelHint').style.display = models ? 'block' : 'none';
+    document.getElementById('currentStock').textContent = stock;
+    document.getElementById('stockHint').style.display = 'block';
+});
+
+// 领用人选择 - 使用 Select2 + AJAX
+function loadUsers() {
+    const select = $('#userSelect');
+    
+    select.select2({
+        placeholder: '请选择领用人',
+        allowClear: true,
+        width: '100%',
+        language: 'zh-CN',
+        minimumInputLength: 0,
+        dropdownAutoWidth: true,
+        ajax: {
+            url: '{% url "consumable_users_api" %}',
+            dataType: 'json',
+            delay: 200,
+            data: function(params) {
+                return { q: params.term || '' };
+            },
+            processResults: function(data) {
+                return {
+                    results: data.map(function(item) {
+                        return { id: item.id, text: item.text };
+                    })
+                };
+            }
+        }
+    });
+    
+    // 添加当前用户并设为默认值
+    const option = new Option(currentUserText, currentUserId, true, true);
+    select.append(option).trigger('change');
+}
+
+$(document).ready(function() {
+    loadUsers();
+});
+</script>
+{% endblock %}

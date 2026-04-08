@@ -505,12 +505,10 @@ class ConsumableCategory(models.Model):
 class Consumable(models.Model):
     name = models.CharField(max_length=128, verbose_name='耗材名称')
     category = models.ForeignKey(ConsumableCategory, on_delete=models.SET_NULL, null=True, blank=True, related_name='consumables', verbose_name='分类')
-    code = models.CharField(max_length=32, blank=True, verbose_name='耗材编码')
     specification = models.CharField(max_length=128, blank=True, verbose_name='规格型号')
-    unit = models.CharField(max_length=16, default='个', verbose_name='单位')
+    applicable_models = models.CharField(max_length=128, blank=True, verbose_name='适用机型')
     stock_quantity = models.IntegerField(default=0, verbose_name='库存数量')
     min_stock = models.IntegerField(default=0, verbose_name='最低库存预警')
-    price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name='单价')
     description = models.TextField(blank=True, verbose_name='描述')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
@@ -519,6 +517,7 @@ class Consumable(models.Model):
         db_table = 'consumables'
         verbose_name = '耗材物资'
         verbose_name_plural = '耗材物资'
+        ordering = ['name']
 
     def __str__(self):
         return self.name

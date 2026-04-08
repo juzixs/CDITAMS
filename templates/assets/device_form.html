@@ -116,7 +116,7 @@
             <div class="row g-2 g-md-3 mb-2">
                 <div class="col-12 col-md-6">
                     <label class="form-label">所属部门</label>
-                    <select name="department" id="department-select" class="form-select" onchange="loadUsersByDepartment()">
+                    <select name="department" id="department-select" class="form-select">
                         <option value="">请选择</option>
                         {% for dept in departments %}
                         <option value="{{ dept.id }}" {% if device.department_id == dept.id %}selected{% endif %}>{{ dept.name }}</option>
@@ -893,19 +893,56 @@ function findPath(locations, targetId, path) {
 }
 
 function loadUsersByDepartment() {
-    const deptId = $('#department-select').val();
     const currentUserId = '{{ device.user_id|default:"" }}';
-    $.get('/assets/api/users-by-department/', {department_id: deptId}, function(res) {
-        if (res.success) {
-            let html = '<option value="">未分配</option>';
-            res.users.forEach(function(u) {
-                const selected = currentUserId && String(u.id) === String(currentUserId) ? 'selected' : '';
-                html += `<option value="${u.id}" ${selected}>${u.emp_no}-${u.realname}（${u.department}）</option>`;
-            });
-            $('#user-select').html(html);
+    const currentUserText = '{{ device.user.emp_no|default:"" }}-{{ device.user.realname|default:"" }}（{{ device.user.department.name|default:"" }}）';
+    const currentDepartmentId = '{{ device.department_id|default:"" }}';
+    
+    const select = $('#user-select');
+    
+    // 销毁已有的 select2
+    if (select.data('select2')) {
+        select.select2('destroy');
+    }
+    select.empty().append('<option value="">请选择使用人</option>');
+    
+    select.select2({
+        placeholder: '请选择使用人',
+        allowClear: true,
+        width: '100%',
+        language: 'zh-CN',
+        minimumInputLength: 0,
+        dropdownAutoWidth: true,
+        ajax: {
+            url: '/assets/api/users/search/',
+            dataType: 'json',
+            delay: 200,
+            data: function(params) {
+                const deptId = $('#department-select').val();
+                return { q: params.term || '', department_id: deptId || '' };
+            },
+            processResults: function(data) {
+                return {
+                    results: data.map(function(item) {
+                        return { id: item.id, text: item.text, department_id: item.department_id };
+                    })
+                };
+            }
         }
     });
+    
+    if (currentUserId) {
+        const option = new Option(currentUserText, currentUserId, true, true);
+        select.append(option).trigger('change');
+    }
 }
+
+// 选择使用人后自动更新部门
+$('#user-select').on('select2:select', function(e) {
+    const data = e.params.data;
+    if (data && data.department_id) {
+        $('#department-select').val(data.department_id);
+    }
+});
 
 $(document).ready(function() {
     loadCategories();
@@ -951,6 +988,11 @@ $(document).ready(function() {
                 }
             }
         }
+    });
+
+    // 部门选择框变化事件
+    $('#department-select').on('change', function() {
+        loadUsersByDepartment();
     });
 
     loadUsersByDepartment();

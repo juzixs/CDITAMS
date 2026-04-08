@@ -34,6 +34,7 @@ urlpatterns = [
     path('api/devices/search/', views.api_devices_search, name='api_devices_search'),
     path('api/devices/unbound/', views.api_devices_unbound, name='api_devices_unbound'),
     path('api/users-by-department/', views.api_users_by_department, name='api_users_by_department'),
+    path('api/users/search/', views.api_users_search, name='api_users_search'),
     path('api/save-field-visibility/', views.api_save_field_visibility, name='api_save_field_visibility'),
     path('api/regenerate-all-qrcodes/', views.api_regenerate_all_qrcodes, name='api_regenerate_all_qrcodes'),
     
@@ -97,6 +98,9 @@ urlpatterns = [
     
     path('consumables/', views.consumable_list, name='consumable_list'),
     path('consumables/create/', views.consumable_create, name='consumable_create'),
+    path('consumables/receive/', views.consumable_receive_view, name='consumable_receive'),
+    path('consumables/use/', views.consumable_use_view, name='consumable_use'),
+    path('consumables/api/users/', views.consumable_users_api, name='consumable_users_api'),
     
     path('services/', views.service_list, name='service_list'),
     path('services/create/', views.service_create, name='service_create'),
