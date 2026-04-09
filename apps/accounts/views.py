@@ -96,16 +96,42 @@ def index(request):
 
 @login_required
 def dashboard(request):
-    from apps.assets.models import Device
+    from apps.assets.models import Device, AssetCategory
     from apps.inventory.models import InventoryPlan, InventoryTask
     from apps.todos.models import Todo
     
+    # 全部设备（排除已报废设备）
+    all_devices = Device.objects.exclude(status='scrapped')
+    all_stats = {
+        'total': all_devices.count(),
+        'normal': all_devices.filter(status='normal').count(),
+        'fault': all_devices.filter(status='fault').count(),
+        'unused': all_devices.filter(status='unused').count(),
+    }
+    
+    # 在账设备（固资在账为是，排除已报废）
+    fixed_devices = Device.objects.filter(is_fixed=True).exclude(status='scrapped')
+    fixed_stats = {
+        'total': fixed_devices.count(),
+        'normal': fixed_devices.filter(status='normal').count(),
+        'fault': fixed_devices.filter(status='fault').count(),
+        'unused': fixed_devices.filter(status='unused').count(),
+    }
+    
+    # 在账电脑类（资产分类包含台式机，排除已报废）
+    desktop_categories = AssetCategory.objects.filter(name__icontains='台式机')
+    computer_devices = fixed_devices.filter(category__in=desktop_categories)
+    computer_stats = {
+        'total': computer_devices.count(),
+        'normal': computer_devices.filter(status='normal').count(),
+        'fault': computer_devices.filter(status='fault').count(),
+        'unused': computer_devices.filter(status='unused').count(),
+    }
+    
     stats = {
-        'total_devices': Device.objects.count(),
-        'normal_devices': Device.objects.filter(status='normal').count(),
-        'fault_devices': Device.objects.filter(status='fault').count(),
-        'scrapped_devices': Device.objects.filter(status='scrapped').count(),
-        'total_plans': InventoryPlan.objects.count(),
+        'all': all_stats,
+        'fixed': fixed_stats,
+        'computer': computer_stats,
         'pending_tasks': InventoryTask.objects.filter(status='pending').count(),
         'my_todos': Todo.objects.filter(assignee=request.user, status='pending').count(),
     }

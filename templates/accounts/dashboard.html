@@ -4,72 +4,167 @@
 
 {% block content %}
 <div class="row mb-4">
-    <div class="col-12">
-        <h4>欢迎使用驰达IT资产管理系统</h4>
-    </div>
-</div>
-
-<div class="row mb-4">
-    <div class="col-md-3">
-        <div class="stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-            <i class="fas fa-desktop"></i>
-            <div class="stat-value">{{ stats.total_devices }}</div>
-            <div class="stat-label">设备总数</div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="stat-card" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">
-            <i class="fas fa-check-circle"></i>
-            <div class="stat-value">{{ stats.normal_devices }}</div>
-            <div class="stat-label">正常设备</div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="stat-card" style="background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);">
-            <i class="fas fa-exclamation-triangle"></i>
-            <div class="stat-value">{{ stats.fault_devices }}</div>
-            <div class="stat-label">故障设备</div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
-            <i class="fas fa-clipboard-list"></i>
-            <div class="stat-value">{{ stats.pending_tasks }}</div>
-            <div class="stat-label">待盘点任务</div>
-        </div>
-    </div>
-</div>
-
-<div class="row">
     <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
-                <i class="fas fa-chart-pie me-2"></i>设备状态分布
-            </div>
-            <div class="card-body">
-                <canvas id="deviceStatusChart" height="200"></canvas>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
-                <i class="fas fa-tasks me-2"></i>我的待办
+        <div class="card h-100">
+            <div class="card-header bg-primary text-white">
+                <i class="fas fa-user-clock me-2"></i>我的待办
             </div>
             <div class="card-body">
                 <div class="list-group list-group-flush">
-                    <div class="list-group-item d-flex justify-content-between align-items-center">
-                        <span>待处理盘点任务</span>
-                        <span class="badge bg-primary rounded-pill">{{ stats.pending_tasks }}</span>
+                    <a href="{% url 'todo_list' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-clipboard-check me-2 text-warning"></i>我的待办事项</span>
+                        <span class="badge bg-warning rounded-pill">{{ stats.my_todos }}</span>
+                    </a>
+                    <a href="{% url 'task_list' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-tasks me-2 text-info"></i>待处理盘点任务</span>
+                        <span class="badge bg-info rounded-pill">{{ stats.pending_tasks }}</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header bg-success text-white">
+                <i class="fas fa-barcode me-2"></i>盘点任务
+            </div>
+            <div class="card-body">
+                <div class="list-group list-group-flush">
+                    <a href="{% url 'plan_list' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-calendar-alt me-2 text-primary"></i>盘点计划</span>
+                        <span class="badge bg-primary rounded-pill">查看</span>
+                    </a>
+                    <a href="{% url 'task_list' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-list-check me-2 text-success"></i>盘点任务列表</span>
+                        <span class="badge bg-success rounded-pill">查看</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">
+        <i class="fas fa-desktop me-2"></i>全部设备
+        <small class="text-muted ms-2">（所有设备，已报废除外）</small>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-12 col-md-8">
+                <div class="row">
+                    <div class="col-6 col-md-3 px-2 mb-2">
+                        <div class="stat-card-mini bg-primary">
+                            <div class="stat-value">{{ stats.all.total }}</div>
+                            <div class="stat-label">设备总数</div>
+                        </div>
                     </div>
-                    <div class="list-group-item d-flex justify-content-between align-items-center">
-                        <span>我的待办事项</span>
-                        <span class="badge bg-info rounded-pill">{{ stats.my_todos }}</span>
+                    <div class="col-6 col-md-3 px-2 mb-2">
+                        <div class="stat-card-mini bg-success">
+                            <div class="stat-value">{{ stats.all.normal }}</div>
+                            <div class="stat-label">使用设备</div>
+                        </div>
                     </div>
-                    <div class="list-group-item d-flex justify-content-between align-items-center">
-                        <span>待审批资产</span>
-                        <span class="badge bg-warning rounded-pill">0</span>
+                    <div class="col-6 col-md-3 px-2 mb-2">
+                        <div class="stat-card-mini bg-danger">
+                            <div class="stat-value">{{ stats.all.fault }}</div>
+                            <div class="stat-label">故障设备</div>
+                        </div>
                     </div>
+                    <div class="col-6 col-md-3 px-2 mb-2">
+                        <div class="stat-card-mini bg-info">
+                            <div class="stat-value">{{ stats.all.unused }}</div>
+                            <div class="stat-label">闲置设备</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-md-4">
+                <div class="chart-container">
+                    <canvas id="allDeviceChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">
+        <i class="fas fa-file-invoice-dollar me-2"></i>在账设备
+        <small class="text-muted ms-2">（固资在账设备）</small>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-12 col-md-8">
+                <div class="row">
+                    <div class="col-6 col-md-3 px-2 mb-2">
+                        <div class="stat-card-mini bg-primary">
+                            <div class="stat-value">{{ stats.fixed.total }}</div>
+                            <div class="stat-label">设备总数</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3 px-2 mb-2">
+                        <div class="stat-card-mini bg-success">
+                            <div class="stat-value">{{ stats.fixed.normal }}</div>
+                            <div class="stat-label">使用设备</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3 px-2 mb-2">
+                        <div class="stat-card-mini bg-danger">
+                            <div class="stat-value">{{ stats.fixed.fault }}</div>
+                            <div class="stat-label">故障设备</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3 px-2 mb-2">
+                        <div class="stat-card-mini bg-info">
+                            <div class="stat-value">{{ stats.fixed.unused }}</div>
+                            <div class="stat-label">闲置设备</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-md-4">
+                <div class="chart-container">
+                    <canvas id="fixedDeviceChart"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <hr>
+        
+        <h6 class="mb-3"><i class="fas fa-laptop me-2"></i>电脑统计</h6>
+        <div class="row">
+            <div class="col-12 col-md-8">
+                <div class="row">
+                    <div class="col-6 col-md-3 px-2 mb-2">
+                        <div class="stat-card-mini bg-secondary">
+                            <div class="stat-value">{{ stats.computer.total }}</div>
+                            <div class="stat-label">电脑总数</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3 px-2 mb-2">
+                        <div class="stat-card-mini bg-success">
+                            <div class="stat-value">{{ stats.computer.normal }}</div>
+                            <div class="stat-label">使用电脑</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3 px-2 mb-2">
+                        <div class="stat-card-mini bg-danger">
+                            <div class="stat-value">{{ stats.computer.fault }}</div>
+                            <div class="stat-label">故障电脑</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3 px-2 mb-2">
+                        <div class="stat-card-mini bg-info">
+                            <div class="stat-value">{{ stats.computer.unused }}</div>
+                            <div class="stat-label">闲置电脑</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-md-4">
+                <div class="chart-container">
+                    <canvas id="computerChart"></canvas>
                 </div>
             </div>
         </div>
@@ -77,25 +172,107 @@
 </div>
 {% endblock %}
 
+{% block extra_css %}
+<style>
+    .stat-card-mini {
+        border-radius: 8px;
+        padding: 35px 10px;
+        text-align: center;
+        color: white;
+    }
+    .stat-card-mini .stat-value {
+        font-size: 2.2rem;
+        font-weight: bold;
+    }
+    .stat-card-mini .stat-label {
+        font-size: 0.95rem;
+        opacity: 0.9;
+    }
+    .chart-container {
+        height: 150px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .chart-container canvas {
+        max-height: 100%;
+    }
+    @media (max-width: 767px) {
+        .stat-card-mini {
+            padding: 20px 5px;
+        }
+        .stat-card-mini .stat-value {
+            font-size: 1.6rem;
+        }
+        .stat-card-mini .stat-label {
+            font-size: 0.8rem;
+        }
+        .chart-container {
+            height: 200px;
+            margin-top: 10px;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block extra_js %}
 <script src="https://cdn.bootcdn.net/ajax/libs/Chart.js/4.3.0/chart.umd.min.js"></script>
 <script>
-    const ctx = document.getElementById('deviceStatusChart');
-    new Chart(ctx, {
+    const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'right',
+                labels: {
+                    boxWidth: 12,
+                    padding: 8,
+                    font: { size: 11 }
+                }
+            }
+        }
+    };
+    
+    const chartColors = ['#28a745', '#dc3545', '#17a2b8'];
+    const chartLabels = ['使用', '故障', '闲置'];
+    
+    // 全部设备分布图
+    new Chart(document.getElementById('allDeviceChart'), {
         type: 'doughnut',
         data: {
-            labels: ['使用', '故障', '报废', '闲置'],
+            labels: chartLabels,
             datasets: [{
-                data: [
-                    {{ stats.normal_devices }},
-                    {{ stats.fault_devices }},
-                    {{ stats.scrapped_devices }},
-                    {{ stats.unused_devices|default:0 }}
-                ],
-                backgroundColor: ['#28a745', '#dc3545', '#6c757d', '#17a2b8']
+                data: [{{ stats.all.normal }}, {{ stats.all.fault }}, {{ stats.all.unused }}],
+                backgroundColor: chartColors
             }]
         },
-        options: { responsive: true }
+        options: chartOptions
+    });
+    
+    // 在账设备分布图
+    new Chart(document.getElementById('fixedDeviceChart'), {
+        type: 'doughnut',
+        data: {
+            labels: chartLabels,
+            datasets: [{
+                data: [{{ stats.fixed.normal }}, {{ stats.fixed.fault }}, {{ stats.fixed.unused }}],
+                backgroundColor: chartColors
+            }]
+        },
+        options: chartOptions
+    });
+    
+    // 电脑分布图
+    new Chart(document.getElementById('computerChart'), {
+        type: 'doughnut',
+        data: {
+            labels: chartLabels,
+            datasets: [{
+                data: [{{ stats.computer.normal }}, {{ stats.computer.fault }}, {{ stats.computer.unused }}],
+                backgroundColor: chartColors
+            }]
+        },
+        options: chartOptions
     });
 </script>
 {% endblock %}
