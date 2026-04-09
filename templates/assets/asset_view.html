@@ -191,7 +191,7 @@
                         }
                         elLayer.add(group);
                     } else if (el.element_type === 'window' || el.element_type === 'dashed') {
-                        elLayer.add(new Konva.Line({ points: [el.x, el.y, el.x + (el.width || 60), el.y], stroke: el.color || '#2196F3', strokeWidth: 3, dash: [10, 5] }));
+                        elLayer.add(new Konva.Line({ points: [el.x, el.y, el.x2 != null ? el.x2 : el.x + (el.width || 60), el.y2 != null ? el.y2 : el.y], stroke: el.color || '#2196F3', strokeWidth: 3, dash: [10, 5] }));
                     } else if (el.element_type === 'rect') {
                         elLayer.add(new Konva.Rect({ x: el.x, y: el.y, width: el.width || 60, height: el.height || 40, stroke: el.color || '#333', strokeWidth: el.thickness || 2 }));
                     } else if (el.element_type === 'desk') {

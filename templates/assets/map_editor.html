@@ -127,6 +127,7 @@ var MH = {{ location.map_height|default:800 }};
 var gSize = {{ location.grid_size|default:30 }};
 var sTh = {{ location.default_snap_threshold|default:10 }};
 var sOn = {{ location.default_snap_enabled|yesno:'true,false' }};
+if (sOn) document.getElementById('btnSnap').classList.add('on');
 var gOn = true, scl = 1, tool = 'select', sel = null, selectedNodes = [];
 var drawing = false, dSt = null, tmpN = null, polyP = [];
 var hist = [], hIdx = -1, spcDown = false, pSt = null;
@@ -205,7 +206,7 @@ function mkS(d) {
         if (d.dd !== 'sliding') { var a = (d.da || 90) * Math.PI / 180; g.add(new Konva.Arc({ innerRadius: 0, outerRadius: d.dw || 60, angle: a, rotation: d.dd === 'left' ? -a * 180 / Math.PI : 0, stroke: d.c || '#333', strokeWidth: 1 })); }
         elL.add(g); n = g;
     } else if (d.t === 'dashed') {
-        n = new Konva.Line({ points: [d.x, d.y, d.x + (d.w || 60), d.y], stroke: d.c || '#2196F3', strokeWidth: 3, dash: [10, 5], draggable: true });
+        n = new Konva.Line({ points: [d.x, d.y, d.x2 != null ? d.x2 : d.x + (d.w || 60), d.y2 != null ? d.y2 : d.y], stroke: d.c || '#2196F3', strokeWidth: d.th || 3, dash: [10, 5], draggable: true });
         elL.add(n);
     } else if (d.t === 'rect') {
         n = new Konva.Rect({ x: d.x, y: d.y, width: d.w || 60, height: d.h || 40, stroke: d.c || '#000', strokeWidth: d.th || 2, draggable: true });
@@ -222,11 +223,10 @@ function mkS(d) {
             var f = []; for (var i = 0; i < pts.length; i++) f.push(pts[i].x, pts[i].y);
             var g3 = new Konva.Group({ draggable: true });
             g3.add(new Konva.Line({ points: f, closed: true, fill: (d.c || '#3498db') + '40', stroke: d.c || '#3498db', strokeWidth: 2 }));
-            // Calculate center for label
-            var cx = 0, cy = 0;
-            for (var j = 0; j < pts.length; j++) { cx += pts[j].x; cy += pts[j].y; }
-            cx /= pts.length; cy /= pts.length;
-            g3.add(new Konva.Text({ x: cx - 30, y: cy - 7, text: d.label || '', fontSize: 12, fill: '#333', width: 60, align: 'center' }));
+            // Calculate top-left for label
+            var minX = Math.min(...pts.map(p => p.x));
+            var minY = Math.min(...pts.map(p => p.y));
+            g3.add(new Konva.Text({ x: minX + 5, y: minY + 5, text: d.label || '', fontSize: 14, fill: '#999', fontStyle: 'bold' }));
             objL.add(g3); n = g3;
         }
     } else if (d.t === 'text') {
@@ -289,6 +289,13 @@ function mkS(d) {
                     var pts = sn.points();
                     var sx = sn.x(), sy = sn.y();
                     if (snd.t === 'line' && pts.length >= 4) {
+                        snd.x = Math.round(sx + pts[0]);
+                        snd.y = Math.round(sy + pts[1]);
+                        snd.x2 = Math.round(sx + pts[2]);
+                        snd.y2 = Math.round(sy + pts[3]);
+                        sn.position({ x: 0, y: 0 });
+                        sn.points([snd.x, snd.y, snd.x2, snd.y2]);
+                    } else if (snd.t === 'dashed' && pts.length >= 4) {
                         snd.x = Math.round(sx + pts[0]);
                         snd.y = Math.round(sy + pts[1]);
                         snd.x2 = Math.round(sx + pts[2]);
@@ -378,6 +385,49 @@ tr.on('transform', function() {
 });
 
 tr.on('transformend', function() {
+    var node = tr.nodes()[0];
+    if (node && node._d) {
+        var d = node._d;
+        var scaleX = node.scaleX();
+        var scaleY = node.scaleY();
+        
+        if (node instanceof Konva.Line) {
+            var pts = node.points();
+            if (d.t === 'line' || d.t === 'dashed') {
+                if (pts.length >= 4) {
+                    d.x = Math.round(pts[0] * Math.abs(scaleX) + node.x());
+                    d.y = Math.round(pts[1] * Math.abs(scaleY) + node.y());
+                    d.x2 = Math.round(pts[2] * Math.abs(scaleX) + node.x());
+                    d.y2 = Math.round(pts[3] * Math.abs(scaleY) + node.y());
+                    node.position({ x: 0, y: 0 });
+                    node.scaleX(1); node.scaleY(1);
+                    node.points([d.x, d.y, d.x2, d.y2]);
+                }
+            }
+        } else if (node instanceof Konva.Rect) {
+            d.x = Math.round(node.x());
+            d.y = Math.round(node.y());
+            d.w = Math.round(node.width() * Math.abs(scaleX));
+            d.h = Math.round(node.height() * Math.abs(scaleY));
+            node.scaleX(1); node.scaleY(1);
+            node.width(d.w); node.height(d.h);
+        } else if (node instanceof Konva.Group) {
+            d.x = Math.round(node.x());
+            d.y = Math.round(node.y());
+            if (d.t === 'door' || d.t === 'workstation') {
+                d.w = Math.round((d.w || 60) * Math.abs(scaleX));
+                d.h = Math.round((d.h || 40) * Math.abs(scaleY));
+                node.scaleX(1); node.scaleY(1);
+            }
+        } else if (node instanceof Konva.Text) {
+            d.x = Math.round(node.x());
+            d.y = Math.round(node.y());
+            var newFontSize = Math.round((d.fs || 14) * Math.abs(scaleX));
+            d.fs = newFontSize;
+            node.fontSize(newFontSize);
+            node.scaleX(1); node.scaleY(1);
+        }
+    }
     saveH();
 });
 
@@ -476,7 +526,7 @@ stage.on('mousemove touchmove', function(e) {
         var ang = Math.atan2(dy, dx);
         tmpN = new Konva.Line({ points: [sx, sy, x, y], stroke: '#333', strokeWidth: 2, dash: [5, 5] });
     }
-    else if (tool === 'dashed') tmpN = new Konva.Line({ points: [sx, sy, sx + (Math.abs(x - sx) || 60), sy], stroke: '#2196F3', strokeWidth: 3, dash: [5, 5] });
+    else if (tool === 'dashed') tmpN = new Konva.Line({ points: [sx, sy, x, y], stroke: '#2196F3', strokeWidth: 3, dash: [5, 5] });
     else if (tool === 'rect') tmpN = new Konva.Rect({ x: Math.min(sx, x), y: Math.min(sy, y), width: Math.abs(x - sx) || 60, height: Math.abs(y - sy) || 40, stroke: '#000', strokeWidth: 2, dash: [5, 5] });
     else if (tool === 'workstation') tmpN = new Konva.Rect({ x: Math.min(sx, x), y: Math.min(sy, y), width: Math.abs(x - sx) || 60, height: Math.abs(y - sy) || 40, fill: '#e3f2fd80', stroke: '#1976D2', strokeWidth: 1, dash: [5, 5] });
 
@@ -544,7 +594,7 @@ stage.on('mouseup touchend', function(e) {
     var d = null;
     if (tool === 'line') d = { t: 'line', x: sx, y: sy, x2: x, y2: y, c: '#000', th: 3 };
     else if (tool === 'door') { var dx = x-sx, dy = y-sy; var w1 = Math.sqrt(dx*dx+dy*dy) || 60; var ang = Math.atan2(dy,dx)*180/Math.PI; d = { t: 'door', x: sx, y: sy, w: w1, h: 20, c: '#333', th: 2, dd: 'right', dw: w1, da: 90, angle: ang }; }
-    else if (tool === 'dashed') d = { t: 'dashed', x: sx, y: sy, w: Math.abs(x - sx) || 60, h: 0, c: '#2196F3', th: 3 };
+    else if (tool === 'dashed') d = { t: 'dashed', x: sx, y: sy, x2: x, y2: y, c: '#2196F3', th: 3 };
     else if (tool === 'rect') d = { t: 'rect', x: Math.min(sx, x), y: Math.min(sy, y), w: Math.abs(x - sx) || 60, h: Math.abs(y - sy) || 40, c: '#000', th: 2 };
     else if (tool === 'workstation') { var w2 = Math.abs(x - sx) || 60, h2 = Math.abs(y - sy) || 40; var code = prompt('工位编号:', LOC_CODE + '-' + getNextWsNum()); if (code) d = { t: 'workstation', x: Math.min(sx, x), y: Math.min(sy, y), w: w2, h: h2, c: '#e3f2fd', label: code }; }
 
@@ -707,7 +757,7 @@ document.getElementById('btnSave').addEventListener('click', function() {
     var fd = new FormData();
     fd.append('location_id', LOC);
     fd.append('elements', JSON.stringify(all.map(function(d) {
-        return { id: d.i || null, type: d.t, x: d.x || 0, y: d.y || 0, x2: d.x2 || null, y2: d.y2 || null, width: d.w || 0, height: d.h || 0, rotation: d.angle || 0, color: d.c || '#000', thickness: d.th || 2, points: d.pt || '', label: d.label || '', door_direction: d.dd || 'right', door_width: d.dw || 60, door_open_angle: d.da || 90, doorstop_width: 15, auto_doorstop: true, snap_enabled: true, snap_threshold: sTh };
+        return { id: d.i || null, type: d.t, x: d.x || 0, y: d.y || 0, x2: d.x2 != null ? d.x2 : null, y2: d.y2 != null ? d.y2 : null, width: d.w || 0, height: d.h || 0, rotation: d.angle || 0, color: d.c || '#000', thickness: d.th || 2, points: d.pt || '', label: d.label || '', door_direction: d.dd || 'right', door_width: d.dw || 60, door_open_angle: d.da || 90, doorstop_width: 15, auto_doorstop: true, snap_enabled: sOn, snap_threshold: sTh };
     })));
     fetch('/assets/locations/elements/save/', { method: 'POST', headers: { 'X-CSRFToken': getCsrf() }, body: fd })
     .then(function(r) { return r.json(); })

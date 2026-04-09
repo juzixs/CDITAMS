@@ -630,7 +630,7 @@ function loadLocationMap(locationId, workstationId) {
                     if (el.door_direction !== 'sliding') { var a = (el.door_open_angle || 90) * Math.PI / 180; g.add(new Konva.Arc({ innerRadius: 0, outerRadius: el.door_width || 60, angle: a, rotation: el.door_direction === 'left' ? -a * 180 / Math.PI : 0, stroke: '#666', strokeWidth: 1 })); }
                     elLayer.add(g);
                 } else if (el.element_type === 'window' || el.element_type === 'dashed') {
-                    elLayer.add(new Konva.Line({ points: [el.x, el.y, el.x + (el.width || 60), el.y], stroke: '#2196F3', strokeWidth: 3, dash: [10, 5] }));
+                    elLayer.add(new Konva.Line({ points: [el.x, el.y, el.x2 != null ? el.x2 : el.x + (el.width || 60), el.y2 != null ? el.y2 : el.y], stroke: '#2196F3', strokeWidth: 3, dash: [10, 5] }));
                 } else if (el.element_type === 'rect') {
                     elLayer.add(new Konva.Rect({ x: el.x, y: el.y, width: el.width || 60, height: el.height || 40, stroke: '#333', strokeWidth: 2 }));
                 } else if (el.element_type === 'text') {
