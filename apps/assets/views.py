@@ -2509,16 +2509,27 @@ def map_element_save(request):
                         element = MapElement.objects.create(**data)
                         saved_ids.append(element.id)
                     
-                    # Handle region type - create 4-level location
+                    # Handle region type - create or update 4-level location
                     if data['element_type'] == 'region' and data['points']:
                         parent_location = AssetLocation.objects.filter(pk=location_id).first()
                         if parent_location and parent_location.level == 3:
                             region_name = data['label'] or '区域'
-                            # Check if location already exists
-                            existing_location = AssetLocation.objects.filter(parent=parent_location, level=4, name=region_name).first()
+                            
+                            # Get old label from el_data (set by editor when renaming)
+                            old_label = el_data.get('old_label')
+                            
+                            # Try to find existing location by old label first, then new label
+                            existing_location = None
+                            if old_label:
+                                existing_location = AssetLocation.objects.filter(parent=parent_location, level=4, name=old_label).first()
+                            if not existing_location:
+                                existing_location = AssetLocation.objects.filter(parent=parent_location, level=4, name=region_name).first()
+                            
                             if existing_location:
-                                # Update area points
+                                # Update existing location with new name and area points
+                                existing_location.name = region_name
                                 existing_location.area_points = data['points']
+                                existing_location.description = f"{parent_location.name} {region_name}"
                                 existing_location.save()
                             else:
                                 base_code = parent_location.code
@@ -2597,6 +2608,8 @@ def map_element_save(request):
                         if region_location:
                             # Clear area association for workstations
                             Workstation.objects.filter(area=region_location).update(area=None)
+                            # Delete LocationAreaBinding records
+                            LocationAreaBinding.objects.filter(location=region_location).delete()
                             # Delete the 4-level location
                             region_location.delete()
                 
@@ -2808,6 +2821,9 @@ def workstation_edit(request, pk):
 def workstation_delete(request, pk):
     if request.method == 'POST':
         workstation = get_object_or_404(Workstation, pk=pk)
+        # Check if workstation has devices bound
+        if workstation.devices.exists():
+            return JsonResponse({'success': False, 'message': '该工位有绑定设备，无法删除'})
         workstation.delete()
         return JsonResponse({'success': True, 'message': '工位删除成功'})
     return JsonResponse({'success': False, 'message': '无效请求'})

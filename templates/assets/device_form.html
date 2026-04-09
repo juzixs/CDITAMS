@@ -608,17 +608,15 @@ function loadLocationMap(locationId, workstationId) {
                             stroke: isSelectedArea ? '#28a745' : '#3498db',
                             strokeWidth: isSelectedArea ? 3 : 2
                         }));
-                        // Add label
-                        var cx = 0, cy = 0;
-                        for (var j = 0; j < pts.length; j++) { cx += pts[j].x; cy += pts[j].y; }
-                        cx /= pts.length; cy /= pts.length;
+                        // Add label - top-left position, gray color
+                        var minX = Math.min(...pts.map(p => p.x));
+                        var minY = Math.min(...pts.map(p => p.y));
                         regionGroup.add(new Konva.Text({
-                            x: cx - 30, y: cy - 7,
+                            x: minX + 5, y: minY + 5,
                             text: el.label || '',
-                            fontSize: 12,
-                            fill: isSelectedArea ? '#28a745' : '#333',
-                            width: 60,
-                            align: 'center'
+                            fontSize: 14,
+                            fill: '#999',
+                            fontStyle: 'bold'
                         }));
                         elLayer.add(regionGroup);
                     }

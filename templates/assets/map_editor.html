@@ -242,6 +242,7 @@ function mkS(d) {
             if (!nd || (nd.t !== 'text' && nd.t !== 'region' && nd.t !== 'workstation')) return;
             var newLabel = prompt('修改名称:', nd.label || '');
             if (newLabel !== null) {
+                nd._oldLabel = nd.label; // 保存旧label用于后续更新4级位置
                 nd.label = newLabel;
                 if (nd.t === 'text' && this instanceof Konva.Text) {
                     this.text(newLabel);
@@ -609,7 +610,17 @@ stage.on('click tap', function(e) {
 });
 
 // Double click for polygon
-stage.on('dblclick', function() {
+stage.on('dblclick', function(e) {
+    // Check if clicked on an element (skip if clicking on region/text/workstation)
+    if (e.target !== stage && e.target.getParent()) {
+        var targetNode = e.target;
+        while (targetNode && targetNode !== stage) {
+            if (targetNode._d && (targetNode._d.t === 'region' || targetNode._d.t === 'text' || targetNode._d.t === 'workstation')) {
+                return; // Don't create new region when clicking on existing elements
+            }
+            targetNode = targetNode.getParent();
+        }
+    }
     if (tool === 'region' && polyP.length >= 3) {
         if (tmpN) { tmpN.destroy(); tmpN = null; }
         var name = prompt('区域名称:', '区域');
@@ -757,7 +768,9 @@ document.getElementById('btnSave').addEventListener('click', function() {
     var fd = new FormData();
     fd.append('location_id', LOC);
     fd.append('elements', JSON.stringify(all.map(function(d) {
-        return { id: d.i || null, type: d.t, x: d.x || 0, y: d.y || 0, x2: d.x2 != null ? d.x2 : null, y2: d.y2 != null ? d.y2 : null, width: d.w || 0, height: d.h || 0, rotation: d.angle || 0, color: d.c || '#000', thickness: d.th || 2, points: d.pt || '', label: d.label || '', door_direction: d.dd || 'right', door_width: d.dw || 60, door_open_angle: d.da || 90, doorstop_width: 15, auto_doorstop: true, snap_enabled: sOn, snap_threshold: sTh };
+        var oldLabel = d._oldLabel || null;
+        if (oldLabel) delete d._oldLabel; // 清空旧label避免重复使用
+        return { id: d.i || null, type: d.t, x: d.x || 0, y: d.y || 0, x2: d.x2 != null ? d.x2 : null, y2: d.y2 != null ? d.y2 : null, width: d.w || 0, height: d.h || 0, rotation: d.angle || 0, color: d.c || '#000', thickness: d.th || 2, points: d.pt || '', label: d.label || '', old_label: oldLabel, door_direction: d.dd || 'right', door_width: d.dw || 60, door_open_angle: d.da || 90, doorstop_width: 15, auto_doorstop: true, snap_enabled: sOn, snap_threshold: sTh };
     })));
     fetch('/assets/locations/elements/save/', { method: 'POST', headers: { 'X-CSRFToken': getCsrf() }, body: fd })
     .then(function(r) { return r.json(); })

@@ -180,6 +180,15 @@
                     elLayer.add(new Konva.Rect({ x: el.x, y: el.y, width: el.width || 30, height: el.height || 20, fill: '#ddd', stroke: '#999', strokeWidth: 0.5 }));
                 } else if (el.element_type === 'text') {
                     elLayer.add(new Konva.Text({ x: el.x, y: el.y, text: el.label || '', fontSize: 14, fill: el.color || '#333' }));
+                } else if (el.element_type === 'region') {
+                    try {
+                        var pts = JSON.parse(el.points || '[]');
+                        if (pts.length >= 3) {
+                            var minX = Math.min(...pts.map(function(p) { return p.x; }));
+                            var minY = Math.min(...pts.map(function(p) { return p.y; }));
+                            elLayer.add(new Konva.Text({ x: minX + 5, y: minY + 5, text: el.label || '', fontSize: 14, fill: '#333' }));
+                        }
+                    } catch(e) {}
                 }
             });
 
