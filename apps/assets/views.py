@@ -2521,9 +2521,11 @@ def map_element_save(request):
                                 existing_location.area_points = data['points']
                                 existing_location.save()
                             else:
-                                # Generate new code
-                                max_num = AssetLocation.objects.filter(parent=parent_location, level=4).count()
-                                new_code = f"{parent_location.code}-{max_num + 1:03d}"
+                                base_code = parent_location.code
+                                num = 1
+                                while AssetLocation.objects.filter(code=f"{base_code}-{num:03d}").exists():
+                                    num += 1
+                                new_code = f"{base_code}-{num:03d}"
                                 # Create new 4-level location
                                 new_location = AssetLocation.objects.create(
                                     name=region_name,
@@ -2535,7 +2537,7 @@ def map_element_save(request):
                                     floor_code=parent_location.floor_code,
                                     area_points=data['points'],
                                     description=f"{parent_location.name} {region_name}",
-                                    sort=max_num + 1
+                                    sort=num
                                 )
                             # 更新所有已存在的工位的区域关联
                             all_workstations = Workstation.objects.filter(location=parent_location)
