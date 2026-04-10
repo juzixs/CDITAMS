@@ -19,14 +19,12 @@
 <div id="level1Fields" style="display:none;">
 <div class="row mb-3">
 <div class="col-md-6"><label class="form-label">园区编码 <span class="text-danger">*</span></label><input type="text" name="park_code" id="parkCodeInput" class="form-control" value="{{ location.park_code|default:'' }}" placeholder="如:CY" maxlength="2"><small class="text-muted">2位英文字母，如CY（产业）、CG（草滩）</small></div>
-<div class="col-md-3"><label class="form-label">排序</label><input type="number" name="sort" class="form-control" value="{{ location.sort|default:'0' }}" min="0"><div class="form-text">数字越小越靠前</div></div>
 </div>
 </div>
 
 <div id="level2Fields" style="display:none;">
 <div class="row mb-3">
 <div class="col-md-6"><label class="form-label">设施编码 <span class="text-danger">*</span></label><input type="text" name="building_code" class="form-control" value="{{ location.building_code|default:'' }}" placeholder="如:OA" maxlength="2"><small class="text-muted">设施类型+序号，如OA（办公A）、PB（生产B）</small></div>
-<div class="col-md-3"><label class="form-label">排序</label><input type="number" name="sort" class="form-control" value="{{ location.sort|default:'0' }}" min="0"><div class="form-text">数字越小越靠前</div></div>
 </div>
 <div class="row mb-3">
 <div class="col-md-6"><label class="form-label">地下层数</label><input type="number" name="basement_count" class="form-control" value="{{ location.basement_count|default:0 }}" min="0" max="10"><small class="text-muted">如：2 表示B1、B2</small></div>
@@ -45,16 +43,18 @@
 <div id="level3Fields" style="display:none;">
 <div class="row mb-3">
 <div class="col-md-6"><label class="form-label">楼层编码</label><input type="text" name="floor_code" class="form-control" value="{{ location.floor_code|default:'' }}" placeholder="如:03"><small class="text-muted">2位数字，如01、02、03</small></div>
-<div class="col-md-3"><label class="form-label">排序</label><input type="number" name="sort" class="form-control" value="{{ location.sort|default:'0' }}" min="0"><div class="form-text">数字越小越靠前</div></div>
 </div>
 </div>
 
 <div id="level4Fields" style="display:none;">
 <div class="row mb-3">
 <div class="col-md-6"><label class="form-label">房间/区域编码</label><input type="text" name="room_code" class="form-control" value="{{ location.room_code|default:'' }}" placeholder="如:A301"><small class="text-muted">在3级平面图中用多边形工具绘制区域</small></div>
+</div>
+</div>
+</div>
+
+<div class="row mb-3">
 <div class="col-md-3"><label class="form-label">排序</label><input type="number" name="sort" class="form-control" value="{{ location.sort|default:'0' }}" min="0"><div class="form-text">数字越小越靠前</div></div>
-</div>
-</div>
 </div>
 
 <div id="mapFields" style="display:none;">
@@ -152,6 +152,7 @@
 const locationOptions = [
 {% for loc in locations %}{id:{{ loc.id }},name:'{{ loc.name }}',level:{{ loc.level }},code:'{{ loc.code|default:'' }}'},{% endfor %}
 ];
+const currentParentId = {{ location.parent_id|default:'null' }};
 document.addEventListener('DOMContentLoaded', function() {
     function updateParentOptions(selectedLevel) {
         var parentSelect = document.getElementById('parentSelect');
@@ -168,6 +169,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 var opt = document.createElement('option');
                 opt.value = loc.id;
                 opt.textContent = loc.name + ' (' + loc.level + '级 - ' + (loc.code || '无编码') + ')';
+                if (currentParentId && opt.value == currentParentId) {
+                    opt.selected = true;
+                }
                 parentSelect.appendChild(opt);
             }
         });

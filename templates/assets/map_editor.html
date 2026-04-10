@@ -42,6 +42,7 @@
     <button class="tb" id="btnZI" title="放大视图 (+)"><i class="fas fa-search-plus"></i> 放大</button>
     <button class="tb" id="btnZO" title="缩小视图 (-)"><i class="fas fa-search-minus"></i> 缩小</button>
     <button class="tb" id="btnZR" title="重置视图 - 恢复默认缩放和位置"><i class="fas fa-compress-arrows-alt"></i> 重置</button>
+    <button class="tb" id="t-pan" title="拖动工具 - 拖动画布移动视图 (H)"><i class="fas fa-arrows-alt"></i> 拖动</button>
     <div class="sp"></div>
     <button class="tb" id="btnU" disabled title="撤销操作 (Ctrl+Z)"><i class="fas fa-undo"></i> 撤销</button>
     <button class="tb" id="btnR" disabled title="重做操作 (Ctrl+Y)"><i class="fas fa-redo"></i> 重做</button>
@@ -444,7 +445,7 @@ function setElementsDraggable(draggable) {
 }
 
 // ========== TOOL BUTTONS ==========
-var toolNames = ['select', 'boxselect', 'line', 'dashed', 'rect', 'door', 'workstation', 'region', 'text'];
+var toolNames = ['select', 'boxselect', 'line', 'dashed', 'rect', 'door', 'workstation', 'region', 'text', 'pan'];
 for (var ti = 0; ti < toolNames.length; ti++) {
     (function(tname) {
         document.getElementById('t-' + tname).addEventListener('click', function() {
@@ -452,7 +453,11 @@ for (var ti = 0; ti < toolNames.length; ti++) {
             for (var j = 0; j < toolNames.length; j++) {
                 document.getElementById('t-' + toolNames[j]).classList.toggle('on', toolNames[j] === tname);
             }
-            stage.container().style.cursor = tname === 'select' ? 'default' : 'crosshair';
+            if (tname === 'pan') {
+                stage.container().style.cursor = 'grab';
+            } else {
+                stage.container().style.cursor = tname === 'select' ? 'default' : 'crosshair';
+            }
             polyP = [];
             if (tmpN) { tmpN.destroy(); tmpN = null; uiL.draw(); }
             setBgSelected(false);
@@ -467,6 +472,13 @@ for (var ti = 0; ti < toolNames.length; ti++) {
 stage.on('mousedown touchstart', function(e) {
     if (e.evt && (e.evt.button === 1 || spcDown)) { pSt = stage.getPointerPosition(); stage.container().style.cursor = 'grabbing'; return; }
     if (tool === 'select') { return; }
+    
+    // 拖动工具
+    if (tool === 'pan') {
+        pSt = stage.getPointerPosition();
+        stage.container().style.cursor = 'grabbing';
+        return;
+    }
 
     var pos = stage.getPointerPosition();
     if (!pos) return;
@@ -492,7 +504,14 @@ stage.on('mousedown touchstart', function(e) {
 stage.on('mousemove touchmove', function(e) {
     var pos = stage.getPointerPosition();
     if (!pos) return;
-    if (pSt) { stage.x(stage.x() + pos.x - pSt.x); stage.y(stage.y() + pos.y - pSt.y); pSt = pos; stage.batchDraw(); return; }
+    if (pSt) { 
+        // 拖动工具模式下移动画布
+        if (tool === 'pan') {
+            stage.x(stage.x() + pos.x - pSt.x);
+            stage.y(stage.y() + pos.y - pSt.y);
+        }
+        pSt = pos; stage.batchDraw(); return; 
+    }
     document.getElementById('coord').textContent = 'X:' + Math.round((pos.x - stage.x()) / scl) + ' Y:' + Math.round((pos.y - stage.y()) / scl);
     if (!drawing || tool === 'select' || tool === 'text') return;
 
@@ -536,7 +555,11 @@ stage.on('mousemove touchmove', function(e) {
 
 stage.on('mouseup touchend', function(e) {
     var pos = stage.getPointerPosition();
-    if (pSt) { pSt = null; stage.container().style.cursor = tool === 'select' ? 'default' : 'crosshair'; return; }
+    if (pSt) { 
+        pSt = null; 
+        stage.container().style.cursor = tool === 'pan' ? 'grab' : (tool === 'select' ? 'default' : 'crosshair'); 
+        return; 
+    }
     if (tool === 'region') { return; }
 
     // Box select: find elements inside the selection rectangle
@@ -642,11 +665,15 @@ document.addEventListener('keydown', function(e) {
         if (k === 'y') { e.preventDefault(); if (hIdx < hist.length - 1) { hIdx++; rebuildH(); } }
         return;
     }
-    var map = { v: 'select', a: 'boxselect', w: 'line', d: 'door', n: 'dashed', r: 'rect', b: 'workstation', p: 'region', t: 'text' };
+    var map = { v: 'select', a: 'boxselect', w: 'line', d: 'door', n: 'dashed', r: 'rect', b: 'workstation', p: 'region', t: 'text', h: 'pan' };
     if (map[k]) {
         tool = map[k];
         for (var j = 0; j < toolNames.length; j++) document.getElementById('t-' + toolNames[j]).classList.toggle('on', toolNames[j] === tool);
-        stage.container().style.cursor = tool === 'select' ? 'default' : 'crosshair';
+        if (tool === 'pan') {
+            stage.container().style.cursor = 'grab';
+        } else {
+            stage.container().style.cursor = tool === 'select' ? 'default' : 'crosshair';
+        }
         polyP = []; if (tmpN) { tmpN.destroy(); tmpN = null; uiL.draw(); }
         // 设置元素拖拽状态：只有选择工具时才允许拖拽
         setElementsDraggable(tool === 'select');
