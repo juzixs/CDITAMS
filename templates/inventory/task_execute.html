@@ -1,18 +1,1013 @@
 {% extends 'base.html' %}
-{% block title %}执行盘点{% endblock %}
+{% block title %}执行盘点 - {{ task.task_no }} - 驰达IT资产管理系统{% endblock %}
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+    .device-list-container {
+        max-height: calc(100vh - 280px);
+        overflow-y: auto;
+    }
+    .device-item {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 0.75rem;
+        margin-bottom: 0.5rem;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .device-item:hover {
+        border-color: #0d6efd;
+        background-color: #f8f9fa;
+    }
+    .device-item.selected {
+        border-color: #0d6efd;
+        background-color: #e7f1ff;
+    }
+    .device-item .asset-no {
+        font-weight: bold;
+        color: #0d6efd;
+    }
+    .check-panel {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: white;
+        border-top: 2px solid #0d6efd;
+        box-shadow: 0 -4px 12px rgba(0,0,0,0.15);
+        z-index: 1200;
+        max-height: 60vh;
+        overflow-y: auto;
+        display: none;
+    }
+    .check-panel.show {
+        display: block;
+    }
+    .device-info-section {
+        border-left: 3px solid #0d6efd;
+        padding-left: 1rem;
+        margin-bottom: 1rem;
+    }
+    .device-info-section h6 {
+        color: #0d6efd;
+        margin-bottom: 0.5rem;
+    }
+    .info-row {
+        display: flex;
+        margin-bottom: 0.25rem;
+    }
+    .info-label {
+        width: 80px;
+        color: #6c757d;
+        flex-shrink: 0;
+    }
+    .info-value {
+        flex: 1;
+    }
+    @media (max-width: 768px) {
+        .device-list-container {
+            max-height: 40vh;
+        }
+        .check-panel {
+            max-height: 50vh;
+            z-index: 1200;
+        }
+        .check-panel .container-fluid {
+            padding: 0 10px;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-<h4>执行盘点 - {{ task.task_no }}</h4>
-<a href="{% url 'task_detail' task.id %}" class="btn btn-outline-secondary">返回</a>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h5 class="mb-0"><i class="fas fa-clipboard-check me-2"></i>{{ task.task_no }}</h5>
+    </div>
+    <div>
+        <a href="{% url 'inventory_task_detail' task.id %}" class="btn btn-outline-secondary btn-sm me-1">
+            <i class="fas fa-arrow-left me-1"></i>返回详情
+        </a>
+        <button class="btn btn-outline-primary btn-sm d-md-none" id="scanBtn" onclick="startScan()">
+            <i class="fas fa-qrcode me-1"></i>扫码盘点
+        </button>
+        <button class="btn btn-outline-success btn-sm" onclick="completeTask()">
+            <i class="fas fa-check me-1"></i>完成任务
+        </button>
+    </div>
 </div>
-<div class="card"><div class="card-body">
-<form method="post">{% csrf_token %}
-<div class="mb-3"><label class="form-label">选择设备</label><select name="device_id" class="form-select" required>{% for d in devices %}<option value="{{ d.id }}">{{ d.asset_no }} - {{ d.name }}</option>{% endfor %}</select></div>
-<div class="row mb-3">
-<div class="col-md-6"><label class="form-label">位置状态</label><select name="location_status" class="form-select" required><option value="in_place">在位</option><option value="moved">搬离</option><option value="not_found">未找到</option></select></div>
-<div class="col-md-6"><label class="form-label">资产状态</label><select name="asset_status" class="form-select"><option value="normal">正常</option><option value="damaged">损坏</option><option value="lost">丢失</option></select></div>
+
+<!-- 进度条 -->
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <div class="progress" style="height: 20px;">
+                    <div class="progress-bar bg-success" id="progressBar" style="width: 0%">
+                        <span id="progressText">0%</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 text-md-end mt-2 mt-md-0">
+                <span class="text-muted">已盘 <strong class="text-success" id="checkedCount">{{ checked_count }}</strong> / 
+                <strong id="totalCount">{{ total_count }}</strong></span>
+            </div>
+        </div>
+    </div>
 </div>
-<div class="mb-3"><label class="form-label">备注</label><textarea name="remarks" class="form-control" rows="2"></textarea></div>
-<button type="submit" class="btn btn-primary">提交盘点</button>
-</form>
-</div></div>{% endblock %}
+
+<div class="row g-3">
+    <!-- 待盘点设备列表 -->
+    <div class="col-lg-5">
+        <div class="card h-100">
+            <div class="card-header bg-warning text-dark py-2">
+                <i class="fas fa-clock me-2"></i>待盘点设备
+                <span class="badge bg-dark ms-2" id="pendingBadge">{{ pending_count }}</span>
+                <div class="float-end">
+                    <input type="text" class="form-control form-control-sm d-inline-block" style="width: 150px;" 
+                           id="deviceFilter" placeholder="筛选设备" onkeyup="filterDevices()">
+                </div>
+            </div>
+            <div class="card-body p-2 device-list-container" id="deviceList">
+                {% for td in pending_devices %}
+                <div class="device-item" data-id="{{ td.id }}" data-asset="{{ td.device.asset_no }}" 
+                     onclick="selectDevice({{ td.id }}, {{ td.device.id }})">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div style="flex: 1; min-width: 0;">
+                            <div class="d-flex align-items-center mb-1">
+                                <span class="asset-no">{{ td.device.asset_no }}</span>
+                                {% if td.device.device_no %}<span class="text-muted ms-2 small">{{ td.device.device_no }}</span>{% endif %}
+                            </div>
+                            <div class="mb-1">{{ td.device.name }}{% if td.device.model %} <span class="text-muted small">({{ td.device.model }})</span>{% endif %}</div>
+                            <div class="text-muted small mb-1">
+                                <i class="fas fa-map-marker-alt me-1"></i>{{ td.device.location_text|default:'未设置位置' }}
+                            </div>
+                            {% if td.device.asset_card_no %}<div class="text-muted small"><i class="fas fa-id-card me-1"></i>卡片: {{ td.device.asset_card_no }}</div>{% endif %}
+                        </div>
+                        <button class="btn btn-sm btn-outline-success flex-shrink-0 ms-2" onclick="event.stopPropagation(); quickCheck({{ td.id }}, {{ td.device.id }})">
+                            <i class="fas fa-check"></i> 盘点
+                        </button>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center text-muted py-4">暂无待盘点设备</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- 已盘点设备列表 -->
+    <div class="col-lg-3">
+        <div class="card h-100">
+            <div class="card-header bg-success text-white py-2">
+                <i class="fas fa-check-circle me-2"></i>已盘点设备
+                <span class="badge bg-light text-dark ms-2" id="checkedBadge">{{ checked_count }}</span>
+            </div>
+            <div class="card-body p-2 device-list-container">
+                {% for td in checked_devices %}
+                <div class="device-item opacity-75">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <span class="asset-no">{{ td.device.asset_no }}</span>
+                            <div class="small text-muted">{{ td.device.name }}</div>
+                        </div>
+                        <span class="badge bg-success"><i class="fas fa-check"></i></span>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center text-muted py-4">暂无已盘点设备</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- 设备信息预览 -->
+    <div class="col-lg-4 d-none d-lg-block">
+        <div class="card h-100" id="devicePreview">
+            <div class="card-header bg-primary text-white py-2">
+                <i class="fas fa-info-circle me-2"></i>设备信息
+            </div>
+            <div class="card-body" id="devicePreviewBody">
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-mouse-pointer fa-2x mb-2"></i>
+                    <p>点击左侧设备查看详情</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 盘点操作面板（底部弹出） -->
+<div class="check-panel" id="checkPanel">
+    <div class="container-fluid">
+        <div class="row py-3">
+            <!-- 设备详情 -->
+            <div class="col-lg-6">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="mb-0" id="panelDeviceTitle">设备信息</h6>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="closePanel()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="device-info-section">
+                    <h6><i class="fas fa-cube me-1"></i>基本信息</h6>
+                    <div class="info-row"><span class="info-label">资产编号:</span><span class="info-value" id="infoAssetNo">-</span></div>
+                    <div class="info-row"><span class="info-label">设备名称:</span><span class="info-value" id="infoName">-</span></div>
+                    <div class="info-row"><span class="info-label">型号:</span><span class="info-value" id="infoModel">-</span></div>
+                    <div class="info-row"><span class="info-label">序列号:</span><span class="info-value" id="infoSerialNo">-</span></div>
+                    <div class="info-row"><span class="info-label">密级:</span><span class="info-value" id="infoSecretLevel">-</span></div>
+                </div>
+                <div class="device-info-section">
+                    <h6><i class="fas fa-user me-1"></i>使用信息</h6>
+                    <div class="info-row">
+                        <span class="info-label">部门:</span>
+                        <span class="info-value" id="infoDepartment">-</span>
+                        <button class="btn btn-xs btn-outline-primary ms-2" onclick="showAssignModal()">分配</button>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">使用人:</span>
+                        <span class="info-value" id="infoUser">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">位置:</span>
+                        <span class="info-value" id="infoLocation">-</span>
+                        <button class="btn btn-xs btn-outline-info ms-2" onclick="showLocationModal()">位置</button>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">工位:</span>
+                        <span class="info-value" id="infoWorkstation">-</span>
+                    </div>
+                </div>
+                <div id="deviceMoreInfo" style="display:none;">
+                    <div class="device-info-section">
+                        <h6><i class="fas fa-network-wired me-1"></i>网络信息</h6>
+                        <div class="info-row"><span class="info-label">MAC:</span><span class="info-value" id="infoMac">-</span></div>
+                        <div class="info-row"><span class="info-label">IP:</span><span class="info-value" id="infoIp">-</span></div>
+                    </div>
+                    <div class="device-info-section">
+                        <h6><i class="fas fa-desktop me-1"></i>设备信息</h6>
+                        <div class="info-row"><span class="info-label">系统:</span><span class="info-value" id="infoOs">-</span></div>
+                        <div class="info-row"><span class="info-label">硬盘:</span><span class="info-value" id="infoDisk">-</span></div>
+                    </div>
+                </div>
+                <button class="btn btn-sm btn-link p-0" onclick="toggleMoreInfo()">
+                    <i class="fas fa-chevron-down" id="moreInfoIcon"></i> 展开更多信息
+                </button>
+            </div>
+
+            <!-- 盘点操作 -->
+            <div class="col-lg-6">
+                <h6 class="mb-3"><i class="fas fa-edit me-1"></i>盘点操作</h6>
+                <input type="hidden" id="currentTaskDeviceId">
+                <input type="hidden" id="currentDeviceId">
+                
+                <div class="row mb-3">
+                    <div class="col-6">
+                        <label class="form-label">位置状态</label>
+                        <select class="form-select form-select-sm" id="locationStatus">
+                            <option value="in_place">在位</option>
+                            <option value="moved">搬离</option>
+                            <option value="not_found">未找到</option>
+                        </select>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label">资产状态</label>
+                        <select class="form-select form-select-sm" id="assetStatus">
+                            <option value="normal">正常</option>
+                            <option value="damaged">损坏</option>
+                            <option value="lost">丢失</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">备注</label>
+                    <textarea class="form-control form-control-sm" id="checkRemarks" rows="2" placeholder="选填"></textarea>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">现场照片</label>
+                    <input type="file" class="form-control form-control-sm" id="checkPhoto" accept="image/*" capture="camera">
+                </div>
+
+                <div class="d-grid gap-2">
+                    <button class="btn btn-success" onclick="confirmCheck()">
+                        <i class="fas fa-check me-1"></i>确认盘点
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 分配弹窗 -->
+<div class="modal fade" id="assignModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">分配设备</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="assignUserInput" class="form-control mb-2" placeholder="搜索工号、姓名或部门...">
+                <div id="assignUserResults" class="list-group" style="max-height:300px;overflow-y:auto;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 位置选择弹窗 -->
+<div class="modal fade" id="locationModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">选择位置</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <label class="form-label">位置</label>
+                        <select class="form-select" id="locationSelect" onchange="onLocationChange()">
+                            <option value="">请选择</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">工位</label>
+                        <select class="form-select" id="workstationSelect">
+                            <option value="">请选择位置后选择工位</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <div id="locationMapContainer" style="width:100%;height:300px;background:#f5f5f5;border-radius:8px;"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="saveLocation()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 扫码弹窗 -->
+<div class="modal fade" id="scanModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-qrcode me-2"></i>扫码盘点</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <div id="scanArea" style="width:100%;height:300px;background:#000;">
+                    <video id="scanVideo" style="width:100%;height:100%;object-fit:cover;"></video>
+                </div>
+                <p class="mt-2 text-muted">将二维码对准扫描框</p>
+                <div class="mt-3">
+                    <label class="form-label">或手动输入资产编号/URL</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="manualScanInput" placeholder="输入资产编号或扫描结果">
+                        <button class="btn btn-primary" onclick="manualScan()">确认</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/i18n/zh-CN.js"></script>
+<script src="https://unpkg.com/konva@9/konva.min.js"></script>
+<script>
+const TASK_ID = {{ task.id }};
+let currentDeviceData = null;
+
+// 更新进度
+function updateProgress() {
+    const total = {{ total_count }};
+    const checked = {{ checked_count }};
+    const percent = total > 0 ? Math.round(checked / total * 100) : 0;
+    document.getElementById('progressBar').style.width = percent + '%';
+    document.getElementById('progressText').textContent = percent + '%';
+}
+updateProgress();
+
+// 筛选设备
+function filterDevices() {
+    const filter = document.getElementById('deviceFilter').value.toLowerCase();
+    document.querySelectorAll('#deviceList .device-item').forEach(item => {
+        const asset = item.dataset.asset.toLowerCase();
+        const text = item.textContent.toLowerCase();
+        item.style.display = (asset.includes(filter) || text.includes(filter)) ? '' : 'none';
+    });
+}
+
+// 选择设备
+function selectDevice(taskDeviceId, deviceId) {
+    // 清除其他选中状态
+    document.querySelectorAll('.device-item').forEach(el => el.classList.remove('selected'));
+    document.querySelector(`.device-item[data-id="${taskDeviceId}"]`).classList.add('selected');
+    
+    // 保存当前选择
+    document.getElementById('currentTaskDeviceId').value = taskDeviceId;
+    document.getElementById('currentDeviceId').value = deviceId;
+    
+    // 加载设备详情
+    fetch(`/inventory/api/tasks/${TASK_ID}/device-detail/${deviceId}/`)
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            currentDeviceData = data.device;
+            showDeviceInfo(data.device);
+            showPanel();
+        }
+    });
+}
+
+// 显示设备信息
+function showDeviceInfo(device) {
+    document.getElementById('panelDeviceTitle').textContent = device.asset_no + ' - ' + device.name;
+    document.getElementById('infoAssetNo').textContent = device.asset_no;
+    document.getElementById('infoName').textContent = device.name;
+    document.getElementById('infoModel').textContent = device.model || '-';
+    document.getElementById('infoSerialNo').textContent = device.serial_no || '-';
+    document.getElementById('infoSecretLevel').textContent = device.secret_level;
+    document.getElementById('infoDepartment').textContent = device.department || '-';
+    document.getElementById('infoUser').textContent = device.user || '-';
+    document.getElementById('infoLocation').textContent = device.location || '-';
+    document.getElementById('infoWorkstation').textContent = device.workstation || '-';
+    document.getElementById('infoMac').textContent = device.mac_address || '-';
+    document.getElementById('infoIp').textContent = device.ip_address || '-';
+    document.getElementById('infoOs').textContent = device.os_name || '-';
+    document.getElementById('infoDisk').textContent = device.disk_serial || '-';
+    
+    // 更新预览
+    const preview = document.getElementById('devicePreviewBody');
+    preview.innerHTML = `
+        <div class="device-info-section">
+            <h6><i class="fas fa-cube me-1"></i>基本信息</h6>
+            <div class="info-row"><span class="info-label">资产编号:</span><span class="info-value"><strong class="text-primary">${device.asset_no}</strong></span></div>
+            <div class="info-row"><span class="info-label">名称:</span><span class="info-value">${device.name}</span></div>
+            <div class="info-row"><span class="info-label">型号:</span><span class="info-value">${device.model || '-'}</span></div>
+        </div>
+        <div class="device-info-section">
+            <h6><i class="fas fa-user me-1"></i>使用信息</h6>
+            <div class="info-row"><span class="info-label">部门:</span><span class="info-value">${device.department || '-'}</span></div>
+            <div class="info-row"><span class="info-label">使用人:</span><span class="info-value">${device.user || '-'}</span></div>
+            <div class="info-row"><span class="info-label">位置:</span><span class="info-value">${device.location || '-'}</span></div>
+        </div>
+    `;
+}
+
+// 显示/隐藏盘点面板
+function showPanel() {
+    document.getElementById('checkPanel').classList.add('show');
+}
+function closePanel() {
+    document.getElementById('checkPanel').classList.remove('show');
+}
+
+// 展开更多信息
+function toggleMoreInfo() {
+    const moreInfo = document.getElementById('deviceMoreInfo');
+    const icon = document.getElementById('moreInfoIcon');
+    if (moreInfo.style.display === 'none') {
+        moreInfo.style.display = 'block';
+        icon.className = 'fas fa-chevron-up';
+    } else {
+        moreInfo.style.display = 'none';
+        icon.className = 'fas fa-chevron-down';
+    }
+}
+
+// 快速盘点
+function quickCheck(taskDeviceId, deviceId) {
+    selectDevice(taskDeviceId, deviceId);
+}
+
+// 确认盘点
+function confirmCheck() {
+    const taskDeviceId = document.getElementById('currentTaskDeviceId').value;
+    if (!taskDeviceId) {
+        alert('请先选择设备');
+        return;
+    }
+    
+    // 保存当前设备信息，用于添加到已盘点列表
+    const deviceItem = document.querySelector(`.device-item[data-id="${taskDeviceId}"]`);
+    const assetNo = currentDeviceData ? currentDeviceData.asset_no : '';
+    const deviceName = currentDeviceData ? currentDeviceData.name : '';
+    const deviceNo = currentDeviceData ? currentDeviceData.device_no : '';
+    const model = currentDeviceData ? currentDeviceData.model : '';
+    const location = currentDeviceData ? currentDeviceData.location : '';
+    
+    const data = {
+        task_device_id: parseInt(taskDeviceId),
+        device_id: parseInt(document.getElementById('currentDeviceId').value),
+        location_status: document.getElementById('locationStatus').value,
+        asset_status: document.getElementById('assetStatus').value,
+        remarks: document.getElementById('checkRemarks').value,
+        source: 'manual'
+    };
+    
+    fetch(`/inventory/api/tasks/${TASK_ID}/check-device/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(r => r.json())
+    .then(result => {
+        if (result.success) {
+            // 从待盘点列表移除
+            if (deviceItem) {
+                deviceItem.remove();
+            }
+            
+            // 添加到已盘点列表（在顶部插入）
+            const checkedList = document.querySelector('#deviceList').parentElement.parentElement.parentElement;
+            // 找到已盘点列表的容器
+            const checkedContainer = document.querySelector('.device-list-container');
+            if (!checkedContainer) {
+                // 如果没有找到，尝试刷新页面
+                location.reload();
+                return;
+            }
+            
+            // 创建已盘点设备项
+            const now = new Date();
+            const timeStr = now.getFullYear() + '-' + 
+                String(now.getMonth() + 1).padStart(2, '0') + '-' + 
+                String(now.getDate()).padStart(2, '0') + ' ' +
+                String(now.getHours()).padStart(2, '0') + ':' + 
+                String(now.getMinutes()).padStart(2, '0');
+            
+            const newCheckedItem = document.createElement('div');
+            newCheckedItem.className = 'device-item opacity-75';
+            newCheckedItem.innerHTML = `
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <span class="asset-no">${assetNo}</span>
+                        <div class="small text-muted">${deviceName}</div>
+                    </div>
+                    <span class="badge bg-success"><i class="fas fa-check"></i></span>
+                </div>
+            `;
+            
+            // 找到已盘点列表并添加
+            const allContainers = document.querySelectorAll('.device-list-container');
+            if (allContainers.length >= 2) {
+                const checkedListContainer = allContainers[1];
+                // 清除"暂无已盘点设备"提示
+                const emptyMsg = checkedListContainer.querySelector('.text-center.text-muted');
+                if (emptyMsg) emptyMsg.remove();
+                // 在顶部插入
+                checkedListContainer.insertBefore(newCheckedItem, checkedListContainer.firstChild);
+            }
+            
+            // 更新计数
+            document.getElementById('checkedCount').textContent = result.checked_count;
+            document.getElementById('pendingBadge').textContent = result.pending_count;
+            document.getElementById('checkedBadge').textContent = result.checked_count;
+            
+            // 更新进度
+            const total = {{ total_count }};
+            const percent = total > 0 ? Math.round(result.checked_count / total * 100) : 0;
+            document.getElementById('progressBar').style.width = percent + '%';
+            document.getElementById('progressText').textContent = percent + '%';
+            
+            // 清空表单
+            document.getElementById('locationStatus').value = 'in_place';
+            document.getElementById('assetStatus').value = 'normal';
+            document.getElementById('checkRemarks').value = '';
+            
+            // 关闭面板
+            closePanel();
+            
+            // 提示
+            alert(result.message);
+            
+            // 如果全部完成
+            if (result.pending_count === 0) {
+                if (confirm('所有设备盘点完成！是否完成任务？')) {
+                    completeTask();
+                }
+            }
+        } else {
+            alert(result.message);
+        }
+    });
+}
+
+// 分配功能
+let currentAssignDeviceId = null;
+
+function showAssignModal() {
+    if (!currentDeviceData) return;
+    currentAssignDeviceId = currentDeviceData.id;
+    document.getElementById('assignUserInput').value = '';
+    document.getElementById('assignUserResults').html = '';
+    new bootstrap.Modal(document.getElementById('assignModal')).show();
+    loadAllUsers();
+}
+
+function loadAllUsers() {
+    fetch('/assets/api/users-by-department/')
+    .then(r => r.json())
+    .then(res => {
+        if (res.success) {
+            window._allUsers = res.users;
+            renderUserResults(res.users);
+        }
+    });
+}
+
+function renderUserResults(users) {
+    let html = '';
+    users.forEach(function(u) {
+        const userText = u.emp_no + '-' + u.realname + '（' + (u.department || '未分配部门') + '）';
+        html += `<div class="list-group-item list-group-item-action" style="cursor:pointer" onclick="selectUser(${u.id}, '${userText}')">${userText}</div>`;
+    });
+    document.getElementById('assignUserResults').innerHTML = html || '<div class="list-group-item text-muted">无匹配用户</div>';
+}
+
+document.getElementById('assignUserInput').addEventListener('input', function() {
+    const keyword = this.value.toLowerCase();
+    if (!window._allUsers) return;
+    const filtered = window._allUsers.filter(function(u) {
+        const text = (u.emp_no + u.realname + (u.department || '')).toLowerCase();
+        return text.indexOf(keyword) >= 0;
+    });
+    renderUserResults(filtered);
+});
+
+function selectUser(userId, userText) {
+    if (!confirm('确定将设备分配给 ' + userText + ' 吗？')) return;
+    fetch(`/inventory/api/tasks/${TASK_ID}/update-device-info/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+            device_id: currentAssignDeviceId,
+            update_type: 'assign',
+            user_id: userId
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('infoDepartment').textContent = data.department;
+            document.getElementById('infoUser').textContent = data.user;
+            bootstrap.Modal.getInstance(document.getElementById('assignModal')).hide();
+            alert('分配成功');
+        } else {
+            alert('分配失败: ' + data.message);
+        }
+    });
+}
+
+// 位置功能
+let currentWsLayer = null;
+
+function showLocationModal() {
+    if (!currentDeviceData) return;
+    initLocationSelect();
+    new bootstrap.Modal(document.getElementById('locationModal')).show();
+}
+
+function initLocationSelect() {
+    fetch('/assets/api/location-tree/')
+    .then(r => r.json())
+    .then(data => {
+        const locations = data.data || data;
+        const select = document.getElementById('locationSelect');
+        select.innerHTML = '<option value="">请选择位置</option>';
+        renderLocationOptions(locations, select, 0);
+        if (currentDeviceData.location_id) {
+            select.value = currentDeviceData.location_id;
+            onLocationChange();
+        }
+    });
+}
+
+function renderLocationOptions(locations, select, level) {
+    locations.forEach(loc => {
+        const opt = document.createElement('option');
+        opt.value = loc.id;
+        opt.textContent = '\u00A0\u00A0'.repeat(level) + loc.name;
+        opt.dataset.level = loc.level;
+        opt.dataset.parentId = loc.parent_id || '';
+        select.appendChild(opt);
+        if (loc.children && loc.children.length > 0) {
+            renderLocationOptions(loc.children, select, level + 1);
+        }
+    });
+}
+
+function onLocationChange() {
+    const locationId = document.getElementById('locationSelect').value;
+    const select = document.getElementById('workstationSelect');
+    select.innerHTML = '<option value="">加载中...</option>';
+    
+    if (!locationId) {
+        select.innerHTML = '<option value="">请选择位置后选择工位</option>';
+        document.getElementById('locationMapContainer').innerHTML = '<div style="padding:20px;color:#999;text-align:center;">请选择位置</div>';
+        return;
+    }
+    
+    // 获取选中选项的level和parent-id
+    const selectedOption = document.getElementById('locationSelect').selectedOptions[0];
+    const level = selectedOption.dataset.level;
+    const parentId = selectedOption.dataset.parentId;
+    let wsLocationId = locationId;
+    
+    if (level === '4' && parentId) {
+        // 4级区域，使用其父级（3级楼层）来加载工位和地图
+        wsLocationId = parentId;
+    }
+    
+    // 加载工位
+    fetch(`/assets/api/location/${wsLocationId}/workstations/`)
+    .then(r => r.json())
+    .then(data => {
+        select.innerHTML = '<option value="">请选择工位</option>';
+        if (data.workstations) {
+            data.workstations.forEach(ws => {
+                const opt = document.createElement('option');
+                opt.value = ws.id;
+                opt.textContent = `${ws.name} (${ws.workstation_code})`;
+                select.appendChild(opt);
+            });
+        }
+        if (currentDeviceData.workstation_id) {
+            select.value = currentDeviceData.workstation_id;
+        }
+    });
+    
+    // 加载地图
+    loadLocationMap(locationId, currentDeviceData.workstation_id);
+}
+
+function loadLocationMap(locationId, workstationId) {
+    var container = document.getElementById('locationMapContainer');
+    
+    if (!locationId) {
+        container.innerHTML = '<div style="padding:20px;color:#999;text-align:center;">未设置位置</div>';
+        return;
+    }
+    
+    // 获取选中选项的level和parent-id
+    const selectedOption = document.getElementById('locationSelect').selectedOptions[0];
+    const level = selectedOption ? selectedOption.dataset.level : null;
+    const parentId = selectedOption ? selectedOption.dataset.parentId : null;
+    var mapLocationId = locationId;
+    var selectedAreaId = null;
+    
+    if (level === '4' && parentId) {
+        // 4级区域，使用其父级（3级楼层）来加载地图
+        mapLocationId = parentId;
+        selectedAreaId = locationId;
+    }
+    
+    container.innerHTML = '';
+    
+    var stage = new Konva.Stage({ container: 'locationMapContainer', width: container.offsetWidth || 700, height: 300, draggable: true });
+    var bgLayer = new Konva.Layer();
+    var elLayer = new Konva.Layer();
+    var wsLayer = new Konva.Layer();
+    currentWsLayer = wsLayer;
+    stage.add(bgLayer, elLayer, wsLayer);
+
+    // Mouse wheel zoom
+    container.addEventListener('wheel', function(e) {
+        e.preventDefault();
+        var oldScale = stage.scaleX();
+        var pointer = stage.getPointerPosition();
+        if (!pointer) return;
+        var mousePointTo = { x: (pointer.x - stage.x()) / oldScale, y: (pointer.y - stage.y()) / oldScale };
+        var direction = e.deltaY > 0 ? -1 : 1;
+        var newScale = Math.max(0.1, Math.min(direction > 0 ? oldScale * 1.1 : oldScale / 1.1, 3));
+        stage.scale({ x: newScale, y: newScale });
+        stage.position({ x: pointer.x - mousePointTo.x * newScale, y: pointer.y - mousePointTo.y * newScale });
+        stage.batchDraw();
+    });
+
+    fetch('/assets/api/map-data/' + mapLocationId + '/')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var mapW = data.location.map_width || 1200;
+            var mapH = data.location.map_height || 800;
+            var s = Math.min(stage.width() / mapW, stage.height() / mapH);
+            stage.scale({ x: s, y: s });
+            stage.position({ x: 0, y: (stage.height() - mapH * s) / 2 });
+
+            // Grid
+            for (var x = 0; x <= mapW; x += 30) bgLayer.add(new Konva.Line({ points: [x, 0, x, mapH], stroke: '#eee', strokeWidth: 0.5 }));
+            for (var y = 0; y <= mapH; y += 30) bgLayer.add(new Konva.Line({ points: [0, y, mapW, y], stroke: '#eee', strokeWidth: 0.5 }));
+
+            // Elements - draw regions
+            (data.elements || []).forEach(function(el) {
+                if (el.element_type === 'region') {
+                    var pts = el.points ? JSON.parse(el.points) : [];
+                    if (pts.length >= 3) {
+                        var points = [];
+                        for (var i = 0; i < pts.length; i++) {
+                            points.push(pts[i].x, pts[i].y);
+                        }
+                        var isSelectedArea = selectedAreaId && data.area_bindings && data.area_bindings.some(function(ab) {
+                            return ab.area_name === el.label && ab.id == selectedAreaId;
+                        });
+                        var regionGroup = new Konva.Group();
+                        regionGroup.add(new Konva.Line({
+                            points: points,
+                            closed: true,
+                            fill: isSelectedArea ? 'rgba(40, 167, 69, 0.3)' : 'rgba(52, 152, 219, 0.2)',
+                            stroke: isSelectedArea ? '#28a745' : '#3498db',
+                            strokeWidth: isSelectedArea ? 3 : 2
+                        }));
+                        var minX = Math.min(...pts.map(p => p.x));
+                        var minY = Math.min(...pts.map(p => p.y));
+                        regionGroup.add(new Konva.Text({
+                            x: minX + 5, y: minY + 5,
+                            text: el.label || '',
+                            fontSize: 14,
+                            fill: '#999',
+                            fontStyle: 'bold'
+                        }));
+                        elLayer.add(regionGroup);
+                    }
+                } else if (el.element_type === 'wall' || el.element_type === 'line') {
+                    elLayer.add(new Konva.Line({ points: [el.x, el.y, el.x2 || el.x + el.width, el.y2 || el.y], stroke: el.color || '#333', strokeWidth: el.thickness || 2, lineCap: 'round' }));
+                } else if (el.element_type === 'door') {
+                    var g = new Konva.Group({ x: el.x, y: el.y, rotation: el.rotation || 0 });
+                    g.add(new Konva.Line({ points: [0, 0, el.door_width || 60, 0], stroke: '#666', strokeWidth: 2 }));
+                    if (el.door_direction !== 'sliding') { var a = (el.door_open_angle || 90) * Math.PI / 180; g.add(new Konva.Arc({ innerRadius: 0, outerRadius: el.door_width || 60, angle: a, rotation: el.door_direction === 'left' ? -a * 180 / Math.PI : 0, stroke: '#666', strokeWidth: 1 })); }
+                    elLayer.add(g);
+                } else if (el.element_type === 'window' || el.element_type === 'dashed') {
+                    elLayer.add(new Konva.Line({ points: [el.x, el.y, el.x2 != null ? el.x2 : el.x + (el.width || 60), el.y2 != null ? el.y2 : el.y], stroke: '#2196F3', strokeWidth: 3, dash: [10, 5] }));
+                } else if (el.element_type === 'rect') {
+                    elLayer.add(new Konva.Rect({ x: el.x, y: el.y, width: el.width || 60, height: el.height || 40, stroke: '#333', strokeWidth: 2 }));
+                } else if (el.element_type === 'text') {
+                    elLayer.add(new Konva.Text({ x: el.x, y: el.y, text: el.label || '', fontSize: 14, fill: el.color || '#333' }));
+                }
+            });
+
+            // Workstations - clickable
+            (data.workstations || []).forEach(function(ws) {
+                var isTarget = workstationId && ws.id === workstationId;
+                var w = ws.width || 60, h = ws.height || 40;
+                var group = new Konva.Group({ x: ws.x, y: ws.y });
+                group.setAttr('wsId', ws.id);
+                group.setAttr('wsCode', ws.workstation_code);
+                group.setAttr('areaId', ws.area_id);
+                group.add(new Konva.Rect({
+                    width: w, height: h,
+                    fill: isTarget ? '#d4edda' : '#e3f2fd',
+                    stroke: isTarget ? '#28a745' : '#1976D2',
+                    strokeWidth: isTarget ? 3 : 1,
+                    cornerRadius: 3
+                }));
+                group.add(new Konva.Text({
+                    text: ws.workstation_code || '', fontSize: 11,
+                    fill: isTarget ? '#28a745' : '#333',
+                    fontStyle: isTarget ? 'bold' : 'normal',
+                    width: w, height: h, align: 'center', verticalAlign: 'middle'
+                }));
+                
+                // Click to select workstation
+                group.on('click tap', function(e) {
+                    e.cancelBubble = true;
+                    var clickedWsId = this.getAttr('wsId');
+                    var clickedWsCode = this.getAttr('wsCode');
+                    if (!clickedWsId) return;
+                    
+                    document.getElementById('workstationSelect').value = clickedWsId;
+                    
+                    // Update map highlight
+                    wsLayer.getChildren().forEach(function(g) {
+                        var rect = g.findOne('Rect');
+                        var txt = g.findOne('Text');
+                        if (!rect || !txt) return;
+                        if (g.getAttr('wsId') === clickedWsId) {
+                            rect.fill('#d4edda').stroke('#28a745').strokeWidth(3);
+                            txt.fill('#28a745').fontStyle('bold');
+                        } else {
+                            rect.fill('#e3f2fd').stroke('#1976D2').strokeWidth(1);
+                            txt.fill('#333').fontStyle('normal');
+                        }
+                    });
+                    wsLayer.draw();
+                });
+                
+                group.on('mouseenter', function() { stage.container().style.cursor = 'pointer'; });
+                group.on('mouseleave', function() { stage.container().style.cursor = 'default'; });
+                
+                wsLayer.add(group);
+            });
+
+            [bgLayer, elLayer, wsLayer].forEach(function(l) { l.draw(); });
+        })
+        .catch(function() { container.innerHTML = '<div style="padding:20px;color:#999;text-align:center;">加载地图失败</div>'; });
+}
+
+function saveLocation() {
+    const deviceId = document.getElementById('currentDeviceId').value;
+    const locationId = document.getElementById('locationSelect').value;
+    const workstationId = document.getElementById('workstationSelect').value;
+    
+    fetch(`/inventory/api/tasks/${TASK_ID}/update-device-info/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+            device_id: parseInt(deviceId),
+            update_type: 'location',
+            location_id: locationId ? parseInt(locationId) : null,
+            workstation_id: workstationId ? parseInt(workstationId) : null
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('infoLocation').textContent = data.location;
+            document.getElementById('infoWorkstation').textContent = data.workstation;
+            bootstrap.Modal.getInstance(document.getElementById('locationModal')).hide();
+            alert(data.message);
+        } else {
+            alert(data.message);
+        }
+    });
+}
+
+// 扫码盘点
+function startScan() {
+    new bootstrap.Modal(document.getElementById('scanModal')).show();
+    // 启动摄像头（如果支持）
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+        .then(stream => {
+            document.getElementById('scanVideo').srcObject = stream;
+            document.getElementById('scanVideo').play();
+        })
+        .catch(err => {
+            console.log('摄像头不可用:', err);
+        });
+    }
+}
+
+function manualScan() {
+    const input = document.getElementById('manualScanInput').value.trim();
+    if (!input) {
+        alert('请输入内容');
+        return;
+    }
+    
+    fetch(`/inventory/api/tasks/${TASK_ID}/scan-check/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({ qrcode: input })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('scanModal')).hide();
+            // 选择该设备
+            selectDevice(data.task_device_id, data.device_id);
+            alert(data.message);
+        } else {
+            alert(data.message);
+        }
+    });
+}
+
+// 完成任务
+function completeTask() {
+    if (!confirm('确定要完成盘点任务吗？')) return;
+    
+    fetch(`/inventory/tasks/${TASK_ID}/complete/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            location.href = `{% url 'inventory_task_detail' 0 %}`.replace('0', TASK_ID);
+        } else {
+            alert(data.message);
+        }
+    });
+}
+</script>
+{% endblock %}

@@ -15,7 +15,7 @@
                         <span><i class="fas fa-clipboard-check me-2 text-warning"></i>我的待办事项</span>
                         <span class="badge bg-warning rounded-pill">{{ stats.my_todos }}</span>
                     </a>
-                    <a href="{% url 'task_list' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                    <a href="{% url 'inventory_task_list' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
                         <span><i class="fas fa-tasks me-2 text-info"></i>待处理盘点任务</span>
                         <span class="badge bg-info rounded-pill">{{ stats.pending_tasks }}</span>
                     </a>
@@ -30,11 +30,7 @@
             </div>
             <div class="card-body">
                 <div class="list-group list-group-flush">
-                    <a href="{% url 'plan_list' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
-                        <span><i class="fas fa-calendar-alt me-2 text-primary"></i>盘点计划</span>
-                        <span class="badge bg-primary rounded-pill">查看</span>
-                    </a>
-                    <a href="{% url 'task_list' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                    <a href="{% url 'inventory_task_list' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
                         <span><i class="fas fa-list-check me-2 text-success"></i>盘点任务列表</span>
                         <span class="badge bg-success rounded-pill">查看</span>
                     </a>

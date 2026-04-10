@@ -1,18 +1,808 @@
 {% extends 'base.html' %}
-{% block title %}盘点任务详情{% endblock %}
+{% block title %}任务详情 - {{ task.task_no }} - 驰达IT资产管理系统{% endblock %}
+{% block extra_css %}
+<style>
+    .stat-card {
+        text-align: center;
+        padding: 1rem;
+    }
+    .stat-card .number {
+        font-size: 2rem;
+        font-weight: bold;
+    }
+    .device-table td { vertical-align: middle; }
+    .batch-import-area {
+        border: 2px dashed #dee2e6;
+        border-radius: 8px;
+        padding: 2rem;
+        text-align: center;
+        background: #f8f9fa;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .batch-import-area:hover {
+        border-color: #0d6efd;
+        background: #e7f1ff;
+    }
+    .batch-import-area.dragover {
+        border-color: #0d6efd;
+        background: #cce5ff;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-<h4>盘点任务详情</h4>
-<a href="{% url 'task_list' %}" class="btn btn-outline-secondary">返回</a>
+    <div>
+        <h4 class="mb-1"><i class="fas fa-clipboard-list me-2"></i>{{ task.task_no }}</h4>
+        <span class="text-muted">{{ task.name|default:task.get_task_type_display }}</span>
+    </div>
+    <div>
+        <a href="{% url 'inventory_task_list' %}" class="btn btn-outline-secondary me-1"><i class="fas fa-arrow-left me-1"></i>返回</a>
+        {% if task.status == 'pending' %}
+        <button class="btn btn-success me-1" onclick="startTask()"><i class="fas fa-play me-1"></i>开始盘点</button>
+        {% elif task.status == 'in_progress' %}
+        <a href="{% url 'inventory_task_execute' task.id %}" class="btn btn-primary me-1"><i class="fas fa-clipboard-check me-1"></i>执行盘点</a>
+        <button class="btn btn-success me-1" onclick="completeTask()"><i class="fas fa-check me-1"></i>完成任务</button>
+        {% endif %}
+        {% if task.status != 'completed' %}
+        <button class="btn btn-outline-danger" onclick="deleteTask()"><i class="fas fa-trash me-1"></i>删除</button>
+        {% endif %}
+    </div>
 </div>
-<div class="card mb-3"><div class="card-body">
-<p><strong>任务编号：</strong>{{ task.task_no }}</p>
-<p><strong>所属计划：</strong>{{ task.plan.name }}</p>
-<p><strong>应盘数量：</strong>{{ task.device_count }}</p>
-<p><strong>已盘数量：</strong>{{ task.checked_count }}</p>
-<p><strong>状态：</strong>{{ task.get_status_display }}</p>
-</div></div>
-<div class="card"><div class="card-header">盘点记录</div><div class="card-body">
-<table class="table"><thead><tr><th>设备编号</th><th>设备名称</th><th>位置状态</th><th>资产状态</th><th>盘点人</th><th>盘点时间</th></tr></thead>
-<tbody>{% for r in records %}<tr><td>{{ r.device.asset_no }}</td><td>{{ r.device.name }}</td><td>{{ r.get_location_status_display }}</td><td>{{ r.get_asset_status_display }}</td><td>{{ r.checked_by.realname|default:'-' }}</td><td>{{ r.checked_at|date:"Y-m-d H:i" }}</td></tr>{% empty %}<tr><td colspan="6" class="text-center">暂无记录</td></tr>{% endfor %}</tbody></table>
-</div></div>{% endblock %}
+
+<!-- 任务信息卡片 -->
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <div class="row text-center">
+            <div class="col-md-2 col-4">
+                <div class="stat-card">
+                    <div class="text-muted small">任务类型</div>
+                    <div>
+                        {% if task.task_type == 'full' %}<span class="badge bg-primary">全盘</span>
+                        {% elif task.task_type == 'sample' %}<span class="badge bg-info">抽盘</span>
+                        {% else %}<span class="badge bg-warning text-dark">动态盘点</span>{% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2 col-4">
+                <div class="stat-card">
+                    <div class="text-muted small">固资在账</div>
+                    <div>{% if task.is_fixed_only %}<span class="badge bg-success">是</span>{% else %}<span class="text-muted">否</span>{% endif %}</div>
+                </div>
+            </div>
+            <div class="col-md-2 col-4">
+                <div class="stat-card">
+                    <div class="text-muted small">状态</div>
+                    <div>
+                        {% if task.status == 'pending' %}<span class="badge bg-secondary">待执行</span>
+                        {% elif task.status == 'in_progress' %}<span class="badge bg-primary">执行中</span>
+                        {% else %}<span class="badge bg-success">已完成</span>{% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2 col-4">
+                <div class="stat-card">
+                    <div class="text-muted small">待盘点</div>
+                    <div class="number text-warning">{{ pending_count }}</div>
+                </div>
+            </div>
+            <div class="col-md-2 col-4">
+                <div class="stat-card">
+                    <div class="text-muted small">已盘点</div>
+                    <div class="number text-success">{{ checked_count }}</div>
+                </div>
+            </div>
+            <div class="col-md-2 col-4">
+                <div class="stat-card">
+                    <div class="text-muted small">总计</div>
+                    <div class="number text-primary">{{ total_count }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 抽盘任务配置 -->
+{% if task.task_type == 'sample' and task.status == 'pending' %}
+<div class="card mb-3 border-info">
+    <div class="card-header bg-info text-white">
+        <i class="fas fa-cog me-2"></i>抽盘配置
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-random fa-3x text-primary mb-3"></i>
+                        <h5>随机抽选</h5>
+                        <p class="text-muted">系统按百分比或数量随机抽选设备</p>
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#randomSelectModal">
+                            <i class="fas fa-random me-1"></i>随机抽选
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-hand-pointer fa-3x text-success mb-3"></i>
+                        <h5>人工抽选</h5>
+                        <p class="text-muted">手动搜索筛选设备或导入文件</p>
+                        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#manualSelectModal">
+                            <i class="fas fa-hand-pointer me-1"></i>人工抽选
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- 全盘/动态盘点添加设备 -->
+{% if task.task_type != 'sample' and task.status == 'pending' %}
+<div class="card mb-3 border-info">
+    <div class="card-header bg-info text-white">
+        <i class="fas fa-plus me-2"></i>添加设备
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <button class="btn btn-outline-primary w-100" data-bs-toggle="modal" data-bs-target="#manualSelectModal">
+                    <i class="fas fa-search me-1"></i>搜索添加设备
+                </button>
+            </div>
+            <div class="col-md-6">
+                <button class="btn btn-outline-success w-100" data-bs-toggle="modal" data-bs-target="#manualSelectModal" onclick="showImportTab()">
+                    <i class="fas fa-file-import me-1"></i>导入设备（AI解析）
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Tab 切换 -->
+<ul class="nav nav-tabs mb-3" id="deviceTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="pending-tab" data-bs-toggle="tab" data-bs-target="#pending" type="button">
+            <i class="fas fa-clock me-1"></i>待盘点设备 <span class="badge bg-warning text-dark">{{ pending_count }}</span>
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="checked-tab" data-bs-toggle="tab" data-bs-target="#checked" type="button">
+            <i class="fas fa-check-circle me-1"></i>已盘点设备 <span class="badge bg-success">{{ checked_count }}</span>
+        </button>
+    </li>
+</ul>
+
+<!-- Tab 内容 -->
+<div class="tab-content" id="deviceTabsContent">
+    <!-- 待盘点设备 -->
+    <div class="tab-pane fade show active" id="pending" role="tabpanel">
+        <!-- 桌面端表格 -->
+        <div class="card d-none d-lg-block">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover device-table mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th width="50">#</th>
+                                <th>资产编号</th>
+                                <th>设备编号</th>
+                                <th>设备名称</th>
+                                <th>型号</th>
+                                <th>密级</th>
+                                <th>所属部门</th>
+                                <th>使用人</th>
+                                <th>位置</th>
+                                <th>状态</th>
+                                <th>固资在账</th>
+                                <th>卡片编号</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for td in pending_devices %}
+                            <tr>
+                                <td>{{ forloop.counter }}</td>
+                                <td><strong class="text-primary">{{ td.device.asset_no }}</strong></td>
+                                <td>{{ td.device.device_no|default:'-' }}</td>
+                                <td>{{ td.device.name }}</td>
+                                <td>{{ td.device.model|default:'-' }}</td>
+                                <td>{% if td.device.secret_level == 'public' %}<span class="badge bg-success">公开</span>
+                                    {% elif td.device.secret_level == 'internal' %}<span class="badge bg-info">内部</span>
+                                    {% elif td.device.secret_level == 'confidential' %}<span class="badge bg-warning text-dark">秘密</span>
+                                    {% elif td.device.secret_level == 'secret' %}<span class="badge bg-danger">机密</span>
+                                    {% elif td.device.secret_level == 'top_secret' %}<span class="badge bg-dark">绝密</span>
+                                    {% elif td.device.secret_level == 'commercial_secret' %}<span class="badge bg-secondary">商密</span>
+                                    {% else %}-{% endif %}</td>
+                                <td>{{ td.device.department.name|default:'-' }}</td>
+                                <td>{{ td.device.user.realname|default:'-' }}</td>
+                                <td><small>{{ td.device.location_text|default:'-' }}</small></td>
+                                <td>{% if td.device.status == 'normal' %}<span class="badge bg-success">使用</span>
+                                    {% elif td.device.status == 'fault' %}<span class="badge bg-danger">故障</span>
+                                    {% elif td.device.status == 'scrapped' %}<span class="badge bg-secondary">报废</span>
+                                    {% else %}<span class="badge bg-info">闲置</span>{% endif %}</td>
+                                <td>{% if td.device.is_fixed %}<span class="badge bg-success">是</span>{% else %}<span class="text-muted">否</span>{% endif %}</td>
+                                <td>{{ td.device.asset_card_no|default:'-' }}</td>
+                                <td>
+                                    {% if task.status != 'completed' %}
+                                    <button class="btn btn-sm btn-outline-danger" onclick="removeDevice({{ td.id }})" title="移除">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="13" class="text-center text-muted py-4">暂无待盘点设备</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <!-- 移动端卡片 -->
+        <div class="d-lg-none">
+            {% for td in pending_devices %}
+            <div class="card mb-2">
+                <div class="card-body py-2 px-3">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <strong class="text-primary">{{ td.device.asset_no }}</strong>
+                            {% if td.device.device_no %}<span class="text-muted ms-2">{{ td.device.device_no }}</span>{% endif %}
+                        </div>
+                        <span class="badge bg-warning text-dark">#{{ forloop.counter }}</span>
+                    </div>
+                    <div class="mb-1"><strong>{{ td.device.name }}</strong>{% if td.device.model %} <span class="text-muted">({{ td.device.model }})</span>{% endif %}</div>
+                    <div class="small text-muted mb-1"><i class="fas fa-building me-1"></i>{{ td.device.department.name|default:'未分配部门' }}</div>
+                    <div class="small text-muted mb-1"><i class="fas fa-user me-1"></i>{{ td.device.user.realname|default:'未分配使用人' }}</div>
+                    <div class="small text-muted mb-1"><i class="fas fa-map-marker-alt me-1"></i>{{ td.device.location_text|default:'未设置位置' }}</div>
+                    <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
+                        <div>
+                            {% if td.device.status == 'normal' %}<span class="badge bg-success">使用</span>
+                            {% elif td.device.status == 'fault' %}<span class="badge bg-danger">故障</span>
+                            {% else %}<span class="badge bg-info">闲置</span>{% endif %}
+                            {% if td.device.is_fixed %}<span class="badge bg-success ms-1">固资</span>{% endif %}
+                            {% if td.device.asset_card_no %}<span class="badge bg-secondary ms-1">卡片:{{ td.device.asset_card_no }}</span>{% endif %}
+                        </div>
+                        {% if task.status != 'completed' %}
+                        <button class="btn btn-sm btn-outline-danger" onclick="removeDevice({{ td.id }})">
+                            <i class="fas fa-times me-1"></i>移除
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center text-muted py-4">暂无待盘点设备</div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- 已盘点设备 -->
+    <div class="tab-pane fade" id="checked" role="tabpanel">
+        <!-- 桌面端表格 -->
+        <div class="card d-none d-lg-block">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover device-table mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th width="50">#</th>
+                                <th>资产编号</th>
+                                <th>设备编号</th>
+                                <th>设备名称</th>
+                                <th>型号</th>
+                                <th>所属部门</th>
+                                <th>使用人</th>
+                                <th>位置</th>
+                                <th>盘点时间</th>
+                                <th>状态</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for td in checked_devices %}
+                            <tr>
+                                <td>{{ forloop.counter }}</td>
+                                <td><strong class="text-primary">{{ td.device.asset_no }}</strong></td>
+                                <td>{{ td.device.device_no|default:'-' }}</td>
+                                <td>{{ td.device.name }}</td>
+                                <td>{{ td.device.model|default:'-' }}</td>
+                                <td>{{ td.device.department.name|default:'-' }}</td>
+                                <td>{{ td.device.user.realname|default:'-' }}</td>
+                                <td><small>{{ td.device.location_text|default:'-' }}</small></td>
+                                <td>{{ td.checked_at|date:"Y-m-d H:i" }}</td>
+                                <td><span class="badge bg-success">已盘点</span></td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="10" class="text-center text-muted py-4">暂无已盘点设备</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <!-- 移动端卡片 -->
+        <div class="d-lg-none">
+            {% for td in checked_devices %}
+            <div class="card mb-2">
+                <div class="card-body py-2 px-3">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <strong class="text-primary">{{ td.device.asset_no }}</strong>
+                            {% if td.device.device_no %}<span class="text-muted ms-2">{{ td.device.device_no }}</span>{% endif %}
+                        </div>
+                        <span class="badge bg-success">已盘点</span>
+                    </div>
+                    <div class="mb-1"><strong>{{ td.device.name }}</strong>{% if td.device.model %} <span class="text-muted">({{ td.device.model }})</span>{% endif %}</div>
+                    <div class="small text-muted mb-1"><i class="fas fa-building me-1"></i>{{ td.device.department.name|default:'未分配部门' }}</div>
+                    <div class="small text-muted mb-1"><i class="fas fa-user me-1"></i>{{ td.device.user.realname|default:'未分配使用人' }}</div>
+                    <div class="small text-muted mb-1"><i class="fas fa-map-marker-alt me-1"></i>{{ td.device.location_text|default:'未设置位置' }}</div>
+                    <div class="small text-muted"><i class="fas fa-clock me-1"></i>{{ td.checked_at|date:"Y-m-d H:i" }}</div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center text-muted py-4">暂无已盘点设备</div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- 随机抽选弹窗 -->
+<div class="modal fade" id="randomSelectModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-random me-2"></i>随机抽选</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">抽选方式</label>
+                    <div class="btn-group w-100" role="group">
+                        <input type="radio" class="btn-check" name="selectType" id="selectByPercent" value="percent" checked>
+                        <label class="btn btn-outline-primary" for="selectByPercent">按百分比</label>
+                        <input type="radio" class="btn-check" name="selectType" id="selectByCount" value="count">
+                        <label class="btn btn-outline-primary" for="selectByCount">按数量</label>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" id="selectValueLabel">抽选百分比 (%)</label>
+                    <input type="number" class="form-control" id="selectValue" min="1" placeholder="请输入">
+                    <small class="text-muted" id="selectValueHint">请输入1-100之间的数字</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="doRandomSelect()"><i class="fas fa-check me-1"></i>确认抽选</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 人工抽选弹窗 -->
+<div class="modal fade" id="manualSelectModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-hand-pointer me-2"></i>人工抽选设备</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-tabs mb-3" id="manualTabs" role="tablist">
+                    <li class="nav-item">
+                        <button class="nav-link active" id="search-tab" data-bs-toggle="tab" data-bs-target="#searchPane" type="button">
+                            <i class="fas fa-search me-1"></i>搜索添加
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" id="import-tab" data-bs-toggle="tab" data-bs-target="#importPane" type="button">
+                            <i class="fas fa-file-import me-1"></i>导入（AI解析）
+                        </button>
+                    </li>
+                </ul>
+                
+                <div class="tab-content">
+                    <!-- 搜索添加 -->
+                    <div class="tab-pane fade show active" id="searchPane">
+                        <div class="mb-3">
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="deviceSearchInput" placeholder="搜索资产编号、名称、序列号等">
+                                <button class="btn btn-primary" onclick="searchDevices()"><i class="fas fa-search me-1"></i>搜索</button>
+                            </div>
+                        </div>
+                        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                            <table class="table table-hover table-sm">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th width="40"><input type="checkbox" id="selectAllDevices" onchange="toggleSelectAll()"></th>
+                                        <th>资产编号</th>
+                                        <th>设备名称</th>
+                                        <th>分类</th>
+                                        <th>位置</th>
+                                        <th>使用人</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="deviceSearchResult">
+                                    <tr><td colspan="6" class="text-center text-muted">请输入关键词搜索</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mt-2">
+                            <small class="text-muted" id="searchResultInfo"></small>
+                            <button class="btn btn-success" onclick="addSelectedDevices()"><i class="fas fa-plus me-1"></i>添加选中设备</button>
+                        </div>
+                    </div>
+                    
+                    <!-- 导入 -->
+                    <div class="tab-pane fade" id="importPane">
+                        <div class="batch-import-area" id="importDropZone" onclick="document.getElementById('importFile').click()">
+                            <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                            <p class="mb-1">点击或拖拽文件到此处</p>
+                            <small class="text-muted">支持 Excel(.xlsx/.xls)、CSV、图片(.png/.jpg)</small>
+                            <input type="file" id="importFile" accept=".xlsx,.xls,.csv,.png,.jpg,.jpeg" style="display:none" onchange="handleImportFile(this)">
+                        </div>
+                        <div id="importResult" class="mt-3" style="display:none">
+                            <div class="alert" id="importAlert"></div>
+                            <div id="importDeviceList"></div>
+                        </div>
+                        <div class="mt-3">
+                            <label class="form-label">或直接粘贴文本内容</label>
+                            <textarea class="form-control" id="importTextContent" rows="3" placeholder="粘贴包含资产编号的文本内容"></textarea>
+                            <button class="btn btn-outline-primary mt-2" onclick="parseTextContent()"><i class="fas fa-magic me-1"></i>AI解析</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const TASK_ID = {{ task.id }};
+const TASK_TYPE = '{{ task.task_type }}';
+const TASK_STATUS = '{{ task.status }}';
+
+// 随机抽选
+document.querySelectorAll('input[name="selectType"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        const label = document.getElementById('selectValueLabel');
+        const hint = document.getElementById('selectValueHint');
+        const input = document.getElementById('selectValue');
+        
+        if (this.value === 'percent') {
+            label.textContent = '抽选百分比 (%)';
+            hint.textContent = '请输入1-100之间的数字';
+            input.placeholder = '例如: 10';
+        } else {
+            label.textContent = '抽选数量';
+            hint.textContent = '请输入要抽选的设备数量';
+            input.placeholder = '例如: 50';
+        }
+    });
+});
+
+function doRandomSelect() {
+    const selectType = document.querySelector('input[name="selectType"]:checked').value;
+    const selectValue = document.getElementById('selectValue').value;
+    
+    if (!selectValue || selectValue < 1) {
+        alert('请输入有效的抽选值');
+        return;
+    }
+    
+    if (selectType === 'percent' && selectValue > 100) {
+        alert('百分比不能超过100');
+        return;
+    }
+    
+    fetch(`/inventory/api/tasks/${TASK_ID}/random-select/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+            select_type: selectType,
+            select_value: parseInt(selectValue)
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert(data.message);
+        }
+    })
+    .catch(err => alert('操作失败: ' + err));
+}
+
+// 设备搜索
+let selectedDeviceIds = [];
+
+function searchDevices() {
+    const q = document.getElementById('deviceSearchInput').value.trim();
+    const tbody = document.getElementById('deviceSearchResult');
+    
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center">搜索中...</td></tr>';
+    
+    fetch(`/inventory/api/tasks/${TASK_ID}/device-search/?q=${encodeURIComponent(q)}`)
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            let html = '';
+            data.devices.forEach(d => {
+                html += `<tr>
+                    <td><input type="checkbox" class="device-checkbox" value="${d.id}" onchange="updateSelectedDevices()"></td>
+                    <td><strong class="text-primary">${d.asset_no}</strong></td>
+                    <td>${d.name}</td>
+                    <td>${d.category}</td>
+                    <td><small>${d.location || '-'}</small></td>
+                    <td>${d.user || '-'}</td>
+                </tr>`;
+            });
+            tbody.innerHTML = html || '<tr><td colspan="6" class="text-center text-muted">未找到设备</td></tr>';
+            document.getElementById('searchResultInfo').textContent = `共 ${data.total} 条结果`;
+            selectedDeviceIds = [];
+            document.getElementById('selectAllDevices').checked = false;
+        }
+    });
+}
+
+function toggleSelectAll() {
+    const checked = document.getElementById('selectAllDevices').checked;
+    document.querySelectorAll('.device-checkbox').forEach(cb => {
+        cb.checked = checked;
+    });
+    updateSelectedDevices();
+}
+
+function updateSelectedDevices() {
+    selectedDeviceIds = [];
+    document.querySelectorAll('.device-checkbox:checked').forEach(cb => {
+        selectedDeviceIds.push(parseInt(cb.value));
+    });
+}
+
+function addSelectedDevices() {
+    if (selectedDeviceIds.length === 0) {
+        alert('请选择要添加的设备');
+        return;
+    }
+    
+    fetch(`/inventory/api/tasks/${TASK_ID}/add-devices/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({ device_ids: selectedDeviceIds })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert(data.message);
+        }
+    });
+}
+
+// 导入文件
+function showImportTab() {
+    document.getElementById('import-tab').click();
+}
+
+function handleImportFile(input) {
+    const file = input.files[0];
+    if (!file) return;
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('task_id', TASK_ID);
+    
+    document.getElementById('importDropZone').innerHTML = '<i class="fas fa-spinner fa-spin fa-3x"></i><p>AI解析中，请稍候...</p>';
+    
+    fetch('/inventory/api/ai-parse-file/', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        document.getElementById('importDropZone').innerHTML = `
+            <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+            <p class="mb-1">点击或拖拽文件到此处</p>
+            <small class="text-muted">支持 Excel(.xlsx/.xls)、CSV、图片(.png/.jpg)</small>
+        `;
+        
+        const resultDiv = document.getElementById('importResult');
+        resultDiv.style.display = 'block';
+        const alertDiv = document.getElementById('importAlert');
+        
+        if (data.success) {
+            alertDiv.className = 'alert alert-success';
+            alertDiv.innerHTML = `<i class="fas fa-check-circle me-2"></i>${data.message}`;
+            
+            if (data.not_found && data.not_found.length > 0) {
+                alertDiv.innerHTML += `<br><small class="text-warning">未找到以下编号: ${data.not_found.join(', ')}</small>`;
+            }
+        } else {
+            alertDiv.className = 'alert alert-danger';
+            alertDiv.innerHTML = `<i class="fas fa-exclamation-circle me-2"></i>${data.message}`;
+        }
+    })
+    .catch(err => {
+        document.getElementById('importDropZone').innerHTML = `
+            <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+            <p class="mb-1">点击或拖拽文件到此处</p>
+            <small class="text-muted">支持 Excel(.xlsx/.xls)、CSV、图片(.png/.jpg)</small>
+        `;
+        alert('导入失败: ' + err);
+    });
+}
+
+function parseTextContent() {
+    const content = document.getElementById('importTextContent').value.trim();
+    if (!content) {
+        alert('请输入内容');
+        return;
+    }
+    
+    fetch('/inventory/api/ai-parse/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({ content: content, content_type: 'text' })
+    })
+    .then(r => r.json())
+    .then(data => {
+        const resultDiv = document.getElementById('importResult');
+        resultDiv.style.display = 'block';
+        const alertDiv = document.getElementById('importAlert');
+        
+        if (data.success) {
+            alertDiv.className = 'alert alert-success';
+            alertDiv.innerHTML = `<i class="fas fa-check-circle me-2"></i>解析成功，找到 ${data.found_count} 台设备`;
+            
+            // 自动添加到任务
+            if (data.devices && data.devices.length > 0) {
+                const deviceIds = data.devices.map(d => d.id);
+                fetch(`/inventory/api/tasks/${TASK_ID}/add-devices/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({ device_ids: deviceIds })
+                })
+                .then(r => r.json())
+                .then(result => {
+                    if (result.success) {
+                        alertDiv.innerHTML += `<br>已添加 ${result.added_count} 台设备到待盘点列表`;
+                        setTimeout(() => location.reload(), 1500);
+                    }
+                });
+            }
+        } else {
+            alertDiv.className = 'alert alert-danger';
+            alertDiv.innerHTML = `<i class="fas fa-exclamation-circle me-2"></i>${data.message}`;
+        }
+    });
+}
+
+// 拖拽上传
+const dropZone = document.getElementById('importDropZone');
+dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+});
+dropZone.addEventListener('dragleave', () => {
+    dropZone.classList.remove('dragover');
+});
+dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file) {
+        document.getElementById('importFile').files = e.dataTransfer.files;
+        handleImportFile(document.getElementById('importFile'));
+    }
+});
+
+// 移除设备
+function removeDevice(taskDeviceId) {
+    if (!confirm('确定要移除该设备吗？')) return;
+    
+    fetch(`/inventory/api/tasks/${TASK_ID}/remove-device/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({ task_device_id: taskDeviceId })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.message);
+        }
+    });
+}
+
+// 开始任务
+function startTask() {
+    if (!confirm('确定要开始盘点任务吗？开始后将不能再添加/移除设备。')) return;
+    
+    fetch(`/inventory/tasks/${TASK_ID}/start/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.message);
+        }
+    });
+}
+
+// 完成任务
+function completeTask() {
+    if (!confirm('确定要完成盘点任务吗？')) return;
+    
+    fetch(`/inventory/tasks/${TASK_ID}/complete/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.message);
+        }
+    });
+}
+
+// 删除任务
+function deleteTask() {
+    if (!confirm('确定要删除该盘点任务吗？此操作不可恢复。')) return;
+    
+    fetch(`/inventory/tasks/${TASK_ID}/delete/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            location.href = '{% url "inventory_task_list" %}';
+        } else {
+            alert(data.message);
+        }
+    });
+}
+</script>
+{% endblock %}

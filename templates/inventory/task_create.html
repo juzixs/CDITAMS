@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+{% block title %}新建盘点任务 - 驰达IT资产管理系统{% endblock %}
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" rel="stylesheet" />
+<style>
+    .task-type-card {
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 1rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-align: center;
+    }
+    .task-type-card:hover {
+        border-color: #0d6efd;
+        background-color: #f8f9fa;
+    }
+    .task-type-card.selected {
+        border-color: #0d6efd;
+        background-color: #e7f1ff;
+    }
+    .task-type-card .icon {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+        color: #6c757d;
+    }
+    .task-type-card.selected .icon {
+        color: #0d6efd;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4><i class="fas fa-plus me-2"></i>新建盘点任务</h4>
+    <a href="{% url 'inventory_task_list' %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left me-1"></i>返回</a>
+</div>
+
+<form method="post" id="taskForm">
+    {% csrf_token %}
+    <div class="card">
+        <div class="card-body">
+            <!-- 任务类型选择 -->
+            <div class="mb-4">
+                <label class="form-label fw-bold">任务类型 <span class="text-danger">*</span></label>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <div class="task-type-card selected" data-type="full" onclick="selectTaskType('full')">
+                            <div class="icon"><i class="fas fa-sync-alt"></i></div>
+                            <h6 class="mb-1">全盘</h6>
+                            <small class="text-muted">盘点所有设备</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="task-type-card" data-type="sample" onclick="selectTaskType('sample')">
+                            <div class="icon"><i class="fas fa-random"></i></div>
+                            <h6 class="mb-1">抽盘</h6>
+                            <small class="text-muted">随机或人工抽选设备</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="task-type-card" data-type="dynamic" onclick="selectTaskType('dynamic')">
+                            <div class="icon"><i class="fas fa-bolt"></i></div>
+                            <h6 class="mb-1">动态盘点</h6>
+                            <small class="text-muted">实时盘点设备</small>
+                        </div>
+                    </div>
+                </div>
+                <input type="hidden" name="task_type" id="taskType" value="full">
+            </div>
+
+            <!-- 基本信息 -->
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">任务名称</label>
+                    <input type="text" name="name" class="form-control" placeholder="选填，默认根据类型自动生成">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">&nbsp;</label>
+                    <div class="form-check mt-2">
+                        <input class="form-check-input" type="checkbox" name="is_fixed_only" id="isFixedOnly">
+                        <label class="form-check-label" for="isFixedOnly">
+                            <strong>固资在账</strong>
+                            <small class="text-muted ms-1">勾选后仅盘点固资在账为"是"的设备</small>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 计划时间 -->
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">计划开始时间</label>
+                    <input type="datetime-local" name="scheduled_start" class="form-control">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">计划结束时间</label>
+                    <input type="datetime-local" name="scheduled_end" class="form-control">
+                </div>
+            </div>
+
+            <!-- 备注 -->
+            <div class="mb-3">
+                <label class="form-label">备注</label>
+                <textarea name="remarks" class="form-control" rows="3" placeholder="选填"></textarea>
+            </div>
+
+            <!-- 提示信息 -->
+            <div class="alert alert-info mb-0">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>说明：</strong>
+                <ul class="mb-0 mt-2">
+                    <li><strong>全盘</strong>：自动添加所有设备（报废除外）到待盘点列表</li>
+                    <li><strong>抽盘</strong>：创建后可配置随机抽选或人工抽选设备</li>
+                    <li><strong>动态盘点</strong>：自动添加所有设备，支持实时盘点</li>
+                    <li>勾选<strong>固资在账</strong>后，仅盘点标记为固资在账的设备</li>
+                </ul>
+            </div>
+        </div>
+        <div class="card-footer text-end">
+            <a href="{% url 'inventory_task_list' %}" class="btn btn-outline-secondary me-2">取消</a>
+            <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i>创建任务</button>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function selectTaskType(type) {
+    document.querySelectorAll('.task-type-card').forEach(card => {
+        card.classList.remove('selected');
+    });
+    document.querySelector(`.task-type-card[data-type="${type}"]`).classList.add('selected');
+    document.getElementById('taskType').value = type;
+}
+</script>
+{% endblock %}
