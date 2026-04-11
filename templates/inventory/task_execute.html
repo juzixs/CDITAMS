@@ -251,7 +251,7 @@
             <div class="card-body p-2 device-list-container" id="deviceList">
                 {% for td in pending_devices %}
                 <div class="device-item" data-id="{{ td.id }}" data-asset="{{ td.device.asset_no }}" 
-                     onclick="selectDevice({{ td.id }}, {{ td.device.id }})">
+                     onclick="previewDevice({{ td.id }}, {{ td.device.id }})">
                     <div class="d-flex justify-content-between align-items-start">
                         <div style="flex: 1; min-width: 0;">
                             <div class="d-flex align-items-center mb-1">
@@ -268,7 +268,7 @@
                             </div>
                             {% if td.device.asset_card_no %}<div class="text-muted small"><i class="fas fa-id-card me-1"></i>卡片编号: {{ td.device.asset_card_no }}</div>{% endif %}
                         </div>
-                        <button class="btn btn-sm btn-outline-success flex-shrink-0 ms-2" onclick="event.stopPropagation(); quickCheck({{ td.id }}, {{ td.device.id }})">
+                        <button class="btn btn-sm btn-outline-success flex-shrink-0 ms-2" onclick="event.stopPropagation(); selectDevice({{ td.id }}, {{ td.device.id }}, true)">
                             <i class="fas fa-check"></i> 盘点
                         </button>
                     </div>
@@ -619,11 +619,12 @@ function filterDevices() {
     });
 }
 
-// 选择设备
-function selectDevice(taskDeviceId, deviceId) {
+// 选择设备 - 桌面端显示预览，移动端弹出面板
+function selectDevice(taskDeviceId, deviceId, isMobile = false) {
     // 清除其他选中状态
     document.querySelectorAll('.device-item').forEach(el => el.classList.remove('selected'));
-    document.querySelector(`.device-item[data-id="${taskDeviceId}"]`).classList.add('selected');
+    const item = document.querySelector(`.device-item[data-id="${taskDeviceId}"]`);
+    if (item) item.classList.add('selected');
     
     // 保存当前选择
     document.getElementById('currentTaskDeviceId').value = taskDeviceId;
@@ -636,9 +637,17 @@ function selectDevice(taskDeviceId, deviceId) {
         if (data.success) {
             currentDeviceData = data.device;
             showDeviceInfo(data.device);
-            showPanel();
+            // 只有移动端才弹出面板
+            if (isMobile || window.innerWidth < 992) {
+                showPanel();
+            }
         }
     });
+}
+
+// 点击设备项 - 桌面端预览
+function previewDevice(taskDeviceId, deviceId) {
+    selectDevice(taskDeviceId, deviceId, false);
 }
 
 // 显示设备信息
@@ -686,24 +695,228 @@ function showDeviceInfo(device) {
     // 更新预览（桌面端）
     const preview = document.getElementById('devicePreviewBody');
     if (preview) {
+        const taskDeviceId = document.getElementById('currentTaskDeviceId').value;
         preview.innerHTML = `
-            <div class="device-info-section">
-                <h6><i class="fas fa-cube me-1"></i>基本信息</h6>
-                <div class="info-row"><span class="info-label">资产编号:</span><span class="info-value"><strong class="text-primary">${device.asset_no}</strong></span></div>
-                <div class="info-row"><span class="info-label">设备编号:</span><span class="info-value">${device.device_no || '-'}</span></div>
-                <div class="info-row"><span class="info-label">名称:</span><span class="info-value">${device.name}</span></div>
-                <div class="info-row"><span class="info-label">型号:</span><span class="info-value">${device.model || '-'}</span></div>
-                <div class="info-row"><span class="info-label">密级:</span><span class="info-value">${device.secret_level || '-'}</span></div>
+            <div class="device-info-card info-basic">
+                <div class="card-header"><i class="fas fa-cube me-2"></i>基本信息</div>
+                <div class="card-body">
+                    <div class="info-row"><span class="info-label">资产分类:</span><span class="info-value">${device.category || '-'}</span></div>
+                    <div class="info-row"><span class="info-label">资产编号:</span><span class="info-value text-primary"><strong>${device.asset_no}</strong></span></div>
+                    <div class="info-row"><span class="info-label">设备编号:</span><span class="info-value">${device.device_no || '-'}</span></div>
+                    <div class="info-row"><span class="info-label">设备名称:</span><span class="info-value fw-bold">${device.name}</span></div>
+                    <div class="info-row"><span class="info-label">型号:</span><span class="info-value">${device.model || '-'}</span></div>
+                    <div class="info-row"><span class="info-label">序列号:</span><span class="info-value font-monospace">${device.serial_no || '-'}</span></div>
+                    <div class="info-row"><span class="info-label">密级:</span><span class="info-value">${device.secret_level || '-'}</span></div>
+                </div>
             </div>
-            <div class="device-info-section">
-                <h6><i class="fas fa-user me-1"></i>使用信息</h6>
-                <div class="info-row"><span class="info-label">部门:</span><span class="info-value">${device.department || '-'}</span></div>
-                <div class="info-row"><span class="info-label">使用人:</span><span class="info-value">${device.user || '-'}</span></div>
-                <div class="info-row"><span class="info-label">位置:</span><span class="info-value">${device.location || '-'}</span></div>
-                <div class="info-row"><span class="info-label">状态:</span><span class="info-value">${device.status || '-'}</span></div>
+            <div class="device-info-card info-usage">
+                <div class="card-header"><i class="fas fa-user me-2"></i>使用信息</div>
+                <div class="card-body">
+                    <div class="info-row"><span class="info-label">所属部门:</span><span class="info-value">${device.department || '-'}</span></div>
+                    <div class="info-row"><span class="info-label">使用人:</span><span class="info-value">${device.user || '-'}</span></div>
+                    <div class="info-row"><span class="info-label">位置:</span><span class="info-value">${device.location || '-'}</span></div>
+                    <div class="info-row"><span class="info-label">工位:</span><span class="info-value">${device.workstation || '-'}</span></div>
+                    <div class="info-row"><span class="info-label">设备状态:</span><span class="info-value">${device.status || '-'}</span></div>
+                </div>
+            </div>
+            <div id="previewMoreInfo" style="display:none;">
+                <div class="device-info-card info-network">
+                    <div class="card-header"><i class="fas fa-network-wired me-2"></i>网络信息</div>
+                    <div class="card-body">
+                        <div class="info-row"><span class="info-label">MAC地址:</span><span class="info-value font-monospace">${device.mac_address || '-'}</span></div>
+                        <div class="info-row"><span class="info-label">IP地址:</span><span class="info-value font-monospace">${device.ip_address || '-'}</span></div>
+                    </div>
+                </div>
+                <div class="device-info-card info-hardware">
+                    <div class="card-header"><i class="fas fa-microchip me-2"></i>设备信息</div>
+                    <div class="card-body">
+                        <div class="info-row"><span class="info-label">操作系统:</span><span class="info-value">${device.os_name || '-'}</span></div>
+                        <div class="info-row"><span class="info-label">安装时间:</span><span class="info-value">${device.install_date || '-'}</span></div>
+                        <div class="info-row"><span class="info-label">硬盘序列号:</span><span class="info-value font-monospace">${device.disk_serial || '-'}</span></div>
+                        <div class="info-row"><span class="info-label">购入日期:</span><span class="info-value">${device.purchase_date || '-'}</span></div>
+                        <div class="info-row"><span class="info-label">启用时间:</span><span class="info-value">${device.enable_date || '-'}</span></div>
+                    </div>
+                </div>
+                <div class="device-info-card info-other">
+                    <div class="card-header"><i class="fas fa-cog me-2"></i>其他信息</div>
+                    <div class="card-body">
+                        <div class="info-row"><span class="info-label">用途:</span><span class="info-value">${device.purpose || '-'}</span></div>
+                        <div class="info-row"><span class="info-label">备注:</span><span class="info-value">${device.remarks || '-'}</span></div>
+                        <div class="info-row"><span class="info-label">固资在账:</span><span class="info-value">${device.is_fixed ? '是' : '否'}</span></div>
+                        <div class="info-row"><span class="info-label">卡片编号:</span><span class="info-value">${device.asset_card_no || '-'}</span></div>
+                        <div class="info-row"><span class="info-label">保密台账:</span><span class="info-value">${device.is_secret ? '是' : '否'}</span></div>
+                        <div class="info-row"><span class="info-label">台账分类:</span><span class="info-value">${device.secret_category || '-'}</span></div>
+                    </div>
+                </div>
+            </div>
+            <button class="toggle-more-btn w-100 mb-2" id="previewToggleBtn" onclick="togglePreviewMoreInfo()">
+                <i class="fas fa-chevron-down" id="previewMoreInfoIcon"></i>
+                <span id="previewToggleText">展开更多信息</span>
+            </button>
+            <div class="device-info-card info-map">
+                <div class="card-header"><i class="fas fa-map me-2"></i>设备位置</div>
+                <div class="card-body p-0">
+                    <div id="previewMapContainer" style="width:100%;height:200px;background:#f5f5f5;border-radius:0 0 4px 4px;touch-action:none;">
+                        <div style="padding:20px;color:#999;text-align:center;">点击设备加载地图...</div>
+                    </div>
+                </div>
+            </div>
+            <div class="device-info-card check-action-card mt-2">
+                <div class="card-body text-center">
+                    <button class="btn btn-success btn-lg w-100" onclick="openCheckPanel()">
+                        <i class="fas fa-clipboard-check me-2"></i>盘点此设备
+                    </button>
+                </div>
             </div>
         `;
+        // 加载预览区地图
+        setTimeout(() => loadPreviewMap(device.map_location_id, device.workstation_id), 100);
     }
+}
+
+// 预览区展开/收起更多信息
+function togglePreviewMoreInfo() {
+    const moreInfo = document.getElementById('previewMoreInfo');
+    const icon = document.getElementById('previewMoreInfoIcon');
+    const text = document.getElementById('previewToggleText');
+    const btn = document.getElementById('previewToggleBtn');
+    
+    if (moreInfo.style.display === 'none') {
+        moreInfo.style.display = 'block';
+        icon.className = 'fas fa-chevron-up';
+        text.textContent = '收起更多信息';
+    } else {
+        moreInfo.style.display = 'none';
+        icon.className = 'fas fa-chevron-down';
+        text.textContent = '展开更多信息';
+    }
+}
+
+// 打开盘点面板
+function openCheckPanel() {
+    showPanel();
+}
+
+// 加载预览区地图
+function loadPreviewMap(locationId, workstationId) {
+    const container = document.getElementById('previewMapContainer');
+    if (!container) return;
+    
+    if (!locationId) {
+        container.innerHTML = '<div style="padding:20px;color:#999;text-align:center;">该设备未设置位置</div>';
+        return;
+    }
+    
+    // 使用正确的API: /assets/api/map-data/{locationId}/
+    fetch('/assets/api/map-data/' + locationId + '/')
+    .then(r => r.json())
+    .then(data => {
+        createPreviewMap(container, data, workstationId);
+    })
+    .catch(() => {
+        container.innerHTML = '<div style="padding:20px;color:#999;text-align:center;">加载地图失败</div>';
+    });
+}
+
+function createPreviewMap(container, data, workstationId) {
+    if (typeof Konva === 'undefined') {
+        container.innerHTML = '<div style="padding:20px;color:#999;text-align:center;">地图组件加载中...</div>';
+        return;
+    }
+    
+    container.innerHTML = '';
+    
+    const mapW = data.location?.map_width || 1200;
+    const mapH = data.location?.map_height || 800;
+    
+    const stage = new Konva.Stage({
+        container: container,
+        width: container.clientWidth,
+        height: 200,
+        draggable: true
+    });
+    
+    const bgLayer = new Konva.Layer();
+    const elLayer = new Konva.Layer();
+    const wsLayer = new Konva.Layer();
+    
+    stage.add(bgLayer);
+    stage.add(elLayer);
+    stage.add(wsLayer);
+    
+    // 移动端触摸事件处理
+    stage.on('touchstart touchmove', function(e) {
+        e.evt.preventDefault();
+    });
+    
+    // 滚轮缩放
+    container.addEventListener('wheel', function(e) {
+        e.preventDefault();
+        var oldScale = stage.scaleX();
+        var pointer = stage.getPointerPosition();
+        if (!pointer) return;
+        var mousePointTo = { x: (pointer.x - stage.x()) / oldScale, y: (pointer.y - stage.y()) / oldScale };
+        var direction = e.deltaY > 0 ? -1 : 1;
+        var newScale = Math.max(0.1, Math.min(direction > 0 ? oldScale * 1.1 : oldScale / 1.1, 3));
+        stage.scale({ x: newScale, y: newScale });
+        stage.position({ x: pointer.x - mousePointTo.x * newScale, y: pointer.y - mousePointTo.y * newScale });
+        stage.batchDraw();
+    });
+    
+    var s = Math.min(stage.width() / mapW, stage.height() / mapH);
+    stage.scale({ x: s, y: s });
+    stage.position({ x: 0, y: (stage.height() - mapH * s) / 2 });
+    
+    // Grid
+    for (var x = 0; x <= mapW; x += 30) bgLayer.add(new Konva.Line({ points: [x, 0, x, mapH], stroke: '#eee', strokeWidth: 0.5 }));
+    for (var y = 0; y <= mapH; y += 30) bgLayer.add(new Konva.Line({ points: [0, y, mapW, y], stroke: '#eee', strokeWidth: 0.5 }));
+    
+    // Elements
+    (data.elements || []).forEach(function(el) {
+        if (el.element_type === 'region') {
+            // 只显示区域文字标签，不显示填充区域
+            try {
+                var pts = el.points ? JSON.parse(el.points) : [];
+                if (pts.length >= 3) {
+                    var minX = Math.min(...pts.map(function(p) { return p.x; }));
+                    var minY = Math.min(...pts.map(function(p) { return p.y; }));
+                    elLayer.add(new Konva.Text({ x: minX + 5, y: minY + 5, text: el.label || '', fontSize: 14, fill: '#333' }));
+                }
+            } catch(e) {}
+        } else if (el.element_type === 'wall' || el.element_type === 'line') {
+            elLayer.add(new Konva.Line({ points: [el.x, el.y, el.x2 || el.x + el.width, el.y2 || el.y], stroke: el.color || '#333', strokeWidth: el.thickness || 2, lineCap: 'round' }));
+        } else if (el.element_type === 'door') {
+            elLayer.add(new Konva.Line({ points: [el.x, el.y, (el.x || 0) + (el.door_width || 60), el.y], stroke: '#666', strokeWidth: 2 }));
+        } else if (el.element_type === 'rect') {
+            elLayer.add(new Konva.Rect({ x: el.x, y: el.y, width: el.width || 60, height: el.height || 40, stroke: '#333', strokeWidth: 2 }));
+        } else if (el.element_type === 'window' || el.element_type === 'dashed') {
+            elLayer.add(new Konva.Line({ points: [el.x, el.y, el.x2 || el.x + el.width, el.y2 || el.y], stroke: el.color || '#87CEEB', strokeWidth: 2, dash: [10, 5] }));
+        } else if (el.element_type === 'desk') {
+            var deskGroup = new Konva.Group({ x: el.x, y: el.y });
+            deskGroup.add(new Konva.Rect({ width: el.width || 80, height: el.height || 40, fill: '#f5f5dc', stroke: '#8B4513', strokeWidth: 1, cornerRadius: 2 }));
+            elLayer.add(deskGroup);
+        } else if (el.element_type === 'text') {
+            elLayer.add(new Konva.Text({ x: el.x, y: el.y, text: el.label || el.text || '', fontSize: el.font_size || 14, fill: el.color || '#333' }));
+        }
+    });
+    
+    // Workstations
+    (data.workstations || []).forEach(function(ws) {
+        var isTarget = workstationId && ws.id === workstationId;
+        var w = ws.width || 60, h = ws.height || 40;
+        var group = new Konva.Group({ x: ws.x, y: ws.y });
+        group.add(new Konva.Rect({
+            width: w, height: h,
+            fill: isTarget ? '#28a745' : '#e3f2fd',
+            stroke: isTarget ? '#1d7a32' : '#1976D2',
+            strokeWidth: isTarget ? 3 : 1,
+            cornerRadius: 3
+        }));
+        group.add(new Konva.Text({
+            x: 2, y: h / 2 - 5, text: ws.name || ws.workstation_code || '', fontSize: 10, fill: isTarget ? '#fff' : '#1976D2'
+        }));
+        wsLayer.add(group);
+    });
 }
 
 // 显示/隐藏盘点面板
@@ -1248,31 +1461,20 @@ function createCheckMap(container, locationId, workstationId) {
             // Elements
             (data.elements || []).forEach(function(el) {
                 if (el.element_type === 'region') {
-                    var pts = el.points ? JSON.parse(el.points) : [];
-                    if (pts.length >= 3) {
-                        var points = [];
-                        for (var i = 0; i < pts.length; i++) {
-                            points.push(pts[i].x, pts[i].y);
+                    // 只显示区域文字标签，不显示填充区域
+                    try {
+                        var pts = el.points ? JSON.parse(el.points) : [];
+                        if (pts.length >= 3) {
+                            var minX = Math.min(...pts.map(function(p) { return p.x; }));
+                            var minY = Math.min(...pts.map(function(p) { return p.y; }));
+                            elLayer.add(new Konva.Text({
+                                x: minX + 5, y: minY + 5,
+                                text: el.label || '',
+                                fontSize: 14,
+                                fill: '#333'
+                            }));
                         }
-                        var regionGroup = new Konva.Group();
-                        regionGroup.add(new Konva.Line({
-                            points: points,
-                            closed: true,
-                            fill: 'rgba(52, 152, 219, 0.2)',
-                            stroke: '#3498db',
-                            strokeWidth: 2
-                        }));
-                        var minX = Math.min(...pts.map(p => p.x));
-                        var minY = Math.min(...pts.map(p => p.y));
-                        regionGroup.add(new Konva.Text({
-                            x: minX + 5, y: minY + 5,
-                            text: el.label || '',
-                            fontSize: 14,
-                            fill: '#999',
-                            fontStyle: 'bold'
-                        }));
-                        elLayer.add(regionGroup);
-                    }
+                    } catch(e) {}
                 } else if (el.element_type === 'wall' || el.element_type === 'line') {
                     elLayer.add(new Konva.Line({ points: [el.x, el.y, el.x2 || el.x + el.width, el.y2 || el.y], stroke: el.color || '#333', strokeWidth: el.thickness || 2, lineCap: 'round' }));
                 } else if (el.element_type === 'door') {
