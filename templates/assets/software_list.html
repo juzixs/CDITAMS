@@ -149,11 +149,9 @@
     <div class="card-body">
         <form method="post" id="batchForm">
             {% csrf_token %}
-            <div class="mb-3 d-flex justify-content-between">
-                <div>
-                    <button type="button" class="btn btn-sm btn-danger" onclick="batchDelete()"><i class="fas fa-trash"></i> 批量删除</button>
-                </div>
-                <div>
+            <div class="mb-3 d-flex flex-column flex-md-row justify-content-between gap-2">
+                <div><button type="button" class="btn btn-sm btn-danger" onclick="batchDelete()"><i class="fas fa-trash"></i> 批量删除</button></div>
+                <div class="d-flex gap-2">
                     <a href="{% url 'software_create' %}" class="btn btn-sm btn-primary"><i class="fas fa-plus"></i> 新增软件</a>
                     <a href="{% url 'software_import' %}" class="btn btn-sm btn-info"><i class="fas fa-file-import"></i> 导入软件</a>
                     <a href="{% url 'software_export' %}" class="btn btn-sm btn-info"><i class="fas fa-file-export"></i> 导出台账</a>
