@@ -139,10 +139,14 @@
                                 {% if td.device.device_no %}<span class="text-muted ms-2 small">{{ td.device.device_no }}</span>{% endif %}
                             </div>
                             <div class="mb-1">{{ td.device.name }}{% if td.device.model %} <span class="text-muted small">({{ td.device.model }})</span>{% endif %}</div>
+                            <div class="small text-muted mb-1">
+                                <i class="fas fa-building me-1"></i>{{ td.device.department.name|default:'-' }}
+                                <i class="fas fa-user ms-2 me-1"></i>{{ td.device.user.realname|default:'-' }}
+                            </div>
                             <div class="text-muted small mb-1">
                                 <i class="fas fa-map-marker-alt me-1"></i>{{ td.device.location_text|default:'未设置位置' }}
                             </div>
-                            {% if td.device.asset_card_no %}<div class="text-muted small"><i class="fas fa-id-card me-1"></i>卡片: {{ td.device.asset_card_no }}</div>{% endif %}
+                            {% if td.device.asset_card_no %}<div class="text-muted small"><i class="fas fa-id-card me-1"></i>卡片编号: {{ td.device.asset_card_no }}</div>{% endif %}
                         </div>
                         <button class="btn btn-sm btn-outline-success flex-shrink-0 ms-2" onclick="event.stopPropagation(); quickCheck({{ td.id }}, {{ td.device.id }})">
                             <i class="fas fa-check"></i> 盘点
@@ -166,10 +170,21 @@
             <div class="card-body p-2 device-list-container">
                 {% for td in checked_devices %}
                 <div class="device-item opacity-75">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <span class="asset-no">{{ td.device.asset_no }}</span>
-                            <div class="small text-muted">{{ td.device.name }}</div>
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div style="flex: 1; min-width: 0;">
+                            <div class="d-flex align-items-center mb-1">
+                                <span class="asset-no">{{ td.device.asset_no }}</span>
+                                {% if td.device.device_no %}<span class="text-muted ms-2 small">{{ td.device.device_no }}</span>{% endif %}
+                            </div>
+                            <div class="mb-1">{{ td.device.name }}{% if td.device.model %} <span class="text-muted small">({{ td.device.model }})</span>{% endif %}</div>
+                            <div class="small text-muted mb-1">
+                                <i class="fas fa-building me-1"></i>{{ td.device.department.name|default:'-' }}
+                                <i class="fas fa-user ms-2 me-1"></i>{{ td.device.user.realname|default:'-' }}
+                            </div>
+                            <div class="text-muted small mb-1">
+                                <i class="fas fa-map-marker-alt me-1"></i>{{ td.device.location_text|default:'未设置位置' }}
+                            </div>
+                            {% if td.device.asset_card_no %}<div class="text-muted small"><i class="fas fa-id-card me-1"></i>卡片编号: {{ td.device.asset_card_no }}</div>{% endif %}
                         </div>
                         <span class="badge bg-success"><i class="fas fa-check"></i></span>
                     </div>
@@ -209,18 +224,22 @@
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
+                <!-- 基本信息 -->
                 <div class="device-info-section">
                     <h6><i class="fas fa-cube me-1"></i>基本信息</h6>
-                    <div class="info-row"><span class="info-label">资产编号:</span><span class="info-value" id="infoAssetNo">-</span></div>
+                    <div class="info-row"><span class="info-label">资产分类:</span><span class="info-value" id="infoCategory">-</span></div>
+                    <div class="info-row"><span class="info-label">资产编号:</span><span class="info-value text-primary" id="infoAssetNo">-</span></div>
+                    <div class="info-row"><span class="info-label">设备编号:</span><span class="info-value" id="infoDeviceNo">-</span></div>
                     <div class="info-row"><span class="info-label">设备名称:</span><span class="info-value" id="infoName">-</span></div>
                     <div class="info-row"><span class="info-label">型号:</span><span class="info-value" id="infoModel">-</span></div>
-                    <div class="info-row"><span class="info-label">序列号:</span><span class="info-value" id="infoSerialNo">-</span></div>
+                    <div class="info-row"><span class="info-label">序列号:</span><span class="info-value font-monospace" id="infoSerialNo">-</span></div>
                     <div class="info-row"><span class="info-label">密级:</span><span class="info-value" id="infoSecretLevel">-</span></div>
                 </div>
+                <!-- 使用信息 -->
                 <div class="device-info-section">
                     <h6><i class="fas fa-user me-1"></i>使用信息</h6>
                     <div class="info-row">
-                        <span class="info-label">部门:</span>
+                        <span class="info-label">所属部门:</span>
                         <span class="info-value" id="infoDepartment">-</span>
                         <button class="btn btn-xs btn-outline-primary ms-2" onclick="showAssignModal()">分配</button>
                     </div>
@@ -237,17 +256,37 @@
                         <span class="info-label">工位:</span>
                         <span class="info-value" id="infoWorkstation">-</span>
                     </div>
+                    <div class="info-row">
+                        <span class="info-label">设备状态:</span>
+                        <span class="info-value" id="infoStatus">-</span>
+                    </div>
                 </div>
+                <!-- 更多信息 -->
                 <div id="deviceMoreInfo" style="display:none;">
+                    <!-- 网络信息 -->
                     <div class="device-info-section">
                         <h6><i class="fas fa-network-wired me-1"></i>网络信息</h6>
-                        <div class="info-row"><span class="info-label">MAC:</span><span class="info-value" id="infoMac">-</span></div>
-                        <div class="info-row"><span class="info-label">IP:</span><span class="info-value" id="infoIp">-</span></div>
+                        <div class="info-row"><span class="info-label">MAC地址:</span><span class="info-value font-monospace" id="infoMac">-</span></div>
+                        <div class="info-row"><span class="info-label">IP地址:</span><span class="info-value font-monospace" id="infoIp">-</span></div>
                     </div>
+                    <!-- 设备信息 -->
                     <div class="device-info-section">
                         <h6><i class="fas fa-desktop me-1"></i>设备信息</h6>
-                        <div class="info-row"><span class="info-label">系统:</span><span class="info-value" id="infoOs">-</span></div>
-                        <div class="info-row"><span class="info-label">硬盘:</span><span class="info-value" id="infoDisk">-</span></div>
+                        <div class="info-row"><span class="info-label">操作系统:</span><span class="info-value" id="infoOs">-</span></div>
+                        <div class="info-row"><span class="info-label">安装时间:</span><span class="info-value" id="infoInstallDate">-</span></div>
+                        <div class="info-row"><span class="info-label">硬盘序列号:</span><span class="info-value font-monospace" id="infoDisk">-</span></div>
+                        <div class="info-row"><span class="info-label">购入日期:</span><span class="info-value" id="infoPurchaseDate">-</span></div>
+                        <div class="info-row"><span class="info-label">启用时间:</span><span class="info-value" id="infoEnableDate">-</span></div>
+                    </div>
+                    <!-- 其他信息 -->
+                    <div class="device-info-section">
+                        <h6><i class="fas fa-cog me-1"></i>其他信息</h6>
+                        <div class="info-row"><span class="info-label">用途:</span><span class="info-value" id="infoPurpose">-</span></div>
+                        <div class="info-row"><span class="info-label">备注:</span><span class="info-value" id="infoRemarks">-</span></div>
+                        <div class="info-row"><span class="info-label">固资在账:</span><span class="info-value" id="infoIsFixed">-</span></div>
+                        <div class="info-row"><span class="info-label">卡片编号:</span><span class="info-value" id="infoAssetCardNo">-</span></div>
+                        <div class="info-row"><span class="info-label">保密台账:</span><span class="info-value" id="infoIsSecret">-</span></div>
+                        <div class="info-row"><span class="info-label">台账分类:</span><span class="info-value" id="infoSecretCategory">-</span></div>
                     </div>
                 </div>
                 <button class="btn btn-sm btn-link p-0" onclick="toggleMoreInfo()">
@@ -381,6 +420,7 @@
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/i18n/zh-CN.js"></script>
 <script src="https://unpkg.com/konva@9/konva.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 <script>
 const TASK_ID = {{ task.id }};
 let currentDeviceData = null;
@@ -430,36 +470,63 @@ function selectDevice(taskDeviceId, deviceId) {
 // 显示设备信息
 function showDeviceInfo(device) {
     document.getElementById('panelDeviceTitle').textContent = device.asset_no + ' - ' + device.name;
+    
+    // 基本信息
+    document.getElementById('infoCategory').textContent = device.category || '-';
     document.getElementById('infoAssetNo').textContent = device.asset_no;
+    document.getElementById('infoDeviceNo').textContent = device.device_no || '-';
     document.getElementById('infoName').textContent = device.name;
     document.getElementById('infoModel').textContent = device.model || '-';
     document.getElementById('infoSerialNo').textContent = device.serial_no || '-';
-    document.getElementById('infoSecretLevel').textContent = device.secret_level;
+    document.getElementById('infoSecretLevel').textContent = device.secret_level || '-';
+    
+    // 使用信息
     document.getElementById('infoDepartment').textContent = device.department || '-';
     document.getElementById('infoUser').textContent = device.user || '-';
     document.getElementById('infoLocation').textContent = device.location || '-';
     document.getElementById('infoWorkstation').textContent = device.workstation || '-';
+    document.getElementById('infoStatus').textContent = device.status || '-';
+    
+    // 网络信息
     document.getElementById('infoMac').textContent = device.mac_address || '-';
     document.getElementById('infoIp').textContent = device.ip_address || '-';
-    document.getElementById('infoOs').textContent = device.os_name || '-';
-    document.getElementById('infoDisk').textContent = device.disk_serial || '-';
     
-    // 更新预览
+    // 设备信息
+    document.getElementById('infoOs').textContent = device.os_name || '-';
+    document.getElementById('infoInstallDate').textContent = device.install_date || '-';
+    document.getElementById('infoDisk').textContent = device.disk_serial || '-';
+    document.getElementById('infoPurchaseDate').textContent = device.purchase_date || '-';
+    document.getElementById('infoEnableDate').textContent = device.enable_date || '-';
+    
+    // 其他信息
+    document.getElementById('infoPurpose').textContent = device.purpose || '-';
+    document.getElementById('infoRemarks').textContent = device.remarks || '-';
+    document.getElementById('infoIsFixed').textContent = device.is_fixed ? '是' : '否';
+    document.getElementById('infoAssetCardNo').textContent = device.asset_card_no || '-';
+    document.getElementById('infoIsSecret').textContent = device.is_secret ? '是' : '否';
+    document.getElementById('infoSecretCategory').textContent = device.secret_category || '-';
+    
+    // 更新预览（桌面端）
     const preview = document.getElementById('devicePreviewBody');
-    preview.innerHTML = `
-        <div class="device-info-section">
-            <h6><i class="fas fa-cube me-1"></i>基本信息</h6>
-            <div class="info-row"><span class="info-label">资产编号:</span><span class="info-value"><strong class="text-primary">${device.asset_no}</strong></span></div>
-            <div class="info-row"><span class="info-label">名称:</span><span class="info-value">${device.name}</span></div>
-            <div class="info-row"><span class="info-label">型号:</span><span class="info-value">${device.model || '-'}</span></div>
-        </div>
-        <div class="device-info-section">
-            <h6><i class="fas fa-user me-1"></i>使用信息</h6>
-            <div class="info-row"><span class="info-label">部门:</span><span class="info-value">${device.department || '-'}</span></div>
-            <div class="info-row"><span class="info-label">使用人:</span><span class="info-value">${device.user || '-'}</span></div>
-            <div class="info-row"><span class="info-label">位置:</span><span class="info-value">${device.location || '-'}</span></div>
-        </div>
-    `;
+    if (preview) {
+        preview.innerHTML = `
+            <div class="device-info-section">
+                <h6><i class="fas fa-cube me-1"></i>基本信息</h6>
+                <div class="info-row"><span class="info-label">资产编号:</span><span class="info-value"><strong class="text-primary">${device.asset_no}</strong></span></div>
+                <div class="info-row"><span class="info-label">设备编号:</span><span class="info-value">${device.device_no || '-'}</span></div>
+                <div class="info-row"><span class="info-label">名称:</span><span class="info-value">${device.name}</span></div>
+                <div class="info-row"><span class="info-label">型号:</span><span class="info-value">${device.model || '-'}</span></div>
+                <div class="info-row"><span class="info-label">密级:</span><span class="info-value">${device.secret_level || '-'}</span></div>
+            </div>
+            <div class="device-info-section">
+                <h6><i class="fas fa-user me-1"></i>使用信息</h6>
+                <div class="info-row"><span class="info-label">部门:</span><span class="info-value">${device.department || '-'}</span></div>
+                <div class="info-row"><span class="info-label">使用人:</span><span class="info-value">${device.user || '-'}</span></div>
+                <div class="info-row"><span class="info-label">位置:</span><span class="info-value">${device.location || '-'}</span></div>
+                <div class="info-row"><span class="info-label">状态:</span><span class="info-value">${device.status || '-'}</span></div>
+            </div>
+        `;
+    }
 }
 
 // 显示/隐藏盘点面板
@@ -949,19 +1016,86 @@ function saveLocation() {
 }
 
 // 扫码盘点
+let scanRunning = false;
+
 function startScan() {
-    new bootstrap.Modal(document.getElementById('scanModal')).show();
-    // 启动摄像头（如果支持）
+    const modalEl = document.getElementById('scanModal');
+    const modal = new bootstrap.Modal(modalEl);
+    modal.show();
+    
+    scanRunning = true;
+    
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
         .then(stream => {
-            document.getElementById('scanVideo').srcObject = stream;
-            document.getElementById('scanVideo').play();
+            const video = document.getElementById('scanVideo');
+            video.srcObject = stream;
+            video.setAttribute('playsinline', true);
+            video.play();
+            requestAnimationFrame(tick);
         })
         .catch(err => {
-            console.log('摄像头不可用:', err);
+            alert('摄像头不可用: ' + err.message);
+            scanRunning = false;
         });
+    } else {
+        alert('您的浏览器不支持摄像头');
     }
+}
+
+function tick() {
+    if (!scanRunning) return;
+    
+    const video = document.getElementById('scanVideo');
+    if (!video || video.readyState !== video.HAVE_ENOUGH_DATA) {
+        requestAnimationFrame(tick);
+        return;
+    }
+    
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const code = jsQR(imageData.data, imageData.width, imageData.height, {
+        inversionAttempts: 'dontInvert'
+    });
+    
+    if (code) {
+        scanRunning = false;
+        video.srcObject.getTracks().forEach(track => track.stop());
+        processScanResult(code.data);
+        return;
+    }
+    
+    requestAnimationFrame(tick);
+}
+
+function processScanResult(qrData) {
+    fetch(`/inventory/api/tasks/${TASK_ID}/scan-check/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({ qrcode: qrData })
+    })
+    .then(r => r.json())
+    .then(data => {
+        bootstrap.Modal.getInstance(document.getElementById('scanModal')).hide();
+        if (data.success) {
+            selectDevice(data.task_device_id, data.device_id);
+            alert(data.message);
+        } else {
+            alert(data.message);
+            // 继续扫码
+            setTimeout(() => {
+                startScan();
+            }, 1500);
+        }
+    });
 }
 
 function manualScan() {

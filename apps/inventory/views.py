@@ -790,7 +790,7 @@ def api_device_detail(request, task_id, device_id):
         'model': device.model or '',
         'serial_no': device.serial_no or '',
         'brand': device.brand or '',
-        'category': device.category.get_full_path() if device.category else '',
+        'category': device.category.name if device.category else '',
         'category_id': device.category_id,
         'secret_level': device.get_secret_level_display(),
         'status': device.get_status_display(),
@@ -821,6 +821,7 @@ def api_device_detail(request, task_id, device_id):
         'is_fixed': device.is_fixed,
         'asset_card_no': device.asset_card_no or '',
         'is_secret': device.is_secret,
+        'secret_category': device.secret_category or '',
         'purpose': device.purpose or '',
         'remarks': device.remarks or '',
         
