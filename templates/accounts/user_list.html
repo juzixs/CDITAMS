@@ -2,12 +2,85 @@
 
 {% block title %}用户管理 - 驰达IT资产管理系统{% endblock %}
 
+{% block extra_css %}
+<style>
+.content .user-table-container { display: block !important; }
+.content .user-cards-container { display: none !important; }
+
+@media (max-width: 992px) {
+    .content .user-table-container { display: none !important; }
+    .content .user-cards-container { display: block !important; }
+    
+    .content .user-card {
+        background: #fff;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+    
+    .content .user-card-body { padding: 12px; }
+    
+    .content .card-field {
+        display: flex;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .content .card-field:last-child { border-bottom: none; }
+    
+    .content .card-field-row {
+        display: flex;
+        padding: 8px 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .content .card-field-half {
+        flex: 1;
+        display: flex;
+        align-items: center;
+    }
+    
+    .content .card-field-half:first-child { padding-right: 10px; border-right: 1px solid #f0f0f0; }
+    .content .card-field-half:last-child { padding-left: 10px; }
+    
+    .content .field-label {
+        font-size: 12px;
+        color: #888;
+        white-space: nowrap;
+        margin-right: 8px;
+    }
+    
+    .content .field-value {
+        font-size: 13px;
+        color: #333;
+        word-break: break-all;
+    }
+    
+    .content .user-card-footer {
+        background: #f8f9fa;
+        padding: 10px 12px;
+        border-top: 1px solid #e0e0e0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .content .user-card-footer .checkbox-cell { display: flex; align-items: center; }
+    .content .user-card-footer .action-cell { display: flex; gap: 6px; justify-content: flex-end; flex: 1; }
+    .content .user-card-footer .btn { padding: 4px 8px; font-size: 12px; }
+}
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h4>用户管理</h4>
-    <div>
-        <a href="{% url 'user_import' %}" class="btn btn-outline-success"><i class="fas fa-file-import me-1"></i>导入用户</a>
-        <a href="{% url 'user_create' %}" class="btn btn-primary"><i class="fas fa-plus me-1"></i>新增用户</a>
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-2">
+    <h4 class="mb-0">用户管理</h4>
+    <div class="d-flex flex-wrap gap-2">
+        <a href="{% url 'user_import' %}" class="btn btn-outline-success btn-sm"><i class="fas fa-file-import me-1"></i>导入用户</a>
+        <a href="{% url 'user_create' %}" class="btn btn-primary btn-sm"><i class="fas fa-plus me-1"></i>新增用户</a>
     </div>
 </div>
 
@@ -42,17 +115,15 @@
 
 <div class="card">
     <div class="card-body">
-        <div class="d-flex justify-content-between mb-3">
-            <div>
-                <button type="button" class="btn btn-sm btn-outline-danger" onclick="batchDelete()"><i class="fas fa-trash me-1"></i>批量删除</button>
-                <button type="button" class="btn btn-sm btn-outline-success" onclick="batchEnable()"><i class="fas fa-check me-1"></i>批量启用</button>
-                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="batchDisable()"><i class="fas fa-ban me-1"></i>批量禁用</button>
-            </div>
+        <div class="d-flex flex-wrap gap-2 mb-3">
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="batchDelete()"><i class="fas fa-trash me-1"></i>批量删除</button>
+            <button type="button" class="btn btn-sm btn-outline-success" onclick="batchEnable()"><i class="fas fa-check me-1"></i>批量启用</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="batchDisable()"><i class="fas fa-ban me-1"></i>批量禁用</button>
         </div>
         
         <form id="batchForm" method="post">
             {% csrf_token %}
-            <div class="table-responsive">
+            <div class="table-responsive user-table-container">
                 <table class="table table-hover">
                     <thead>
                         <tr>
@@ -103,6 +174,70 @@
                         {% endfor %}
                     </tbody>
                 </table>
+            </div>
+            
+            <!-- 移动端卡片容器 -->
+            <div class="user-cards-container" style="display: none;">
+                {% for user in users %}
+                <div class="user-card">
+                    <div class="user-card-body">
+                        <div class="card-field">
+                            <span class="field-label">工号</span>
+                            <span class="field-value">{{ user.emp_no }}</span>
+                        </div>
+                        <div class="card-field">
+                            <span class="field-label">姓名</span>
+                            <span class="field-value">{{ user.realname }}</span>
+                        </div>
+                        <div class="card-field-row">
+                            <div class="card-field-half">
+                                <span class="field-label">性别</span>
+                                <span class="field-value">{% if user.gender == 'male' %}男{% elif user.gender == 'female' %}女{% else %}-{% endif %}</span>
+                            </div>
+                            <div class="card-field-half">
+                                <span class="field-label">电话</span>
+                                <span class="field-value">{{ user.phone|default:'-' }}</span>
+                            </div>
+                        </div>
+                        <div class="card-field-row">
+                            <div class="card-field-half">
+                                <span class="field-label">部门</span>
+                                <span class="field-value">{{ user.department.name|default:'-' }}</span>
+                            </div>
+                            <div class="card-field-half">
+                                <span class="field-label">角色</span>
+                                <span class="field-value">{{ user.role.name|default:'-' }}</span>
+                            </div>
+                        </div>
+                        <div class="card-field">
+                            <span class="field-label">状态</span>
+                            <span class="field-value">
+                                {% if user.is_active %}<span class="badge bg-success">启用</span>{% else %}<span class="badge bg-secondary">禁用</span>{% endif %}
+                            </span>
+                        </div>
+                        <div class="card-field">
+                            <span class="field-label">创建时间</span>
+                            <span class="field-value">{{ user.created_at|date:"Y-m-d" }}</span>
+                        </div>
+                    </div>
+                    <div class="user-card-footer">
+                        <div class="checkbox-cell">
+                            <input type="checkbox" name="user_ids" value="{{ user.id }}">
+                        </div>
+                        <div class="action-cell">
+                            <a href="{% url 'user_detail' user.id %}" class="btn btn-outline-primary"><i class="fas fa-eye"></i></a>
+                            <a href="{% url 'user_edit' user.id %}" class="btn btn-outline-secondary"><i class="fas fa-edit"></i></a>
+                            <a href="{% url 'user_reset_password' user.id %}" class="btn btn-outline-warning"><i class="fas fa-key"></i></a>
+                            <form method="post" action="{% url 'user_delete' user.id %}" class="d-inline" onsubmit="return confirm('确定删除该用户？')">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-outline-danger"><i class="fas fa-trash"></i></button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center text-muted py-4">暂无数据</div>
+                {% endfor %}
             </div>
         </form>
         

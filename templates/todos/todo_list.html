@@ -1,15 +1,115 @@
 {% extends 'base.html' %}
 {% block title %}我的待办 - 驰达IT资产管理系统{% endblock %}
+
+{% block extra_css %}
+<style>
+.content .todo-table-container { display: block !important; }
+.content .todo-cards-container { display: none !important; }
+
+@media (max-width: 992px) {
+    .content .todo-table-container { display: none !important; }
+    .content .todo-cards-container { display: block !important; }
+    
+    .content .todo-card {
+        background: #fff;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+    
+    .content .todo-card-body { padding: 12px; }
+    
+    .content .card-field {
+        display: flex;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .content .card-field:last-child { border-bottom: none; }
+    
+    .content .card-field-row {
+        display: flex;
+        padding: 8px 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .content .card-field-half {
+        flex: 1;
+        display: flex;
+        align-items: center;
+    }
+    
+    .content .card-field-half:first-child { padding-right: 10px; border-right: 1px solid #f0f0f0; }
+    .content .card-field-half:last-child { padding-left: 10px; }
+    
+    .content .field-label {
+        font-size: 12px;
+        color: #888;
+        white-space: nowrap;
+        margin-right: 8px;
+    }
+    
+    .content .field-value {
+        font-size: 13px;
+        color: #333;
+        word-break: break-all;
+    }
+    
+    .content .todo-card-footer {
+        background: #f8f9fa;
+        padding: 10px 12px;
+        border-top: 1px solid #e0e0e0;
+        display: flex;
+        justify-content: flex-end;
+        gap: 6px;
+    }
+    
+    .content .todo-card-footer .btn { padding: 4px 8px; font-size: 12px; }
+}
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-<h4>我的待办</h4>
-<a href="{% url 'todo_create' %}" class="btn btn-primary"><i class="fas fa-plus"></i> 新建待办</a>
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-2">
+<h4 class="mb-0">我的待办</h4>
+<a href="{% url 'todo_create' %}" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> 新建待办</a>
 </div>
 <div class="card"><div class="card-body">
+<div class="table-responsive todo-table-container">
 <table class="table table-hover"><thead><tr><th>标题</th><th>类型</th><th>优先级</th><th>状态</th><th>截止时间</th><th>创建时间</th><th>操作</th></tr></thead>
 <tbody>{% for t in todos %}<tr><td>{{ t.title }}</td><td>{{ t.get_todo_type_display }}</td>
 <td>{% if t.priority == 'high' %}<span class="badge bg-danger">高</span>{% elif t.priority == 'urgent' %}<span class="badge bg-warning">紧急</span>{% else %}<span class="badge bg-info">普通</span>{% endif %}</td>
 <td>{% if t.status == 'completed' %}<span class="badge bg-success">已完成</span>{% else %}<span class="badge bg-secondary">待处理</span>{% endif %}</td>
 <td>{{ t.due_date|date:"Y-m-d"|default:'-' }}</td><td>{{ t.created_at|date:"Y-m-d" }}</td>
 <td>{% if t.status != 'completed' %}<a href="{% url 'todo_complete' t.id %}" class="btn btn-sm btn-success">完成</a>{% endif %}<a href="{% url 'todo_edit' t.id %}" class="btn btn-sm btn-outline-secondary">编辑</a><a href="{% url 'todo_delete' t.id %}" class="btn btn-sm btn-outline-danger" onclick="return confirm('确定删除？')">删除</a></td></tr>{% empty %}<tr><td colspan="7" class="text-center text-muted">暂无待办</td></tr>{% endfor %}</tbody></table>
+</div>
+
+<div class="todo-cards-container" style="display: none;">
+{% for t in todos %}
+<div class="todo-card">
+<div class="todo-card-body">
+<div class="card-field"><span class="field-label">标题</span><span class="field-value">{{ t.title }}</span></div>
+<div class="card-field-row">
+<div class="card-field-half"><span class="field-label">类型</span><span class="field-value">{{ t.get_todo_type_display }}</span></div>
+<div class="card-field-half"><span class="field-label">优先级</span><span class="field-value">{% if t.priority == 'high' %}<span class="badge bg-danger">高</span>{% elif t.priority == 'urgent' %}<span class="badge bg-warning">紧急</span>{% else %}<span class="badge bg-info">普通</span>{% endif %}</span></div>
+</div>
+<div class="card-field-row">
+<div class="card-field-half"><span class="field-label">状态</span><span class="field-value">{% if t.status == 'completed' %}<span class="badge bg-success">已完成</span>{% else %}<span class="badge bg-secondary">待处理</span>{% endif %}</span></div>
+<div class="card-field-half"><span class="field-label">截止时间</span><span class="field-value">{{ t.due_date|date:"Y-m-d"|default:'-' }}</span></div>
+</div>
+<div class="card-field"><span class="field-label">创建时间</span><span class="field-value">{{ t.created_at|date:"Y-m-d" }}</span></div>
+</div>
+<div class="todo-card-footer">
+{% if t.status != 'completed' %}<a href="{% url 'todo_complete' t.id %}" class="btn btn-success">完成</a>{% endif %}
+<a href="{% url 'todo_edit' t.id %}" class="btn btn-outline-secondary">编辑</a>
+<a href="{% url 'todo_delete' t.id %}" class="btn btn-outline-danger" onclick="return confirm('确定删除？')">删除</a>
+</div>
+</div>
+{% empty %}
+<div class="text-center text-muted py-4">暂无待办</div>
+{% endfor %}
+</div>
 </div></div>{% endblock %}

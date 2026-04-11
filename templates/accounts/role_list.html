@@ -1,11 +1,81 @@
 {% extends 'base.html' %}
 {% block title %}角色管理 - 驰达IT资产管理系统{% endblock %}
+
+{% block extra_css %}
+<style>
+.content .role-table-container { display: block !important; }
+.content .role-cards-container { display: none !important; }
+
+@media (max-width: 992px) {
+    .content .role-table-container { display: none !important; }
+    .content .role-cards-container { display: block !important; }
+    
+    .content .role-card {
+        background: #fff;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+    
+    .content .role-card-body { padding: 12px; }
+    
+    .content .card-field {
+        display: flex;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .content .card-field:last-child { border-bottom: none; }
+    
+    .content .card-field-row {
+        display: flex;
+        padding: 8px 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .content .card-field-half {
+        flex: 1;
+        display: flex;
+        align-items: center;
+    }
+    
+    .content .card-field-half:first-child { padding-right: 10px; border-right: 1px solid #f0f0f0; }
+    .content .card-field-half:last-child { padding-left: 10px; }
+    
+    .content .field-label {
+        font-size: 12px;
+        color: #888;
+        white-space: nowrap;
+        margin-right: 8px;
+    }
+    
+    .content .field-value {
+        font-size: 13px;
+        color: #333;
+        word-break: break-all;
+    }
+    
+    .content .role-card-footer {
+        background: #f8f9fa;
+        padding: 10px 12px;
+        border-top: 1px solid #e0e0e0;
+        display: flex;
+        justify-content: flex-end;
+        gap: 6px;
+    }
+    
+    .content .role-card-footer .btn { padding: 4px 8px; font-size: 12px; }
+}
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h4>角色管理</h4>
-    <div>
-        <a href="{% url 'role_create' %}" class="btn btn-primary"><i class="fas fa-plus"></i> 新增角色</a>
-    </div>
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-2">
+    <h4 class="mb-0">角色管理</h4>
+    <a href="{% url 'role_create' %}" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> 新增角色</a>
 </div>
 
 <div class="card mb-3">
@@ -24,7 +94,8 @@
 
 <div class="card">
     <div class="card-body">
-        <table class="table table-hover">
+        <div class="table-responsive role-table-container">
+            <table class="table table-hover">
             <thead>
                 <tr>
                     <th>角色名称</th>
@@ -63,6 +134,55 @@
                 {% endfor %}
             </tbody>
         </table>
+        </div>
+        
+        <!-- 移动端卡片容器 -->
+        <div class="role-cards-container" style="display: none;">
+            {% for r in roles %}
+            <div class="role-card">
+                <div class="role-card-body">
+                    <div class="card-field">
+                        <span class="field-label">角色名称</span>
+                        <span class="field-value"><a href="{% url 'role_detail' r.id %}">{{ r.name }}</a></span>
+                    </div>
+                    <div class="card-field">
+                        <span class="field-label">角色标识</span>
+                        <span class="field-value"><code>{{ r.code }}</code></span>
+                    </div>
+                    <div class="card-field">
+                        <span class="field-label">描述</span>
+                        <span class="field-value">{{ r.description|default:'-' }}</span>
+                    </div>
+                    <div class="card-field-row">
+                        <div class="card-field-half">
+                            <span class="field-label">权限数量</span>
+                            <span class="field-value"><span class="badge bg-info">{{ r.permissions.count }}</span></span>
+                        </div>
+                        <div class="card-field-half">
+                            <span class="field-label">用户数量</span>
+                            <span class="field-value"><span class="badge bg-secondary">{{ r.users.count }}</span></span>
+                        </div>
+                    </div>
+                    <div class="card-field">
+                        <span class="field-label">排序</span>
+                        <span class="field-value">{{ r.sort }}</span>
+                    </div>
+                </div>
+                <div class="role-card-footer">
+                    <a href="{% url 'role_detail' r.id %}" class="btn btn-outline-primary"><i class="fas fa-eye"></i></a>
+                    <a href="{% url 'role_edit' r.id %}" class="btn btn-outline-secondary"><i class="fas fa-edit"></i></a>
+                    {% if not r.users.exists %}
+                    <form method="post" action="{% url 'role_delete' r.id %}" class="d-inline" onsubmit="return confirm('确定删除该角色？')">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-outline-danger"><i class="fas fa-trash"></i></button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center text-muted py-4">暂无角色</div>
+            {% endfor %}
+        </div>
         
         {% if roles.has_other_pages %}
         <nav>
