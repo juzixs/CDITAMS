@@ -307,11 +307,15 @@
                                 <th>设备编号</th>
                                 <th>设备名称</th>
                                 <th>型号</th>
+                                <th>密级</th>
                                 <th>所属部门</th>
                                 <th>使用人</th>
                                 <th>位置</th>
-                                <th>盘点时间</th>
                                 <th>状态</th>
+                                <th>固资在账</th>
+                                <th>卡片编号</th>
+                                <th>盘点时间</th>
+                                <th>盘点状态</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -322,15 +326,28 @@
                                 <td>{{ td.device.device_no|default:'-' }}</td>
                                 <td>{{ td.device.name }}</td>
                                 <td>{{ td.device.model|default:'-' }}</td>
+                                <td>{% if td.device.secret_level == 'public' %}<span class="badge bg-success">公开</span>
+                                    {% elif td.device.secret_level == 'internal' %}<span class="badge bg-info">内部</span>
+                                    {% elif td.device.secret_level == 'confidential' %}<span class="badge bg-warning text-dark">秘密</span>
+                                    {% elif td.device.secret_level == 'secret' %}<span class="badge bg-danger">机密</span>
+                                    {% elif td.device.secret_level == 'top_secret' %}<span class="badge bg-dark">绝密</span>
+                                    {% elif td.device.secret_level == 'commercial_secret' %}<span class="badge bg-secondary">商密</span>
+                                    {% else %}-{% endif %}</td>
                                 <td>{{ td.device.department.name|default:'-' }}</td>
                                 <td>{{ td.device.user.realname|default:'-' }}</td>
                                 <td><small>{{ td.device.location_text|default:'-' }}</small></td>
+                                <td>{% if td.device.status == 'normal' %}<span class="badge bg-success">使用</span>
+                                    {% elif td.device.status == 'fault' %}<span class="badge bg-danger">故障</span>
+                                    {% elif td.device.status == 'scrapped' %}<span class="badge bg-secondary">报废</span>
+                                    {% else %}<span class="badge bg-info">闲置</span>{% endif %}</td>
+                                <td>{% if td.device.is_fixed %}<span class="badge bg-success">是</span>{% else %}<span class="text-muted">否</span>{% endif %}</td>
+                                <td>{{ td.device.asset_card_no|default:'-' }}</td>
                                 <td>{{ td.checked_at|date:"Y-m-d H:i" }}</td>
                                 <td><span class="badge bg-success">已盘点</span></td>
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="10" class="text-center text-muted py-4">暂无已盘点设备</td>
+                                <td colspan="14" class="text-center text-muted py-4">暂无已盘点设备</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -351,9 +368,29 @@
                         <span class="badge bg-success">已盘点</span>
                     </div>
                     <div class="mb-1"><strong>{{ td.device.name }}</strong>{% if td.device.model %} <span class="text-muted">({{ td.device.model }})</span>{% endif %}</div>
+                    <div class="small text-muted mb-1">
+                        <i class="fas fa-shield-alt me-1"></i>
+                        {% if td.device.secret_level == 'public' %}<span class="badge bg-success">公开</span>
+                        {% elif td.device.secret_level == 'internal' %}<span class="badge bg-info">内部</span>
+                        {% elif td.device.secret_level == 'confidential' %}<span class="badge bg-warning text-dark">秘密</span>
+                        {% elif td.device.secret_level == 'secret' %}<span class="badge bg-danger">机密</span>
+                        {% elif td.device.secret_level == 'top_secret' %}<span class="badge bg-dark">绝密</span>
+                        {% elif td.device.secret_level == 'commercial_secret' %}<span class="badge bg-secondary">商密</span>
+                        {% else %}-{% endif %}
+                    </div>
                     <div class="small text-muted mb-1"><i class="fas fa-building me-1"></i>{{ td.device.department.name|default:'未分配部门' }}</div>
                     <div class="small text-muted mb-1"><i class="fas fa-user me-1"></i>{{ td.device.user.realname|default:'未分配使用人' }}</div>
                     <div class="small text-muted mb-1"><i class="fas fa-map-marker-alt me-1"></i>{{ td.device.location_text|default:'未设置位置' }}</div>
+                    <div class="d-flex align-items-center mt-2 pt-2 border-top">
+                        <div>
+                            {% if td.device.status == 'normal' %}<span class="badge bg-success">使用</span>
+                            {% elif td.device.status == 'fault' %}<span class="badge bg-danger">故障</span>
+                            {% elif td.device.status == 'scrapped' %}<span class="badge bg-secondary">报废</span>
+                            {% else %}<span class="badge bg-info">闲置</span>{% endif %}
+                            {% if td.device.is_fixed %}<span class="badge bg-success ms-1">固资</span>{% endif %}
+                            {% if td.device.asset_card_no %}<span class="badge bg-secondary ms-1">卡片:{{ td.device.asset_card_no }}</span>{% endif %}
+                        </div>
+                    </div>
                     <div class="small text-muted"><i class="fas fa-clock me-1"></i>{{ td.checked_at|date:"Y-m-d H:i" }}</div>
                 </div>
             </div>
