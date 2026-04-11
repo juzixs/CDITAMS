@@ -43,26 +43,136 @@
     .check-panel.show {
         display: block;
     }
-    .device-info-section {
-        border-left: 3px solid #0d6efd;
-        padding-left: 1rem;
+    /* 设备信息卡片样式 */
+    .device-info-card {
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
         margin-bottom: 1rem;
+        overflow: hidden;
+        background: #fff;
     }
-    .device-info-section h6 {
+    .device-info-card .card-header {
+        padding: 0.5rem 1rem;
+        font-size: 14px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+    }
+    .device-info-card .card-body {
+        padding: 0.75rem 1rem;
+        background: #fafafa;
+    }
+    /* 基本信息 - 蓝色 */
+    .device-info-card.info-basic {
+        border-left: 4px solid #0d6efd;
+    }
+    .device-info-card.info-basic .card-header {
+        background: linear-gradient(135deg, #e7f1ff, #d0e8ff);
         color: #0d6efd;
-        margin-bottom: 0.5rem;
+        border-bottom: 1px solid #e0e0e0;
     }
+    /* 使用信息 - 青色 */
+    .device-info-card.info-usage {
+        border-left: 4px solid #17a2b8;
+    }
+    .device-info-card.info-usage .card-header {
+        background: linear-gradient(135deg, #e3f6f8, #d0edf2);
+        color: #17a2b8;
+        border-bottom: 1px solid #e0e0e0;
+    }
+    /* 网络信息 - 紫色 */
+    .device-info-card.info-network {
+        border-left: 4px solid #6f42c1;
+    }
+    .device-info-card.info-network .card-header {
+        background: linear-gradient(135deg, #f0e7fd, #e5d6f9);
+        color: #6f42c1;
+        border-bottom: 1px solid #e0e0e0;
+    }
+    /* 设备信息 - 绿色 */
+    .device-info-card.info-hardware {
+        border-left: 4px solid #28a745;
+    }
+    .device-info-card.info-hardware .card-header {
+        background: linear-gradient(135deg, #e7f9ed, #d4f2dc);
+        color: #28a745;
+        border-bottom: 1px solid #e0e0e0;
+    }
+    /* 其他信息 - 灰色 */
+    .device-info-card.info-other {
+        border-left: 4px solid #6c757d;
+    }
+    .device-info-card.info-other .card-header {
+        background: linear-gradient(135deg, #f0f0f0, #e5e5e5);
+        color: #6c757d;
+        border-bottom: 1px solid #e0e0e0;
+    }
+    /* 信息行样式 */
     .info-row {
         display: flex;
-        margin-bottom: 0.25rem;
+        padding: 0.35rem 0;
+        border-bottom: 1px solid #f0f0f0;
+        align-items: center;
     }
-    .info-label {
-        width: 80px;
-        color: #6c757d;
+    .info-row:last-child {
+        border-bottom: none;
+    }
+    .info-row .info-label {
+        width: 90px;
+        color: #888;
+        font-size: 13px;
         flex-shrink: 0;
+        flex: 0 0 auto;
     }
-    .info-value {
+    .info-row .info-value {
         flex: 1;
+        font-size: 13px;
+        color: #333;
+        word-break: break-all;
+        padding-left: 0.5rem;
+    }
+    .info-row .info-value.text-primary {
+        font-weight: 600;
+        color: #0d6efd;
+    }
+    .info-row .info-value.font-monospace {
+        font-family: 'Consolas', 'Monaco', monospace;
+        font-size: 12px;
+        background: #f5f5f5;
+        padding: 2px 6px;
+        border-radius: 3px;
+    }
+    /* 展开更多按钮 */
+    .toggle-more-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        border: 1px solid #dee2e6;
+        border-radius: 20px;
+        cursor: pointer;
+        font-size: 13px;
+        color: #495057;
+        transition: all 0.2s;
+    }
+    .toggle-more-btn:hover {
+        background: linear-gradient(135deg, #e9ecef, #dee2e6);
+    }
+    .toggle-more-btn.active {
+        background: linear-gradient(135deg, #e7f1ff, #d0e8ff);
+        border-color: #0d6efd;
+        color: #0d6efd;
+    }
+    /* 盘点操作区域 */
+    .check-action-card {
+        border: 1px solid #28a745;
+        border-radius: 8px;
+        background: linear-gradient(180deg, #f0fff4, #e8ffe8);
+    }
+    .check-action-card .card-header {
+        background: linear-gradient(135deg, #28a745, #20c997);
+        color: #fff;
     }
     @media (max-width: 768px) {
         .device-list-container {
@@ -214,125 +324,166 @@
 
 <!-- 盘点操作面板（底部弹出） -->
 <div class="check-panel" id="checkPanel">
-    <div class="container-fluid">
-        <div class="row py-3">
+    <div class="container-fluid py-3">
+        <div class="row g-3">
             <!-- 设备详情 -->
             <div class="col-lg-6">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <h6 class="mb-0" id="panelDeviceTitle">设备信息</h6>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="mb-0 fw-bold" id="panelDeviceTitle">
+                        <i class="fas fa-desktop me-2 text-primary"></i>设备信息
+                    </h6>
                     <button class="btn btn-sm btn-outline-secondary" onclick="closePanel()">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
-                <!-- 基本信息 -->
-                <div class="device-info-section">
-                    <h6><i class="fas fa-cube me-1"></i>基本信息</h6>
-                    <div class="info-row"><span class="info-label">资产分类:</span><span class="info-value" id="infoCategory">-</span></div>
-                    <div class="info-row"><span class="info-label">资产编号:</span><span class="info-value text-primary" id="infoAssetNo">-</span></div>
-                    <div class="info-row"><span class="info-label">设备编号:</span><span class="info-value" id="infoDeviceNo">-</span></div>
-                    <div class="info-row"><span class="info-label">设备名称:</span><span class="info-value" id="infoName">-</span></div>
-                    <div class="info-row"><span class="info-label">型号:</span><span class="info-value" id="infoModel">-</span></div>
-                    <div class="info-row"><span class="info-label">序列号:</span><span class="info-value font-monospace" id="infoSerialNo">-</span></div>
-                    <div class="info-row"><span class="info-label">密级:</span><span class="info-value" id="infoSecretLevel">-</span></div>
-                </div>
-                <!-- 使用信息 -->
-                <div class="device-info-section">
-                    <h6><i class="fas fa-user me-1"></i>使用信息</h6>
-                    <div class="info-row">
-                        <span class="info-label">所属部门:</span>
-                        <span class="info-value" id="infoDepartment">-</span>
-                        <button class="btn btn-xs btn-outline-primary ms-2" onclick="showAssignModal()">分配</button>
+                
+                <!-- 基本信息卡片 -->
+                <div class="device-info-card info-basic">
+                    <div class="card-header">
+                        <i class="fas fa-cube me-2"></i>基本信息
                     </div>
-                    <div class="info-row">
-                        <span class="info-label">使用人:</span>
-                        <span class="info-value" id="infoUser">-</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">位置:</span>
-                        <span class="info-value" id="infoLocation">-</span>
-                        <button class="btn btn-xs btn-outline-info ms-2" onclick="showLocationModal()">位置</button>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">工位:</span>
-                        <span class="info-value" id="infoWorkstation">-</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">设备状态:</span>
-                        <span class="info-value" id="infoStatus">-</span>
+                    <div class="card-body">
+                        <div class="info-row"><span class="info-label">资产分类:</span><span class="info-value" id="infoCategory">-</span></div>
+                        <div class="info-row"><span class="info-label">资产编号:</span><span class="info-value text-primary" id="infoAssetNo">-</span></div>
+                        <div class="info-row"><span class="info-label">设备编号:</span><span class="info-value" id="infoDeviceNo">-</span></div>
+                        <div class="info-row"><span class="info-label">设备名称:</span><span class="info-value fw-bold" id="infoName">-</span></div>
+                        <div class="info-row"><span class="info-label">型号:</span><span class="info-value" id="infoModel">-</span></div>
+                        <div class="info-row"><span class="info-label">序列号:</span><span class="info-value font-monospace" id="infoSerialNo">-</span></div>
+                        <div class="info-row"><span class="info-label">密级:</span><span class="info-value" id="infoSecretLevel">-</span></div>
                     </div>
                 </div>
-                <!-- 更多信息 -->
+                
+                <!-- 使用信息卡片 -->
+                <div class="device-info-card info-usage">
+                    <div class="card-header">
+                        <i class="fas fa-user me-2"></i>使用信息
+                    </div>
+                    <div class="card-body">
+                        <div class="info-row">
+                            <span class="info-label">所属部门:</span>
+                            <span class="info-value" id="infoDepartment">-</span>
+                            <button class="btn btn-xs btn-outline-primary ms-auto" onclick="showAssignModal()">
+                                <i class="fas fa-user-plus me-1"></i>分配
+                            </button>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">使用人:</span>
+                            <span class="info-value" id="infoUser">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">位置:</span>
+                            <span class="info-value" id="infoLocation">-</span>
+                            <button class="btn btn-xs btn-outline-info ms-auto" onclick="showLocationModal()">
+                                <i class="fas fa-map-marker-alt me-1"></i>位置
+                            </button>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">工位:</span>
+                            <span class="info-value" id="infoWorkstation">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">设备状态:</span>
+                            <span class="info-value" id="infoStatus">-</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 更多信息（可展开） -->
                 <div id="deviceMoreInfo" style="display:none;">
-                    <!-- 网络信息 -->
-                    <div class="device-info-section">
-                        <h6><i class="fas fa-network-wired me-1"></i>网络信息</h6>
-                        <div class="info-row"><span class="info-label">MAC地址:</span><span class="info-value font-monospace" id="infoMac">-</span></div>
-                        <div class="info-row"><span class="info-label">IP地址:</span><span class="info-value font-monospace" id="infoIp">-</span></div>
+                    <!-- 网络信息卡片 -->
+                    <div class="device-info-card info-network">
+                        <div class="card-header">
+                            <i class="fas fa-network-wired me-2"></i>网络信息
+                        </div>
+                        <div class="card-body">
+                            <div class="info-row"><span class="info-label">MAC地址:</span><span class="info-value font-monospace" id="infoMac">-</span></div>
+                            <div class="info-row"><span class="info-label">IP地址:</span><span class="info-value font-monospace" id="infoIp">-</span></div>
+                        </div>
                     </div>
-                    <!-- 设备信息 -->
-                    <div class="device-info-section">
-                        <h6><i class="fas fa-desktop me-1"></i>设备信息</h6>
-                        <div class="info-row"><span class="info-label">操作系统:</span><span class="info-value" id="infoOs">-</span></div>
-                        <div class="info-row"><span class="info-label">安装时间:</span><span class="info-value" id="infoInstallDate">-</span></div>
-                        <div class="info-row"><span class="info-label">硬盘序列号:</span><span class="info-value font-monospace" id="infoDisk">-</span></div>
-                        <div class="info-row"><span class="info-label">购入日期:</span><span class="info-value" id="infoPurchaseDate">-</span></div>
-                        <div class="info-row"><span class="info-label">启用时间:</span><span class="info-value" id="infoEnableDate">-</span></div>
+                    
+                    <!-- 设备信息卡片 -->
+                    <div class="device-info-card info-hardware">
+                        <div class="card-header">
+                            <i class="fas fa-microchip me-2"></i>设备信息
+                        </div>
+                        <div class="card-body">
+                            <div class="info-row"><span class="info-label">操作系统:</span><span class="info-value" id="infoOs">-</span></div>
+                            <div class="info-row"><span class="info-label">安装时间:</span><span class="info-value" id="infoInstallDate">-</span></div>
+                            <div class="info-row"><span class="info-label">硬盘序列号:</span><span class="info-value font-monospace" id="infoDisk">-</span></div>
+                            <div class="info-row"><span class="info-label">购入日期:</span><span class="info-value" id="infoPurchaseDate">-</span></div>
+                            <div class="info-row"><span class="info-label">启用时间:</span><span class="info-value" id="infoEnableDate">-</span></div>
+                        </div>
                     </div>
-                    <!-- 其他信息 -->
-                    <div class="device-info-section">
-                        <h6><i class="fas fa-cog me-1"></i>其他信息</h6>
-                        <div class="info-row"><span class="info-label">用途:</span><span class="info-value" id="infoPurpose">-</span></div>
-                        <div class="info-row"><span class="info-label">备注:</span><span class="info-value" id="infoRemarks">-</span></div>
-                        <div class="info-row"><span class="info-label">固资在账:</span><span class="info-value" id="infoIsFixed">-</span></div>
-                        <div class="info-row"><span class="info-label">卡片编号:</span><span class="info-value" id="infoAssetCardNo">-</span></div>
-                        <div class="info-row"><span class="info-label">保密台账:</span><span class="info-value" id="infoIsSecret">-</span></div>
-                        <div class="info-row"><span class="info-label">台账分类:</span><span class="info-value" id="infoSecretCategory">-</span></div>
+                    
+                    <!-- 其他信息卡片 -->
+                    <div class="device-info-card info-other">
+                        <div class="card-header">
+                            <i class="fas fa-cog me-2"></i>其他信息
+                        </div>
+                        <div class="card-body">
+                            <div class="info-row"><span class="info-label">用途:</span><span class="info-value" id="infoPurpose">-</span></div>
+                            <div class="info-row"><span class="info-label">备注:</span><span class="info-value" id="infoRemarks">-</span></div>
+                            <div class="info-row"><span class="info-label">固资在账:</span><span class="info-value" id="infoIsFixed">-</span></div>
+                            <div class="info-row"><span class="info-label">卡片编��:</span><span class="info-value" id="infoAssetCardNo">-</span></div>
+                            <div class="info-row"><span class="info-label">保密台账:</span><span class="info-value" id="infoIsSecret">-</span></div>
+                            <div class="info-row"><span class="info-label">台账分类:</span><span class="info-value" id="infoSecretCategory">-</span></div>
+                        </div>
                     </div>
                 </div>
-                <button class="btn btn-sm btn-link p-0" onclick="toggleMoreInfo()">
-                    <i class="fas fa-chevron-down" id="moreInfoIcon"></i> 展开更多信息
+                
+                <!-- 展开/收起按钮 -->
+                <button class="toggle-more-btn w-100" id="toggleMoreBtn" onclick="toggleMoreInfo()">
+                    <i class="fas fa-chevron-down" id="moreInfoIcon"></i>
+                    <span id="toggleMoreText">展开更多信息</span>
                 </button>
             </div>
 
             <!-- 盘点操作 -->
             <div class="col-lg-6">
-                <h6 class="mb-3"><i class="fas fa-edit me-1"></i>盘点操作</h6>
-                <input type="hidden" id="currentTaskDeviceId">
-                <input type="hidden" id="currentDeviceId">
-                
-                <div class="row mb-3">
-                    <div class="col-6">
-                        <label class="form-label">位置状态</label>
-                        <select class="form-select form-select-sm" id="locationStatus">
-                            <option value="in_place">在位</option>
-                            <option value="moved">搬离</option>
-                            <option value="not_found">未找到</option>
-                        </select>
+                <div class="device-info-card check-action-card">
+                    <div class="card-header">
+                        <i class="fas fa-clipboard-check me-2"></i>盘点操作
                     </div>
-                    <div class="col-6">
-                        <label class="form-label">资产状态</label>
-                        <select class="form-select form-select-sm" id="assetStatus">
-                            <option value="normal">正常</option>
-                            <option value="damaged">损坏</option>
-                            <option value="lost">丢失</option>
-                        </select>
+                    <div class="card-body">
+                        <input type="hidden" id="currentTaskDeviceId">
+                        <input type="hidden" id="currentDeviceId">
+                        
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <label class="form-label"><i class="fas fa-map-marker-alt me-1 text-info"></i>位置状态</label>
+                                <select class="form-select form-select-sm" id="locationStatus">
+                                    <option value="in_place">在位</option>
+                                    <option value="moved">搬离</option>
+                                    <option value="not_found">未找到</option>
+                                </select>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label"><i class="fas fa-heart me-1 text-danger"></i>资产状态</label>
+                                <select class="form-select form-select-sm" id="assetStatus">
+                                    <option value="normal">正常</option>
+                                    <option value="damaged">损坏</option>
+                                    <option value="lost">丢失</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label"><i class="fas fa-sticky-note me-1 text-muted"></i>备注</label>
+                            <textarea class="form-control form-control-sm" id="checkRemarks" rows="2" placeholder="选填备注信息"></textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label"><i class="fas fa-camera me-1 text-success"></i>现场照片</label>
+                            <input type="file" class="form-control form-control-sm" id="checkPhoto" accept="image/*" capture="camera">
+                        </div>
+
+                        <div class="d-grid">
+                            <button class="btn btn-success btn-lg" onclick="confirmCheck()">
+                                <i class="fas fa-check-circle me-2"></i>确认盘点
+                            </button>
+                        </div>
                     </div>
                 </div>
-                
-                <div class="mb-3">
-                    <label class="form-label">备注</label>
-                    <textarea class="form-control form-control-sm" id="checkRemarks" rows="2" placeholder="选填"></textarea>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label">现场照片</label>
-                    <input type="file" class="form-control form-control-sm" id="checkPhoto" accept="image/*" capture="camera">
-                </div>
-
-                <div class="d-grid gap-2">
-                    <button class="btn btn-success" onclick="confirmCheck()">
-                        <i class="fas fa-check me-1"></i>确认盘点
-                    </button>
                 </div>
             </div>
         </div>
@@ -537,16 +688,23 @@ function closePanel() {
     document.getElementById('checkPanel').classList.remove('show');
 }
 
-// 展开更多信息
+// 展开/收起更多信息
 function toggleMoreInfo() {
     const moreInfo = document.getElementById('deviceMoreInfo');
     const icon = document.getElementById('moreInfoIcon');
+    const text = document.getElementById('toggleMoreText');
+    const btn = document.getElementById('toggleMoreBtn');
+    
     if (moreInfo.style.display === 'none') {
         moreInfo.style.display = 'block';
         icon.className = 'fas fa-chevron-up';
+        text.textContent = '收起更多信息';
+        btn.classList.add('active');
     } else {
         moreInfo.style.display = 'none';
         icon.className = 'fas fa-chevron-down';
+        text.textContent = '展开更多信息';
+        btn.classList.remove('active');
     }
 }
 
