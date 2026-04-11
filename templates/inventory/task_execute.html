@@ -1281,6 +1281,17 @@ function createCheckMap(container, locationId, workstationId) {
                     elLayer.add(g);
                 } else if (el.element_type === 'rect') {
                     elLayer.add(new Konva.Rect({ x: el.x, y: el.y, width: el.width || 60, height: el.height || 40, stroke: '#333', strokeWidth: 2 }));
+                } else if (el.element_type === 'window' || el.element_type === 'dashed') {
+                    elLayer.add(new Konva.Line({ points: [el.x, el.y, el.x2 || el.x + el.width, el.y2 || el.y], stroke: el.color || '#87CEEB', strokeWidth: 2, dash: [10, 5] }));
+                } else if (el.element_type === 'desk') {
+                    var deskGroup = new Konva.Group({ x: el.x, y: el.y });
+                    deskGroup.add(new Konva.Rect({ width: el.width || 80, height: el.height || 40, fill: '#f5f5dc', stroke: '#8B4513', strokeWidth: 1, cornerRadius: 2 }));
+                    if (el.label) {
+                        deskGroup.add(new Konva.Text({ x: 5, y: 12, text: el.label, fontSize: 10, fill: '#555' }));
+                    }
+                    elLayer.add(deskGroup);
+                } else if (el.element_type === 'text') {
+                    elLayer.add(new Konva.Text({ x: el.x, y: el.y, text: el.label || el.text || '', fontSize: el.font_size || 14, fill: el.color || '#333', fontStyle: el.font_style || 'normal' }));
                 }
             });
             
