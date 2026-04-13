@@ -10,9 +10,11 @@ from django.db.models import Q, F, Case, When, IntegerField
 import json
 import random
 import re
+import os
 
 from .models import InventoryPlan, InventoryTask, InventoryRecord, InventoryTaskDevice
 from apps.assets.models import Device, AssetLocation, AssetCategory
+from apps.assets.views import save_photo_with_asset_no
 from apps.accounts.models import User, Department
 from apps.settings.views import get_config_value
 
@@ -854,16 +856,35 @@ def api_check_device(request, task_id):
     task = get_object_or_404(InventoryTask, pk=task_id)
     
     try:
-        data = json.loads(request.body)
-        task_device_id = data.get('task_device_id')
-        device_id = data.get('device_id')
-        location_status = data.get('location_status', 'in_place')
-        asset_status = data.get('asset_status', 'normal')
-        remarks = data.get('remarks', '')
-        source = data.get('source', 'manual')
+        # 支持JSON和FormData两种格式
+        if request.content_type and 'multipart/form-data' in request.content_type:
+            # FormData格式（支持文件上传）
+            task_device_id = request.POST.get('task_device_id')
+            device_id = request.POST.get('device_id')
+            location_status = request.POST.get('location_status', 'in_place')
+            asset_status = request.POST.get('asset_status', 'normal')
+            remarks = request.POST.get('remarks', '')
+            source = request.POST.get('source', 'manual')
+            photo_file = request.FILES.get('photo')
+        else:
+            # JSON格式
+            data = json.loads(request.body)
+            task_device_id = data.get('task_device_id')
+            device_id = data.get('device_id')
+            location_status = data.get('location_status', 'in_place')
+            asset_status = data.get('asset_status', 'normal')
+            remarks = data.get('remarks', '')
+            source = data.get('source', 'manual')
+            photo_file = None
         
         task_device = get_object_or_404(InventoryTaskDevice, pk=task_device_id, task=task)
         device = task_device.device
+        
+        # 如果有照片，上传并更新设备照片
+        if photo_file:
+            save_photo_with_asset_no(device, photo_file)
+            device.photo_updated_at = timezone.now()
+            device.save(update_fields=['photo', 'photo_updated_at'])
         
         # 创建盘点记录
         record = InventoryRecord.objects.create(

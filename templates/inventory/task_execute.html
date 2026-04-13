@@ -987,22 +987,25 @@ function confirmCheck() {
     const model = currentDeviceData ? currentDeviceData.model : '';
     const location = currentDeviceData ? currentDeviceData.location : '';
     
-    const data = {
-        task_device_id: parseInt(taskDeviceId),
-        device_id: parseInt(document.getElementById('currentDeviceId').value),
-        location_status: document.getElementById('locationStatus').value,
-        asset_status: document.getElementById('assetStatus').value,
-        remarks: document.getElementById('checkRemarks').value,
-        source: 'manual'
-    };
+    const photoFile = document.getElementById('checkPhoto').files[0];
+    
+    const formData = new FormData();
+    formData.append('task_device_id', parseInt(taskDeviceId));
+    formData.append('device_id', parseInt(document.getElementById('currentDeviceId').value));
+    formData.append('location_status', document.getElementById('locationStatus').value);
+    formData.append('asset_status', document.getElementById('assetStatus').value);
+    formData.append('remarks', document.getElementById('checkRemarks').value);
+    formData.append('source', 'manual');
+    if (photoFile) {
+        formData.append('photo', photoFile);
+    }
     
     fetch(`/inventory/api/tasks/${TASK_ID}/check-device/`, {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
             'X-CSRFToken': '{{ csrf_token }}'
         },
-        body: JSON.stringify(data)
+        body: formData
     })
     .then(r => r.json())
     .then(result => {
