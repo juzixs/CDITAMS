@@ -899,6 +899,11 @@ def api_check_device(request, task_id):
             source=source,
         )
         
+        # 如果有备注，更新设备备注字段
+        if remarks:
+            device.remarks = remarks
+            device.save(update_fields=['remarks'])
+        
         # 更新任务设备状态
         task_device.status = 'checked'
         task_device.checked_at = timezone.now()

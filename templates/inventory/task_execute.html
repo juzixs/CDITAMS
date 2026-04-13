@@ -515,7 +515,7 @@
 </div>
 
 <!-- 分配弹窗 -->
-<div class="modal fade" id="assignModal" tabindex="-1">
+<div class="modal fade" id="assignModal" tabindex="-1" style="z-index: 1300;">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
@@ -531,7 +531,7 @@
 </div>
 
 <!-- 位置选择弹窗 -->
-<div class="modal fade" id="locationModal" tabindex="-1">
+<div class="modal fade" id="locationModal" tabindex="-1" style="z-index: 1300;">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
@@ -554,7 +554,7 @@
                     </div>
                 </div>
                 <div class="mt-3">
-                    <div id="locationMapContainer" style="width:100%;height:300px;background:#f5f5f5;border-radius:8px;"></div>
+                    <div id="locationMapContainer" style="width:100%;height:300px;background:#f5f5f5;border-radius:8px;touch-action:none;"></div>
                 </div>
             </div>
             <div class="modal-footer">
@@ -691,6 +691,9 @@ function showDeviceInfo(device) {
     document.getElementById('infoAssetCardNo').textContent = device.asset_card_no || '-';
     document.getElementById('infoIsSecret').textContent = device.is_secret ? '是' : '否';
     document.getElementById('infoSecretCategory').textContent = device.secret_category || '-';
+    
+    // 加载设备备注到盘点面板
+    document.getElementById('checkRemarks').value = device.remarks || '';
     
     // 更新盘点面板位置信息显示
     var locationText = device.location || '';
@@ -985,7 +988,10 @@ function confirmCheck() {
     const deviceName = currentDeviceData ? currentDeviceData.name : '';
     const deviceNo = currentDeviceData ? currentDeviceData.device_no : '';
     const model = currentDeviceData ? currentDeviceData.model : '';
+    const department = currentDeviceData ? currentDeviceData.department : '';
+    const user = currentDeviceData ? currentDeviceData.user : '';
     const location = currentDeviceData ? currentDeviceData.location : '';
+    const assetCardNo = currentDeviceData ? currentDeviceData.asset_card_no : '';
     
     const photoFile = document.getElementById('checkPhoto').files[0];
     
@@ -1036,10 +1042,21 @@ function confirmCheck() {
             const newCheckedItem = document.createElement('div');
             newCheckedItem.className = 'device-item opacity-75';
             newCheckedItem.innerHTML = `
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <span class="asset-no">${assetNo}</span>
-                        <div class="small text-muted">${deviceName}</div>
+                <div class="d-flex justify-content-between align-items-start">
+                    <div style="flex: 1; min-width: 0;">
+                        <div class="d-flex align-items-center mb-1">
+                            <span class="asset-no">${assetNo}</span>
+                            ${deviceNo ? '<span class="text-muted ms-2 small">' + deviceNo + '</span>' : ''}
+                        </div>
+                        <div class="mb-1">${deviceName}${model ? ' <span class="text-muted small">(' + model + ')</span>' : ''}</div>
+                        <div class="small text-muted mb-1">
+                            <i class="fas fa-building me-1"></i>${department || '-'}
+                            <i class="fas fa-user ms-2 me-1"></i>${user || '-'}
+                        </div>
+                        <div class="text-muted small mb-1">
+                            <i class="fas fa-map-marker-alt me-1"></i>${location || '未设置位置'}
+                        </div>
+                        ${assetCardNo ? '<div class="text-muted small"><i class="fas fa-id-card me-1"></i>卡片编号: ' + assetCardNo + '</div>' : ''}
                     </div>
                     <span class="badge bg-success"><i class="fas fa-check"></i></span>
                 </div>
