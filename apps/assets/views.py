@@ -4206,3 +4206,317 @@ def service_contract_delete(request, pk):
     contract.delete()
     messages.success(request, '服务删除成功')
     return redirect('service_contract_list')
+
+
+# ============ 更新卡片编号功能 ============
+
+# 更新卡片编号进度存储
+update_card_no_progress = {}
+
+
+def add_log(task_id, level, message):
+    """添加处理日志"""
+    import datetime
+    if task_id in update_card_no_progress:
+        update_card_no_progress[task_id]['logs'].append({
+            'time': datetime.datetime.now().strftime('%H:%M:%S'),
+            'level': level,  # info, success, warning, error, ai
+            'message': message
+        })
+
+
+@login_required
+def update_card_no(request):
+    """更新卡片编号 - 页面渲染"""
+    return render(request, 'assets/update_card_no.html')
+
+
+@login_required
+@csrf_exempt
+@require_http_methods(["POST"])
+def update_card_no_api(request):
+    """更新卡片编号 - 文件上传处理"""
+    import openpyxl
+    
+    file = request.FILES.get('file')
+    if not file:
+        return JsonResponse({'success': False, 'message': '请选择要上传的文件'})
+    
+    if not file.name.endswith(('.xlsx', '.xls')):
+        return JsonResponse({'success': False, 'message': '请上传Excel文件(.xlsx或.xls)'})
+    
+    task_id = str(uuid.uuid4())[:8]
+    file_content = file.read()
+    
+    update_card_no_progress[task_id] = {
+        'status': 'processing',
+        'total': 0,
+        'current': 0,
+        'updated': 0,
+        'skipped': 0,
+        'error': 0,
+        'errors': [],
+        'current_asset_no': '',
+        'logs': []
+    }
+    
+    thread = threading.Thread(
+        target=process_update_card_no_task,
+        args=(task_id, file_content, request.user.id)
+    )
+    thread.daemon = True
+    thread.start()
+    
+    return JsonResponse({'success': True, 'task_id': task_id})
+
+
+@login_required
+def update_card_no_progress_api(request):
+    """更新卡片编号进度查询API"""
+    task_id = request.GET.get('task_id')
+    if task_id and task_id in update_card_no_progress:
+        return JsonResponse(update_card_no_progress[task_id])
+    return JsonResponse({'status': 'not_found'})
+
+
+def expand_asset_numbers(base_no, count):
+    """展开合并写法的资产编号"""
+    import re
+    
+    results = []
+    
+    # 处理 / 分隔的格式: XACD-Z-001-001-001/002/003
+    slash_match = re.match(r'^(.+)-(\d+)/(.+)$', base_no)
+    if slash_match:
+        prefix = slash_match.group(1)
+        first_num = slash_match.group(2)
+        rest_nums = slash_match.group(3).split('/')
+        results.append(f"{prefix}-{first_num}")
+        for num in rest_nums:
+            results.append(f"{prefix}-{num}")
+        return results[:count] if count else results
+    
+    # 处理 ~ 连号格式: XACD-Z-001-001-006~009
+    range_match = re.match(r'^(.+)-(\d+)~(\d+)$', base_no)
+    if range_match:
+        prefix = range_match.group(1)
+        start = int(range_match.group(2))
+        end = int(range_match.group(3))
+        num_len = len(range_match.group(2))
+        for i in range(start, end + 1):
+            results.append(f"{prefix}-{str(i).zfill(num_len)}")
+        return results[:count] if count else results
+    
+    # 普通格式，直接返回
+    return [base_no]
+
+
+def call_ai_parse_card_numbers(api_key, model_name, excel_data):
+    """调用AI解析资产编号和卡片编号"""
+    from openai import OpenAI
+    
+    client = OpenAI(
+        api_key=api_key,
+        base_url="https://api.xiaomimimo.com/v1"
+    )
+    
+    prompt = f"""请从以下Excel表格数据中提取资产编号和卡片编号的对应关系。
+
+规则：
+1. 自动识别包含"资产编号"、"卡片编号"、"资产数量"的列
+2. 资产编号格式类似: XACD-Z-001-001-001
+3. 合并写法如 XACD-Z-001-001-001/002/003 表示多个编号
+4. 连号写法如 XACD-Z-001-001-006~009 表示连续编号
+5. 结合资产数量字段判断拆解数量
+6. 返回JSON格式，包含展开后的资产编号和对应卡片编号：
+{{
+  "mappings": [
+    {{"asset_no": "XACD-Z-001-001-001", "card_no": "CARD-001"}},
+    {{"asset_no": "XACD-Z-001-001-002", "card_no": "CARD-001"}},
+    ...
+  ]
+}}
+
+表格数据：
+{excel_data}"""
+    
+    try:
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=[
+                {"role": "system", "content": "你是一个专业的数据解析助手，擅长从表格数据中提取设备资产编号和卡片编号的对应关系。"},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=4096,
+            temperature=0.1
+        )
+        
+        ai_content = response.choices[0].message.content
+        
+        # 提取JSON
+        json_match = re.search(r'\{[\s\S]*\}', ai_content)
+        if json_match:
+            return json.loads(json_match.group())
+        return None
+    except Exception as e:
+        return None
+
+
+def process_update_card_no_task(task_id, file_content, user_id):
+    """后台处理更新卡片编号任务"""
+    import openpyxl
+    from io import BytesIO
+    
+    progress = update_card_no_progress[task_id]
+    
+    try:
+        add_log(task_id, 'info', '开始读取Excel文件...')
+        
+        # 读取Excel
+        wb = openpyxl.load_workbook(BytesIO(file_content))
+        ws = wb.active
+        row_count = ws.max_row - 1 if ws.max_row else 0
+        add_log(task_id, 'success', f'Excel文件读取成功，共{row_count}行数据')
+        
+        # 自动识别列
+        headers = []
+        for cell in ws[1]:
+            headers.append(str(cell.value).strip().lower() if cell.value else '')
+        
+        asset_no_col = None
+        card_no_col = None
+        quantity_col = None
+        
+        for idx, header in enumerate(headers):
+            if '资产编号' in header or '资产编码' in header:
+                asset_no_col = idx
+            elif '卡片编号' in header or '卡片码' in header:
+                card_no_col = idx
+            elif '数量' in header or '资产数量' in header:
+                quantity_col = idx
+        
+        col_info = []
+        if asset_no_col is not None:
+            col_info.append(f'资产编号({chr(65+asset_no_col)}列)')
+        if card_no_col is not None:
+            col_info.append(f'卡片编号({chr(65+card_no_col)}列)')
+        if quantity_col is not None:
+            col_info.append(f'资产数量({chr(65+quantity_col)}列)')
+        add_log(task_id, 'info', f'识别到列：{"、".join(col_info)}')
+        
+        if asset_no_col is None:
+            progress['status'] = 'completed'
+            progress['errors'].append('未找到资产编号列')
+            add_log(task_id, 'error', '未找到资产编号列，处理终止')
+            return
+        
+        if card_no_col is None:
+            progress['status'] = 'completed'
+            progress['errors'].append('未找到卡片编号列')
+            add_log(task_id, 'error', '未找到卡片编号列，处理终止')
+            return
+        
+        # 构建Excel数据映射
+        add_log(task_id, 'info', '开始解析Excel数据...')
+        excel_mappings = {}
+        expanded_count = 0
+        for row in ws.iter_rows(min_row=2, values_only=True):
+            if len(row) > max(asset_no_col, card_no_col):
+                asset_no = str(row[asset_no_col]).strip() if row[asset_no_col] else ''
+                card_no = str(row[card_no_col]).strip() if row[card_no_col] else ''
+                quantity = int(row[quantity_col]) if quantity_col and row[quantity_col] else None
+                
+                if asset_no:
+                    # 展开合并写法
+                    expanded = expand_asset_numbers(asset_no, quantity)
+                    if len(expanded) > 1:
+                        expanded_count += 1
+                        add_log(task_id, 'info', f'展开合并写法：{asset_no} → {", ".join(expanded[:5])}{"..." if len(expanded) > 5 else ""}')
+                    for no in expanded:
+                        excel_mappings[no] = card_no
+        
+        if expanded_count > 0:
+            add_log(task_id, 'success', f'共展开{expanded_count}个合并写法的资产编号')
+        add_log(task_id, 'success', f'Excel数据解析完成，共{len(excel_mappings)}条资产编号映射')
+        
+        if not excel_mappings:
+            progress['status'] = 'completed'
+            progress['errors'].append('Excel中未找到有效的资产编号数据')
+            add_log(task_id, 'error', 'Excel中未找到有效的资产编号数据，处理终止')
+            return
+        
+        # 获取AI配置
+        api_key = get_config_value('llm_api_key', '')
+        model_name = get_config_value('llm_model_name', 'mimo-v2-pro')
+        
+        # 如果有AI配置，使用AI解析复杂数据
+        if api_key:
+            add_log(task_id, 'ai', f'获取AI配置成功：模型={model_name}')
+            add_log(task_id, 'ai', f'调用AI解析数据，发送{len(excel_mappings)}条映射记录...')
+            
+            # 将Excel数据转为文本供AI解析
+            excel_text = '\n'.join([f"{k}|{v}" for k, v in excel_mappings.items()])
+            ai_result = call_ai_parse_card_numbers(api_key, model_name, excel_text)
+            
+            if ai_result and 'mappings' in ai_result:
+                ai_mappings = {item['asset_no']: item['card_no'] for item in ai_result['mappings']}
+                add_log(task_id, 'success', f'AI解析成功，返回{len(ai_mappings)}条映射记录')
+                add_log(task_id, 'ai', f'AI返回示例：{", ".join([f"{k}→{v}" for k, v in list(ai_mappings.items())[:3]])}...')
+                excel_mappings = ai_mappings
+            else:
+                add_log(task_id, 'warning', 'AI解析失败或返回格式错误，使用本地解析结果')
+        else:
+            add_log(task_id, 'info', '未配置AI大模型，使用本地解析')
+        
+        # 遍历系统设备
+        add_log(task_id, 'info', '开始遍历系统设备...')
+        devices = Device.objects.all()
+        total = devices.count()
+        progress['total'] = total
+        add_log(task_id, 'info', f'系统中共{total}个设备待处理')
+        
+        for device in devices:
+            progress['current'] += 1
+            progress['current_asset_no'] = device.asset_no
+            
+            try:
+                if device.asset_no in excel_mappings:
+                    new_card_no = excel_mappings[device.asset_no]
+                    
+                    if not new_card_no:
+                        # 表格中卡片编号为空，跳过
+                        progress['skipped'] += 1
+                        add_log(task_id, 'warning', f'设备{device.asset_no}：表格中卡片编号为空，跳过')
+                    elif device.asset_card_no == new_card_no:
+                        # 卡片编号相同，跳过
+                        progress['skipped'] += 1
+                        add_log(task_id, 'info', f'设备{device.asset_no}：卡片编号相同({new_card_no})，跳过')
+                    else:
+                        # 卡片编号不同，更新
+                        old_card_no = device.asset_card_no or '(空)'
+                        device.asset_card_no = new_card_no
+                        device.is_fixed = True
+                        device.save(update_fields=['asset_card_no', 'is_fixed'])
+                        progress['updated'] += 1
+                        add_log(task_id, 'success', f'设备{device.asset_no}：卡片编号从{old_card_no}更新为{new_card_no}，固资在账设为"是"')
+                else:
+                    # 表格中未找到该设备，跳过
+                    progress['skipped'] += 1
+                    add_log(task_id, 'warning', f'设备{device.asset_no}：表格中未找到，跳过')
+            except Exception as e:
+                progress['error'] += 1
+                progress['errors'].append(f"{device.asset_no}: {str(e)}")
+                add_log(task_id, 'error', f'设备{device.asset_no}：处理失败 - {str(e)}')
+            
+            # 每处理10个设备更新一次进度
+            if progress['current'] % 10 == 0:
+                time.sleep(0.1)
+        
+        progress['status'] = 'completed'
+        progress['current_asset_no'] = '处理完成'
+        add_log(task_id, 'success', f'处理完成！共处理{total}个设备，更新{progress["updated"]}个，跳过{progress["skipped"]}个，失败{progress["error"]}个')
+        
+    except Exception as e:
+        progress['status'] = 'completed'
+        progress['errors'].append(f"处理失败: {str(e)}")
+        add_log(task_id, 'error', f'处理失败: {str(e)}')

@@ -236,6 +236,7 @@
                     <a href="{% url 'device_import' %}" class="btn btn-sm btn-info"><i class="fas fa-file-import"></i> 导入设备</a>
                     <a href="{% url 'device_export' %}?search={{ request.GET.search }}&status={{ request.GET.status }}" class="btn btn-sm btn-info"><i class="fas fa-file-export"></i> 导出台账</a>
                     <button type="button" class="btn btn-sm btn-dark" onclick="regenerateAllQrcodes()"><i class="fas fa-qrcode"></i> 重新生成二维码</button>
+                    <a href="{% url 'update_card_no' %}" class="btn btn-sm btn-warning"><i class="fas fa-id-card"></i> 更新卡片编号</a>
                 </div>
             </div>
             

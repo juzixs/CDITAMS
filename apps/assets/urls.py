@@ -119,4 +119,8 @@ urlpatterns = [
     path('import-progress/', views.device_import_progress_api, name='device_import_progress_api'),
     path('download-template/', views.device_download_template, name='device_download_template'),
     path('export/', views.device_export, name='device_export'),
+    
+    path('update-card-no/', views.update_card_no, name='update_card_no'),
+    path('update-card-no/api/', views.update_card_no_api, name='update_card_no_api'),
+    path('update-card-no-progress/', views.update_card_no_progress_api, name='update_card_no_progress_api'),
 ]

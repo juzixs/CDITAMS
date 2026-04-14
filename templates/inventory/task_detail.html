@@ -470,14 +470,20 @@
                                     <tr>
                                         <th width="40"><input type="checkbox" id="selectAllDevices" onchange="toggleSelectAll()"></th>
                                         <th>资产编号</th>
+                                        <th>设备编号</th>
                                         <th>设备名称</th>
-                                        <th>分类</th>
-                                        <th>位置</th>
+                                        <th>型号</th>
+                                        <th>密级</th>
+                                        <th>所属部门</th>
                                         <th>使用人</th>
+                                        <th>位置</th>
+                                        <th>状态</th>
+                                        <th>固资在账</th>
+                                        <th>卡片编号</th>
                                     </tr>
                                 </thead>
                                 <tbody id="deviceSearchResult">
-                                    <tr><td colspan="6" class="text-center text-muted">请输入关键词搜索</td></tr>
+                                    <tr><td colspan="12" class="text-center text-muted">请输入关键词搜索</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -489,12 +495,75 @@
                     
                     <!-- 导入 -->
                     <div class="tab-pane fade" id="importPane">
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="parsePhotoOnly">
+                                <label class="form-check-label" for="parsePhotoOnly">
+                                    仅解析照片中设备（勾选后仅识别图片中的设备，不匹配系统）
+                                </label>
+                            </div>
+                        </div>
                         <div class="batch-import-area" id="importDropZone" onclick="document.getElementById('importFile').click()">
                             <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
                             <p class="mb-1">点击或拖拽文件到此处</p>
                             <small class="text-muted">支持 Excel(.xlsx/.xls)、CSV、图片(.png/.jpg)</small>
                             <input type="file" id="importFile" accept=".xlsx,.xls,.csv,.png,.jpg,.jpeg" style="display:none" onchange="handleImportFile(this)">
                         </div>
+                        
+                        <!-- 进度显示区域 -->
+                        <div id="importProgressCard" class="card mt-3 d-none">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span>导入进度</span>
+                                    <span id="importProgressText">0%</span>
+                                </div>
+                                <div class="progress mb-3" style="height: 20px;">
+                                    <div class="progress-bar progress-bar-striped progress-bar-animated" id="importProgressBar" role="progressbar" style="width: 0%">0/0</div>
+                                </div>
+                                <!-- 日志区域 -->
+                                <div id="importLogContainer" style="max-height: 300px; overflow-y: auto; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; padding: 10px; font-family: 'Consolas', 'Monaco', monospace; font-size: 12px;">
+                                    <div class="text-muted">等待处理...</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 图片解析结果列表 -->
+                        <div id="parsedDeviceList" class="mt-3 d-none">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6><i class="fas fa-list me-1"></i>解析到的设备（勾选要导入的设备）</h6>
+                                <div>
+                                    <button class="btn btn-success btn-sm" onclick="importSelectedDevices()">
+                                        <i class="fas fa-plus me-1"></i>导入选中设备
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                                <table class="table table-hover table-sm">
+                                    <thead class="table-light sticky-top">
+                                        <tr>
+                                            <th width="40"><input type="checkbox" id="selectAllParsed" onchange="toggleSelectAllParsed()"></th>
+                                            <th>资产编号</th>
+                                            <th>设备编号</th>
+                                            <th>设备名称</th>
+                                            <th>型号</th>
+                                            <th>密级</th>
+                                            <th>所属部门</th>
+                                            <th>使用人</th>
+                                            <th>位置</th>
+                                            <th>状态</th>
+                                            <th>固资在账</th>
+                                            <th>卡片编号</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="parsedDeviceTableBody">
+                                    </tbody>
+                                </table>
+                            </div>
+                            <button class="btn btn-primary mt-2" onclick="importAllParsedDevices()">
+                                <i class="fas fa-check-circle me-1"></i>全部导入
+                            </button>
+                        </div>
+                        
                         <div id="importResult" class="mt-3" style="display:none">
                             <div class="alert" id="importAlert"></div>
                             <div id="importDeviceList"></div>
@@ -506,6 +575,41 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 手动指定列弹窗 -->
+<div class="modal fade" id="manualColumnModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-columns me-2"></i>手动指定列</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    本地解析和AI解析都失败，请手动指定资产编号和卡片编号所在的列。
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">资产编号列（第几列，从0开始）</label>
+                    <input type="number" class="form-control" id="manualAssetCol" value="0" min="0">
+                    <small class="text-muted">0表示第1列，1表示第2列，以此类推</small>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">卡片编号列（第几列，从0开始）</label>
+                    <input type="number" class="form-control" id="manualCardCol" value="1" min="0">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">数量列（可选，-1表示无）</label>
+                    <input type="number" class="form-control" id="manualQtyCol" value="-1">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="manualParseExcel()">解析</button>
             </div>
         </div>
     </div>
@@ -581,7 +685,7 @@ function searchDevices() {
     const q = document.getElementById('deviceSearchInput').value.trim();
     const tbody = document.getElementById('deviceSearchResult');
     
-    tbody.innerHTML = '<tr><td colspan="6" class="text-center">搜索中...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="12" class="text-center">搜索中...</td></tr>';
     
     fetch(`/inventory/api/tasks/${TASK_ID}/device-search/?q=${encodeURIComponent(q)}`)
     .then(r => r.json())
@@ -589,16 +693,38 @@ function searchDevices() {
         if (data.success) {
             let html = '';
             data.devices.forEach(d => {
+                const secretLevelClass = {
+                    '公开': 'bg-success',
+                    '内部': 'bg-info',
+                    '秘密': 'bg-warning text-dark',
+                    '机密': 'bg-danger',
+                    '绝密': 'bg-dark',
+                    '商密': 'bg-secondary'
+                }[d.secret_level] || 'bg-secondary';
+                
+                const statusClass = {
+                    '使用': 'bg-success',
+                    '故障': 'bg-danger',
+                    '报废': 'bg-secondary',
+                    '闲置': 'bg-info'
+                }[d.status] || 'bg-info';
+                
                 html += `<tr>
                     <td><input type="checkbox" class="device-checkbox" value="${d.id}" onchange="updateSelectedDevices()"></td>
                     <td><strong class="text-primary">${d.asset_no}</strong></td>
+                    <td>${d.device_no || '-'}</td>
                     <td>${d.name}</td>
-                    <td>${d.category}</td>
-                    <td><small>${d.location || '-'}</small></td>
+                    <td>${d.model || '-'}</td>
+                    <td><span class="badge ${secretLevelClass}">${d.secret_level || '-'}</span></td>
+                    <td>${d.department || '-'}</td>
                     <td>${d.user || '-'}</td>
+                    <td><small>${d.location || d.location_text || '-'}</small></td>
+                    <td><span class="badge ${statusClass}">${d.status || '-'}</span></td>
+                    <td>${d.is_fixed ? '<span class="badge bg-success">是</span>' : '<span class="text-muted">否</span>'}</td>
+                    <td>${d.asset_card_no || '-'}</td>
                 </tr>`;
             });
-            tbody.innerHTML = html || '<tr><td colspan="6" class="text-center text-muted">未找到设备</td></tr>';
+            tbody.innerHTML = html || '<tr><td colspan="12" class="text-center text-muted">未找到设备</td></tr>';
             document.getElementById('searchResultInfo').textContent = `共 ${data.total} 条结果`;
             selectedDeviceIds = [];
             document.getElementById('selectAllDevices').checked = false;
@@ -651,6 +777,10 @@ function showImportTab() {
     document.getElementById('import-tab').click();
 }
 
+let importPollInterval = null;
+let lastImportLogCount = 0;
+let currentTaskIdForManual = null;
+
 function handleImportFile(input) {
     const file = input.files[0];
     if (!file) return;
@@ -659,35 +789,50 @@ function handleImportFile(input) {
     formData.append('file', file);
     formData.append('task_id', TASK_ID);
     
-    document.getElementById('importDropZone').innerHTML = '<i class="fas fa-spinner fa-spin fa-3x"></i><p>AI解析中，请稍候...</p>';
+    // 获取"仅解析照片"复选框状态
+    const parsePhotoOnly = document.getElementById('parsePhotoOnly').checked;
+    formData.append('parse_photo_only', parsePhotoOnly);
     
-    fetch('/inventory/api/ai-parse-file/', {
+    // 显示进度区域
+    document.getElementById('importProgressCard').classList.remove('d-none');
+    document.getElementById('importLogContainer').innerHTML = '<div class="text-muted">正在上传和解析...</div>';
+    document.getElementById('importDropZone').innerHTML = '<i class="fas fa-spinner fa-spin fa-3x"></i><p>处理中...</p>';
+    
+    // 隐藏其他区域
+    document.getElementById('parsedDeviceList').classList.add('d-none');
+    document.getElementById('importResult').style.display = 'none';
+    
+    fetch('/inventory/api/tasks/' + TASK_ID + '/import-devices/', {
         method: 'POST',
         headers: { 'X-CSRFToken': '{{ csrf_token }}' },
         body: formData
     })
     .then(r => r.json())
     .then(data => {
-        document.getElementById('importDropZone').innerHTML = `
-            <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
-            <p class="mb-1">点击或拖拽文件到此处</p>
-            <small class="text-muted">支持 Excel(.xlsx/.xls)、CSV、图片(.png/.jpg)</small>
-        `;
-        
-        const resultDiv = document.getElementById('importResult');
-        resultDiv.style.display = 'block';
-        const alertDiv = document.getElementById('importAlert');
-        
         if (data.success) {
-            alertDiv.className = 'alert alert-success';
-            alertDiv.innerHTML = `<i class="fas fa-check-circle me-2"></i>${data.message}`;
-            
-            if (data.not_found && data.not_found.length > 0) {
-                alertDiv.innerHTML += `<br><small class="text-warning">未找到以下编号: ${data.not_found.join(', ')}</small>`;
+            if (data.device_list) {
+                // 图片解析模式 - 显示设备列表
+                document.getElementById('importDropZone').innerHTML = `
+                    <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                    <p class="mb-1">点击或拖拽文件到此处</p>
+                    <small class="text-muted">支持 Excel(.xlsx/.xls)、CSV、图片(.png/.jpg)</small>
+                `;
+                showParsedDeviceList(data.device_list);
+            } else {
+                // Excel导入模式 - 开始轮询进度
+                const taskId = data.task_id;
+                currentTaskIdForManual = taskId;
+                lastImportLogCount = 0;
+                importPollInterval = setInterval(() => pollImportProgress(taskId), 1000);
             }
         } else {
-            alertDiv.className = 'alert alert-danger';
-            alertDiv.innerHTML = `<i class="fas fa-exclamation-circle me-2"></i>${data.message}`;
+            document.getElementById('importDropZone').innerHTML = `
+                <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                <p class="mb-1">点击或拖拽文件到此处</p>
+                <small class="text-muted">支持 Excel(.xlsx/.xls)、CSV、图片(.png/.jpg)</small>
+            `;
+            alert('导入失败: ' + data.message);
+            document.getElementById('importProgressCard').classList.add('d-none');
         }
     })
     .catch(err => {
@@ -697,6 +842,228 @@ function handleImportFile(input) {
             <small class="text-muted">支持 Excel(.xlsx/.xls)、CSV、图片(.png/.jpg)</small>
         `;
         alert('导入失败: ' + err);
+        document.getElementById('importProgressCard').classList.add('d-none');
+    });
+}
+
+function pollImportProgress(taskId) {
+    fetch('/inventory/api/tasks/' + TASK_ID + '/import-progress/?task_id=' + taskId)
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === 'not_found') {
+            clearInterval(importPollInterval);
+            return;
+        }
+        
+        // 更新日志
+        const logContainer = document.getElementById('importLogContainer');
+        if (data.logs && data.logs.length > lastImportLogCount) {
+            if (lastImportLogCount === 0) {
+                logContainer.innerHTML = '';
+            }
+            for (let i = lastImportLogCount; i < data.logs.length; i++) {
+                const log = data.logs[i];
+                const levelClass = {
+                    'info': 'text-secondary',
+                    'success': 'text-success',
+                    'warning': 'text-warning',
+                    'error': 'text-danger',
+                    'ai': 'text-primary'
+                }[log.level] || 'text-secondary';
+                const levelIcon = {
+                    'info': 'fa-info-circle',
+                    'success': 'fa-check-circle',
+                    'warning': 'fa-exclamation-triangle',
+                    'error': 'fa-times-circle',
+                    'ai': 'fa-robot'
+                }[log.level] || 'fa-info-circle';
+                
+                const logDiv = document.createElement('div');
+                logDiv.className = 'mb-1';
+                logDiv.innerHTML = `<span class="text-muted">[${log.time}]</span> <i class="fas ${levelIcon} ${levelClass}"></i> <span class="${levelClass}">${log.message}</span>`;
+                logContainer.appendChild(logDiv);
+            }
+            lastImportLogCount = data.logs.length;
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+        
+        // 更新进度条
+        if (data.total > 0) {
+            const percent = Math.round(data.current / data.total * 100);
+            document.getElementById('importProgressText').textContent = percent + '%';
+            document.getElementById('importProgressBar').style.width = percent + '%';
+            document.getElementById('importProgressBar').textContent = data.current + '/' + data.total;
+        }
+        
+        // 检查是否需要手动选择列
+        if (data.status === 'need_manual') {
+            clearInterval(importPollInterval);
+            document.getElementById('importDropZone').innerHTML = `
+                <i class="fas fa-exclamation-triangle fa-3x text-warning mb-3"></i>
+                <p class="mb-1">解析失败</p>
+                <small class="text-muted">本地和AI解析都无法识别列，请手动指定</small>
+            `;
+            
+            // 显示手动选择弹窗
+            const modal = new bootstrap.Modal(document.getElementById('manualColumnModal'));
+            modal.show();
+            return;
+        }
+        
+        if (data.status === 'completed') {
+            clearInterval(importPollInterval);
+            
+            // 显示结果
+            document.getElementById('importDropZone').innerHTML = `
+                <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                <p class="mb-1">点击或拖拽文件到此处</p>
+                <small class="text-muted">支持 Excel(.xlsx/.xls)、CSV、图片(.png/.jpg)</small>
+            `;
+            
+            const resultDiv = document.getElementById('importResult');
+            resultDiv.style.display = 'block';
+            const alertDiv = document.getElementById('importAlert');
+            
+            if (data.errors && data.errors.length > 0) {
+                alertDiv.className = 'alert alert-danger';
+                alertDiv.innerHTML = `<i class="fas fa-exclamation-circle me-2"></i>处理完成，但有错误: ${data.errors.join(', ')}`;
+            } else {
+                alertDiv.className = 'alert alert-success';
+                alertDiv.innerHTML = `<i class="fas fa-check-circle me-2"></i>处理完成！已添加 ${data.added_count || 0} 个设备，已存在 ${data.skipped_count || 0} 个`;
+                
+                if (data.not_found && data.not_found.length > 0) {
+                    alertDiv.innerHTML += `<br><small class="text-warning">以下设备未在系统中找到: ${data.not_found.join(', ')}</small>`;
+                }
+            }
+            
+            // 刷新页面
+            setTimeout(() => location.reload(), 2000);
+        }
+    });
+}
+
+function showParsedDeviceList(devices) {
+    const tbody = document.getElementById('parsedDeviceTableBody');
+    let html = '';
+    
+    devices.forEach(d => {
+        const secretLevelClass = {
+            '公开': 'bg-success',
+            '内部': 'bg-info',
+            '秘密': 'bg-warning text-dark',
+            '机密': 'bg-danger',
+            '绝密': 'bg-dark',
+            '商密': 'bg-secondary'
+        }[d.secret_level] || 'bg-secondary';
+        
+        const statusClass = {
+            '使用': 'bg-success',
+            '故障': 'bg-danger',
+            '报废': 'bg-secondary',
+            '闲置': 'bg-info'
+        }[d.status] || 'bg-info';
+        
+        html += `<tr>
+            <td><input type="checkbox" class="parsed-device-checkbox" value="${d.id}"></td>
+            <td><strong class="text-primary">${d.asset_no}</strong></td>
+            <td>${d.device_no || '-'}</td>
+            <td>${d.name}</td>
+            <td>${d.model || '-'}</td>
+            <td><span class="badge ${secretLevelClass}">${d.secret_level || '-'}</span></td>
+            <td>${d.department || '-'}</td>
+            <td>${d.user || '-'}</td>
+            <td><small>${d.location || '-'}</small></td>
+            <td><span class="badge ${statusClass}">${d.status || '-'}</span></td>
+            <td>${d.is_fixed ? '<span class="badge bg-success">是</span>' : '<span class="text-muted">否</span>'}</td>
+            <td>${d.asset_card_no || '-'}</td>
+        </tr>`;
+    });
+    
+    tbody.innerHTML = html || '<tr><td colspan="12" class="text-center text-muted">未找到匹配设备</td></tr>';
+    document.getElementById('parsedDeviceList').classList.remove('d-none');
+}
+
+function toggleSelectAllParsed() {
+    const checked = document.getElementById('selectAllParsed').checked;
+    document.querySelectorAll('.parsed-device-checkbox').forEach(cb => {
+        cb.checked = checked;
+    });
+}
+
+function importSelectedDevices() {
+    const selectedIds = [];
+    document.querySelectorAll('.parsed-device-checkbox:checked').forEach(cb => {
+        selectedIds.push(parseInt(cb.value));
+    });
+    
+    if (selectedIds.length === 0) {
+        alert('请选择要导入的设备');
+        return;
+    }
+    
+    fetch(`/inventory/api/tasks/${TASK_ID}/add-devices/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({ device_ids: selectedIds })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            alert(`成功添加 ${data.added_count} 台设备`);
+            document.getElementById('parsedDeviceList').classList.add('d-none');
+            location.reload();
+        } else {
+            alert('导入失败: ' + data.message);
+        }
+    });
+}
+
+function importAllParsedDevices() {
+    document.querySelectorAll('.parsed-device-checkbox').forEach(cb => {
+        cb.checked = true;
+    });
+    importSelectedDevices();
+}
+
+function manualParseExcel() {
+    const taskId = currentTaskIdForManual;
+    const assetCol = parseInt(document.getElementById('manualAssetCol').value);
+    const cardCol = parseInt(document.getElementById('manualCardCol').value);
+    const qtyCol = parseInt(document.getElementById('manualQtyCol').value);
+    
+    if (isNaN(assetCol) || isNaN(cardCol)) {
+        alert('请输入有效的列号');
+        return;
+    }
+    
+    fetch('/inventory/api/tasks/' + TASK_ID + '/manual-parse/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+            task_id: taskId,
+            asset_col: assetCol,
+            card_col: cardCol,
+            qty_col: qtyCol
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            alert(`解析成功！已添加 ${data.added_count} 个设备，已存在 ${data.skipped_count} 个`);
+            bootstrap.Modal.getInstance(document.getElementById('manualColumnModal')).hide();
+            location.reload();
+        } else {
+            alert('解析失败: ' + data.message);
+        }
+    })
+    .catch(err => {
+        alert('请求失败: ' + err);
     });
 }
 

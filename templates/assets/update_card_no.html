@@ -1,0 +1,319 @@
+{% extends 'base.html' %}
+{% block title %}更新卡片编号 - 驰达IT资产管理系统{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4><i class="fas fa-id-card me-2"></i>更新卡片编号</h4>
+    <div>
+        <a href="{% url 'device_list' %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left me-1"></i>返回列表</a>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header bg-primary text-white">
+        <i class="fas fa-info-circle me-2"></i>功能说明
+    </div>
+    <div class="card-body">
+        <ol class="mb-0">
+            <li>上传包含<strong>资产编号</strong>和<strong>卡片编号</strong>的Excel表格</li>
+            <li>系统将自动识别表格中的资产编号、卡片编号、资产数量列</li>
+            <li>调用AI大模型解析合并写法（如 <code>XACD-Z-001-001-001/002/003</code> 或 <code>XACD-Z-001-001-006~009</code>）</li>
+            <li>遍历系统中所有设备，根据资产编号匹配并更新卡片编号</li>
+            <li>如卡片编号已存在且相同，则<strong>跳过</strong></li>
+            <li>如卡片编号不同或为空，则<strong>更新</strong>并设置固资在账为"是"</li>
+            <li>表格中存在但系统中不存在的设备将被忽略</li>
+        </ol>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">
+        <i class="fas fa-upload me-2"></i>上传文件
+    </div>
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <span><i class="fas fa-table me-1 text-info"></i><strong>表格要求</strong></span>
+        </div>
+        <div class="table-responsive mb-4">
+            <table class="table table-bordered table-sm">
+                <thead class="table-light">
+                    <tr>
+                        <th class="text-center">资产编号</th>
+                        <th class="text-center">卡片编号</th>
+                        <th class="text-center">资产数量（可选）</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="text-center">XACD-Z-001-001-001/002/003</td>
+                        <td class="text-center">KP-2019060578</td>
+                        <td class="text-center">3</td>
+                    </tr>
+                    <tr>
+                        <td class="text-center">XACD-Z-001-001-006~009</td>
+                        <td class="text-center">KP-2019060574</td>
+                        <td class="text-center">4</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <hr>
+        
+        <form id="updateForm" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="row">
+                <div class="col-md-8">
+                    <label class="form-label">选择Excel文件 <small class="text-muted">（支持 .xlsx 和 .xls 格式）</small></label>
+                    <div class="input-group">
+                        <input type="file" name="file" id="fileInput" class="form-control" accept=".xlsx,.xls" required>
+                        <button type="submit" id="updateBtn" class="btn btn-warning"><i class="fas fa-sync me-1"></i>开始更新</button>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card d-none" id="progressCard">
+    <div class="card-header bg-info text-white">
+        <i class="fas fa-spinner fa-spin me-2" id="progressIcon"></i>处理进度
+    </div>
+    <div class="card-body">
+        <div class="mb-3">
+            <div class="d-flex justify-content-between mb-1">
+                <span>更新进度</span>
+                <span id="progressText">0%</span>
+            </div>
+            <div class="progress" style="height: 25px;">
+                <div class="progress-bar progress-bar-striped progress-bar-animated" id="progressBar" role="progressbar" style="width: 0%">0/0</div>
+            </div>
+        </div>
+        
+        <div class="row text-center mb-3">
+            <div class="col-md-3">
+                <div class="border rounded p-3">
+                    <h4 class="text-primary mb-0" id="processedCount">0</h4>
+                    <small class="text-muted">已处理</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="border rounded p-3">
+                    <h4 class="text-success mb-0" id="updatedCount">0</h4>
+                    <small class="text-muted">已更新</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="border rounded p-3">
+                    <h4 class="text-warning mb-0" id="skippedCount">0</h4>
+                    <small class="text-muted">已跳过</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="border rounded p-3">
+                    <h4 class="text-danger mb-0" id="errorCount">0</h4>
+                    <small class="text-muted">失败</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="alert alert-light mb-0">
+            <small class="text-muted">当前处理：<span id="currentInfo">等待开始...</span></small>
+        </div>
+        
+        <!-- 详细日志区域 -->
+        <div class="mt-3">
+            <h6><i class="fas fa-list-alt me-1"></i>处理日志</h6>
+            <div id="logContainer" style="max-height: 400px; overflow-y: auto; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; padding: 10px; font-family: 'Consolas', 'Monaco', monospace; font-size: 12px;">
+                <div class="text-muted">等待处理...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card d-none mt-4" id="resultCard">
+    <div class="card-header bg-success text-white">
+        <i class="fas fa-check-circle me-2"></i>更新完成
+    </div>
+    <div class="card-body">
+        <div class="row text-center">
+            <div class="col-md-3">
+                <div class="border rounded p-3">
+                    <h4 class="text-primary" id="resultProcessed">0</h4>
+                    <small class="text-muted">已处理设备</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="border rounded p-3">
+                    <h4 class="text-success" id="resultUpdated">0</h4>
+                    <small class="text-muted">已更新</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="border rounded p-3">
+                    <h4 class="text-warning" id="resultSkipped">0</h4>
+                    <small class="text-muted">已跳过</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="border rounded p-3">
+                    <h4 class="text-danger" id="resultError">0</h4>
+                    <small class="text-muted">失败</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-3" id="errorDetails" style="display:none;">
+            <h6 class="text-danger"><i class="fas fa-exclamation-triangle me-1"></i>错误详情</h6>
+            <div class="alert alert-danger" id="errorList"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+let taskId = null;
+let pollInterval = null;
+
+document.getElementById('updateForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const fileInput = document.getElementById('fileInput');
+    if (!fileInput.files[0]) {
+        alert('请选择文件');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+    
+    document.getElementById('updateBtn').disabled = true;
+    document.getElementById('updateBtn').innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>处理中...';
+    
+    fetch('{% url "update_card_no_api" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            taskId = data.task_id;
+            lastLogCount = 0; // 重置日志计数
+            document.getElementById('progressCard').classList.remove('d-none');
+            document.getElementById('logContainer').innerHTML = '<div class="text-muted">等待处理...</div>';
+            pollInterval = setInterval(pollProgress, 1000);
+        } else {
+            alert('启动失败: ' + data.message);
+            resetButton();
+        }
+    })
+    .catch(err => {
+        alert('请求失败: ' + err);
+        resetButton();
+    });
+});
+
+let lastLogCount = 0;
+
+function pollProgress() {
+    if (!taskId) return;
+    
+    fetch('{% url "update_card_no_progress_api" %}?task_id=' + taskId)
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === 'not_found') {
+            clearInterval(pollInterval);
+            return;
+        }
+        
+        // 更新进度
+        const percent = data.total > 0 ? Math.round(data.current / data.total * 100) : 0;
+        document.getElementById('progressText').textContent = percent + '%';
+        document.getElementById('progressBar').style.width = percent + '%';
+        document.getElementById('progressBar').textContent = data.current + '/' + data.total;
+        
+        document.getElementById('processedCount').textContent = data.current;
+        document.getElementById('updatedCount').textContent = data.updated;
+        document.getElementById('skippedCount').textContent = data.skipped;
+        document.getElementById('errorCount').textContent = data.error;
+        
+        document.getElementById('currentInfo').textContent = data.current_asset_no || '处理中...';
+        
+        // 更新日志显示
+        if (data.logs && data.logs.length > 0) {
+            const logContainer = document.getElementById('logContainer');
+            
+            // 只添加新日志
+            if (data.logs.length > lastLogCount) {
+                // 清空容器（如果之前有"等待处理..."提示）
+                if (lastLogCount === 0) {
+                    logContainer.innerHTML = '';
+                }
+                
+                // 添加新日志
+                for (let i = lastLogCount; i < data.logs.length; i++) {
+                    const log = data.logs[i];
+                    const logDiv = document.createElement('div');
+                    logDiv.className = 'mb-1';
+                    
+                    // 根据级别设置颜色和图标
+                    let levelClass = 'text-secondary';
+                    let levelIcon = 'fa-info-circle';
+                    switch(log.level) {
+                        case 'success': 
+                            levelClass = 'text-success'; 
+                            levelIcon = 'fa-check-circle'; 
+                            break;
+                        case 'warning': 
+                            levelClass = 'text-warning'; 
+                            levelIcon = 'fa-exclamation-triangle'; 
+                            break;
+                        case 'error': 
+                            levelClass = 'text-danger'; 
+                            levelIcon = 'fa-times-circle'; 
+                            break;
+                        case 'ai': 
+                            levelClass = 'text-primary'; 
+                            levelIcon = 'fa-robot'; 
+                            break;
+                    }
+                    
+                    logDiv.innerHTML = `<span class="text-muted">[${log.time}]</span> <i class="fas ${levelIcon} ${levelClass}"></i> <span class="${levelClass}">${log.message}</span>`;
+                    logContainer.appendChild(logDiv);
+                }
+                
+                lastLogCount = data.logs.length;
+                
+                // 滚动到底部
+                logContainer.scrollTop = logContainer.scrollHeight;
+            }
+        }
+        
+        if (data.status === 'completed') {
+            clearInterval(pollInterval);
+            document.getElementById('progressIcon').className = 'fas fa-check-circle me-2';
+            
+            // 显示结果
+            document.getElementById('resultCard').classList.remove('d-none');
+            document.getElementById('resultProcessed').textContent = data.current;
+            document.getElementById('resultUpdated').textContent = data.updated;
+            document.getElementById('resultSkipped').textContent = data.skipped;
+            document.getElementById('resultError').textContent = data.error;
+            
+            if (data.errors && data.errors.length > 0) {
+                document.getElementById('errorDetails').style.display = 'block';
+                document.getElementById('errorList').innerHTML = data.errors.slice(0, 20).join('<br>');
+            }
+            
+            resetButton();
+        }
+    });
+}
+
+function resetButton() {
+    document.getElementById('updateBtn').disabled = false;
+    document.getElementById('updateBtn').innerHTML = '<i class="fas fa-sync me-1"></i>开始更新';
+}
+</script>
+{% endblock %}

@@ -17,6 +17,11 @@ urlpatterns = [
     path('api/tasks/<int:task_id>/add-devices/', views.api_add_devices, name='api_add_devices'),
     path('api/tasks/<int:task_id>/remove-device/', views.api_remove_device, name='api_remove_device'),
     
+    # 导入设备 API
+    path('api/tasks/<int:task_id>/import-devices/', views.api_import_devices, name='api_import_devices'),
+    path('api/tasks/<int:task_id>/import-progress/', views.api_import_progress, name='api_import_progress'),
+    path('api/tasks/<int:task_id>/manual-parse/', views.api_manual_parse_excel, name='api_manual_parse_excel'),
+    
     # AI解析 API
     path('api/ai-parse/', views.api_ai_parse, name='api_ai_parse'),
     path('api/ai-parse-file/', views.api_ai_parse_file, name='api_ai_parse_file'),
