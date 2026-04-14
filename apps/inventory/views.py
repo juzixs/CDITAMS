@@ -292,7 +292,10 @@ def api_device_search(request, task_id):
             Q(model__icontains=q) |
             Q(user__realname__icontains=q) |
             Q(department__name__icontains=q) |
-            Q(location_text__icontains=q)
+            Q(location_text__icontains=q) |
+            Q(asset_card_no__icontains=q) |
+            Q(secret_level__icontains=q) |
+            Q(status__icontains=q)
         ).distinct()
     
     # 分页

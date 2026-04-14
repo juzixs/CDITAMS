@@ -460,8 +460,13 @@
                     <div class="tab-pane fade show active" id="searchPane">
                         <div class="mb-3">
                             <div class="input-group">
-                                <input type="text" class="form-control" id="deviceSearchInput" placeholder="搜索资产编号、名称、序列号等">
+                                <input type="text" class="form-control" id="deviceSearchInput" 
+                                       placeholder="搜索资产编号、设备编号、名称、型号、密级、部门、使用人、位置、状态、卡片编号"
+                                       oninput="debounceSearch()">
                                 <button class="btn btn-primary" onclick="searchDevices()"><i class="fas fa-search me-1"></i>搜索</button>
+                                <button class="btn btn-outline-secondary" onclick="resetSearch()" type="button">
+                                    <i class="fas fa-undo me-1"></i>重置
+                                </button>
                             </div>
                         </div>
                         <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
@@ -680,6 +685,23 @@ function doRandomSelect() {
 
 // 设备搜索
 let selectedDeviceIds = [];
+let searchTimeout = null;
+
+function debounceSearch() {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        searchDevices();
+    }, 500);
+}
+
+function resetSearch() {
+    document.getElementById('deviceSearchInput').value = '';
+    document.getElementById('deviceSearchResult').innerHTML = 
+        '<tr><td colspan="12" class="text-center text-muted">请输入关键词搜索</td></tr>';
+    document.getElementById('searchResultInfo').textContent = '';
+    selectedDeviceIds = [];
+    document.getElementById('selectAllDevices').checked = false;
+}
 
 function searchDevices() {
     const q = document.getElementById('deviceSearchInput').value.trim();
@@ -765,11 +787,41 @@ function addSelectedDevices() {
     .then(data => {
         if (data.success) {
             alert(data.message);
-            location.reload();
+            // 清除选中状态
+            selectedDeviceIds = [];
+            document.getElementById('selectAllDevices').checked = false;
+            // 重新搜索以刷新结果（自动排除已添加设备）
+            searchDevices();
+            // 刷新待盘点设备计数
+            refreshPendingCount();
         } else {
             alert(data.message);
         }
     });
+}
+
+function refreshPendingCount() {
+    // 获取最新任务数据并更新待盘点设备计数
+    fetch(`/inventory/tasks/${TASK_ID}/`)
+        .then(r => r.text())
+        .then(html => {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            
+            // 更新待盘点设备计数badge
+            const pendingTab = doc.querySelector('#pending-tab .badge');
+            const currentPendingTab = document.querySelector('#pending-tab .badge');
+            if (pendingTab && currentPendingTab) {
+                currentPendingTab.textContent = pendingTab.textContent;
+            }
+            
+            // 更新待盘点设备列表
+            const pendingContent = doc.querySelector('#pending');
+            const currentPending = document.querySelector('#pending');
+            if (pendingContent && currentPending) {
+                currentPending.innerHTML = pendingContent.innerHTML;
+            }
+        });
 }
 
 // 导入文件
