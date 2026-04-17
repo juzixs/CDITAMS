@@ -134,12 +134,10 @@ class InventoryRecord(models.Model):
     LOCATION_STATUS = [
         ('in_place', '在位'),
         ('moved', '搬离'),
-        ('not_found', '未找到'),
     ]
     ASSET_STATUS = [
         ('normal', '正常'),
         ('damaged', '损坏'),
-        ('lost', '丢失'),
     ]
     SOURCES = [
         ('manual', '手工盘点'),

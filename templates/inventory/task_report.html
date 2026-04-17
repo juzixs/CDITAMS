@@ -1,0 +1,384 @@
+{% extends 'base.html' %}
+{% block title %}盘点报告 - {{ task.task_no }} - 驰达IT资产管理系统{% endblock %}
+{% block extra_css %}
+<style>
+    .stat-card {
+        border-radius: 10px;
+        padding: 1.5rem;
+        text-align: center;
+        color: white;
+        margin-bottom: 1rem;
+    }
+    .stat-card .stat-icon {
+        font-size: 2.5rem;
+        opacity: 0.8;
+    }
+    .stat-card .stat-value {
+        font-size: 2rem;
+        font-weight: bold;
+        margin: 0.5rem 0;
+    }
+    .stat-card .stat-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+    .progress-ring {
+        width: 120px;
+        height: 120px;
+        margin: 0 auto;
+    }
+    .report-table th {
+        background-color: #f8f9fa;
+    }
+    .badge-location {
+        font-size: 0.85rem;
+        padding: 0.4em 0.8em;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-2">
+    <div>
+        <h5 class="mb-1"><i class="fas fa-chart-bar me-2"></i>盘点报告</h5>
+        <span class="text-muted">{{ task.task_no }} - {{ task.name|default:task.get_task_type_display }}</span>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a href="{% url 'inventory_task_detail' task.id %}" class="btn btn-outline-secondary btn-sm">
+            <i class="fas fa-arrow-left me-1"></i>返回详情
+        </a>
+        <button class="btn btn-outline-primary btn-sm" onclick="window.print()">
+            <i class="fas fa-print me-1"></i>打印报告
+        </button>
+        <button class="btn btn-success btn-sm" onclick="exportReport()">
+            <i class="fas fa-download me-1"></i>导出Excel
+        </button>
+    </div>
+</div>
+
+<!-- 任务基本信息 -->
+<div class="card mb-4">
+    <div class="card-header bg-primary text-white">
+        <i class="fas fa-info-circle me-2"></i>任务信息
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-3 col-6 mb-2">
+                <strong>任务编号:</strong> {{ task.task_no }}
+            </div>
+            <div class="col-md-3 col-6 mb-2">
+                <strong>任务类型:</strong> {{ task.get_task_type_display }}
+            </div>
+            <div class="col-md-3 col-6 mb-2">
+                <strong>创建人:</strong> {{ task.created_by.realname|default:'-' }}
+            </div>
+            <div class="col-md-3 col-6 mb-2">
+                <strong>负责人:</strong> {{ task.assignee.realname|default:'-' }}
+            </div>
+            <div class="col-md-3 col-6 mb-2">
+                <strong>创建时间:</strong> {{ task.created_at|date:"Y-m-d H:i" }}
+            </div>
+            <div class="col-md-3 col-6 mb-2">
+                <strong>完成时间:</strong> {{ task.completed_at|date:"Y-m-d H:i"|default:'-' }}
+            </div>
+            <div class="col-md-3 col-6 mb-2">
+                <strong>固资在账:</strong> {% if task.is_fixed_only %}<span class="badge bg-success">是</span>{% else %}<span class="text-muted">否</span>{% endif %}
+            </div>
+            <div class="col-md-3 col-6 mb-2">
+                <strong>状态:</strong> <span class="badge bg-success">{{ task.get_status_display }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 统计概览 -->
+<div class="row mb-4">
+    <div class="col-lg-3 col-md-6">
+        <div class="stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+            <i class="fas fa-clipboard-list stat-icon"></i>
+            <div class="stat-value">{{ total_count }}</div>
+            <div class="stat-label">应盘设备</div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-6">
+        <div class="stat-card" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">
+            <i class="fas fa-check-circle stat-icon"></i>
+            <div class="stat-value">{{ checked_count }}</div>
+            <div class="stat-label">已盘设备</div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-6">
+        <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+            <i class="fas fa-percentage stat-icon"></i>
+            <div class="stat-value">{{ completion_rate }}%</div>
+            <div class="stat-label">完成率</div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-6">
+        <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+            <i class="fas fa-exclamation-triangle stat-icon"></i>
+            <div class="stat-value">{{ damaged_count }}</div>
+            <div class="stat-label">损坏设备</div>
+        </div>
+    </div>
+</div>
+
+<!-- 详细统计 -->
+<div class="row mb-4">
+    <!-- 位置状态统计 -->
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header bg-info text-white">
+                <i class="fas fa-map-marker-alt me-2"></i>位置状态统计
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>状态</th>
+                                <th class="text-end">数量</th>
+                                <th class="text-end">占比</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><span class="badge bg-success badge-location">在位</span></td>
+                                <td class="text-end">{{ in_place_count }}</td>
+                                <td class="text-end">{% if checked_count > 0 %}{% widthratio in_place_count checked_count 100 %}%{% else %}0%{% endif %}</td>
+                            </tr>
+                            <tr>
+                                <td><span class="badge bg-warning badge-location">搬离</span></td>
+                                <td class="text-end">{{ moved_count }}</td>
+                                <td class="text-end">{% if checked_count > 0 %}{% widthratio moved_count checked_count 100 %}%{% else %}0%{% endif %}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 资产状态统计 -->
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header bg-danger text-white">
+                <i class="fas fa-heart me-2"></i>资产状态统计
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>状态</th>
+                                <th class="text-end">数量</th>
+                                <th class="text-end">占比</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><span class="badge bg-success badge-location">正常</span></td>
+                                <td class="text-end">{{ normal_count }}</td>
+                                <td class="text-end">{% if checked_count > 0 %}{% widthratio normal_count checked_count 100 %}%{% else %}0%{% endif %}</td>
+                            </tr>
+                            <tr>
+                                <td><span class="badge bg-danger badge-location">损坏</span></td>
+                                <td class="text-end">{{ damaged_count }}</td>
+                                <td class="text-end">{% if checked_count > 0 %}{% widthratio damaged_count checked_count 100 %}%{% else %}0%{% endif %}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 部门统计 -->
+{% if department_stats %}
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header bg-primary text-white">
+                <i class="fas fa-building me-2"></i>部门盘点统计
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>部门</th>
+                                <th class="text-end">已盘数量</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for stat in department_stats %}
+                            <tr>
+                                <td>{{ stat.device__department__name }}</td>
+                                <td class="text-end">{{ stat.count }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 分类统计 -->
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header bg-success text-white">
+                <i class="fas fa-tags me-2"></i>分类盘点统计
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>分类</th>
+                                <th class="text-end">已盘数量</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for stat in category_stats %}
+                            <tr>
+                                <td>{{ stat.device__category__name }}</td>
+                                <td class="text-end">{{ stat.count }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- 盘点明细 -->
+<div class="card">
+    <div class="card-header bg-secondary text-white">
+        <i class="fas fa-list me-2"></i>盘点明细（{% if records|length >= 100 %}显示前100条{% else %}共{{ records|length }}条{% endif %}）
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-sm report-table mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>#</th>
+                        <th>资产编号</th>
+                        <th>设备名称</th>
+                        <th>型号</th>
+                        <th>部门</th>
+                        <th>使用人</th>
+                        <th>位置状态</th>
+                        <th>资产状态</th>
+                        <th>盘点人</th>
+                        <th>盘点时间</th>
+                        <th>备注</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in records %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td><strong class="text-primary">{{ record.device.asset_no }}</strong></td>
+                        <td>{{ record.device.name }}</td>
+                        <td>{{ record.device.model|default:'-' }}</td>
+                        <td>{{ record.device.department.name|default:'-' }}</td>
+                        <td>{{ record.device.user.realname|default:'-' }}</td>
+                        <td>
+                            {% if record.location_status == 'in_place' %}
+                            <span class="badge bg-success">在位</span>
+                            {% elif record.location_status == 'moved' %}
+                            <span class="badge bg-warning">搬离</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{{ record.get_location_status_display }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if record.asset_status == 'normal' %}
+                            <span class="badge bg-success">正常</span>
+                            {% elif record.asset_status == 'damaged' %}
+                            <span class="badge bg-danger">损坏</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{{ record.get_asset_status_display }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ record.checked_by.realname|default:'-' }}</td>
+                        <td>{{ record.checked_at|date:"Y-m-d H:i" }}</td>
+                        <td>{{ record.remarks|default:'-'|truncatechars:20 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="11" class="text-center text-muted py-4">暂无盘点记录</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 报告打印信息 -->
+<div class="d-none d-print-block mt-4">
+    <hr>
+    <div class="row">
+        <div class="col-6">
+            <p><strong>盘点人:</strong> ________________</p>
+            <p><strong>日期:</strong> ________________</p>
+        </div>
+        <div class="col-6 text-end">
+            <p><strong>审核人:</strong> ________________</p>
+            <p><strong>日期:</strong> ________________</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function exportReport() {
+    // 简单的CSV导出功能
+    const rows = document.querySelectorAll('.report-table tbody tr');
+    let csv = '资产编号,设备名称,型号,部门,使用人,位置状态,资产状态,盘点人,盘点时间,备注\n';
+    
+    rows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        if (cells.length > 1) {
+            const rowData = [
+                cells[1].textContent.trim(),
+                cells[2].textContent.trim(),
+                cells[3].textContent.trim(),
+                cells[4].textContent.trim(),
+                cells[5].textContent.trim(),
+                cells[6].textContent.trim(),
+                cells[7].textContent.trim(),
+                cells[8].textContent.trim(),
+                cells[9].textContent.trim(),
+                cells[10].textContent.trim()
+            ];
+            csv += rowData.map(cell => `"${cell.replace(/"/g, '""')}"`).join(',') + '\n';
+        }
+    });
+    
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `盘点报告_{{ task.task_no }}_${new Date().toISOString().slice(0,10)}.csv`;
+    link.click();
+}
+
+// 打印样式
+const style = document.createElement('style');
+style.textContent = `
+    @media print {
+        .btn, nav, footer { display: none !important; }
+        .card { border: 1px solid #ddd !important; box-shadow: none !important; }
+        .stat-card { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+`;
+document.head.appendChild(style);
+</script>
+{% endblock %}

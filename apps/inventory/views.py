@@ -1873,6 +1873,66 @@ def inventory_report(request):
     return render(request, 'inventory/report.html', context)
 
 
+@login_required
+def task_report(request, pk):
+    """单个任务盘点报告"""
+    task = get_object_or_404(InventoryTask.objects.select_related('created_by', 'assignee'), pk=pk)
+    
+    # 获取盘点记录
+    records = task.records.select_related('device', 'device__category', 'device__department', 
+                                          'device__user', 'device__location', 'checked_by').all()
+    
+    # 统计数据
+    total_count = task.device_count
+    checked_count = task.checked_count
+    
+    # 位置状态统计
+    in_place_count = records.filter(location_status='in_place').count()
+    moved_count = records.filter(location_status='moved').count()
+    
+    # 资产状态统计
+    normal_count = records.filter(asset_status='normal').count()
+    damaged_count = records.filter(asset_status='damaged').count()
+    
+    # 部门统计
+    from django.db.models import Count
+    department_stats = records.filter(
+        device__department__isnull=False
+    ).values(
+        'device__department__name'
+    ).annotate(
+        count=Count('id')
+    ).order_by('-count')
+    
+    # 分类统计
+    category_stats = records.filter(
+        device__category__isnull=False
+    ).values(
+        'device__category__name'
+    ).annotate(
+        count=Count('id')
+    ).order_by('-count')
+    
+    # 完成率
+    completion_rate = round(checked_count / total_count * 100, 1) if total_count > 0 else 0
+    
+    context = {
+        'task': task,
+        'records': records[:100],  # 限制显示数量
+        'total_count': total_count,
+        'checked_count': checked_count,
+        'in_place_count': in_place_count,
+        'moved_count': moved_count,
+        'normal_count': normal_count,
+        'damaged_count': damaged_count,
+        'completion_rate': completion_rate,
+        'department_stats': department_stats,
+        'category_stats': category_stats,
+    }
+    
+    return render(request, 'inventory/task_report.html', context)
+
+
 # ==================== 兼容旧接口 - 盘点审核 ====================
 
 @login_required

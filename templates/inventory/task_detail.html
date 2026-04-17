@@ -53,6 +53,11 @@
             <i class="fas fa-check me-1"></i>完成任务
         </button>
         {% endif %}
+        {% if task.status == 'completed' %}
+        <a href="{% url 'inventory_task_report' task.id %}" class="btn btn-info btn-sm">
+            <i class="fas fa-chart-bar me-1"></i>盘点报告
+        </a>
+        {% endif %}
         {% if task.status != 'completed' %}
         <button class="btn btn-outline-danger btn-sm" onclick="deleteTask()">
             <i class="fas fa-trash me-1"></i>删除
