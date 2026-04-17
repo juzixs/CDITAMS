@@ -35,6 +35,8 @@ urlpatterns = [
     # 盘点报表
     path('report/', views.inventory_report, name='inventory_report'),
     path('tasks/<int:pk>/report/', views.task_report, name='inventory_task_report'),
+    path('tasks/<int:pk>/report/print/', views.task_report_print, name='inventory_task_report_print'),
+    path('tasks/<int:pk>/report/export/', views.task_report_export, name='inventory_task_report_export'),
     
     # 兼容旧接口（盘点计划）
     path('plans/', views.plan_list, name='plan_list'),

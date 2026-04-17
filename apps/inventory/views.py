@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.core.paginator import Paginator
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
@@ -14,6 +14,7 @@ import os
 import threading
 import uuid
 import time
+from io import BytesIO
 
 from .models import InventoryPlan, InventoryTask, InventoryRecord, InventoryTaskDevice
 from apps.assets.models import Device, AssetLocation, AssetCategory
@@ -1878,9 +1879,9 @@ def task_report(request, pk):
     """单个任务盘点报告"""
     task = get_object_or_404(InventoryTask.objects.select_related('created_by', 'assignee'), pk=pk)
     
-    # 获取盘点记录
+    # 获取盘点记录（按资产编号排序）
     records = task.records.select_related('device', 'device__category', 'device__department', 
-                                          'device__user', 'device__location', 'checked_by').all()
+                                          'device__user', 'device__location', 'checked_by').order_by('device__asset_no')
     
     # 统计数据
     total_count = task.device_count
@@ -1895,10 +1896,10 @@ def task_report(request, pk):
     normal_count = records.filter(asset_status='normal').count()
     damaged_count = records.filter(asset_status='damaged').count()
     
-    # 获取未盘设备列表（通过InventoryTaskDevice关联）
+    # 获取未盘设备列表（按资产编号排序）
     pending_task_devices = task.task_devices.filter(
         status='pending'
-    ).select_related('device', 'device__category', 'device__department', 'device__user', 'device__location').order_by('sort_order', 'id')
+    ).select_related('device', 'device__category', 'device__department', 'device__user', 'device__location').order_by('device__asset_no')
     pending_devices = [td.device for td in pending_task_devices]
     
     # 部门统计
@@ -1954,6 +1955,619 @@ def task_report(request, pk):
     }
     
     return render(request, 'inventory/task_report.html', context)
+
+
+@login_required
+def task_report_print(request, pk):
+    """盘点报告PDF打印 - A4横向"""
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.units import mm
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    from django.contrib.staticfiles import finders
+    
+    task = get_object_or_404(InventoryTask.objects.select_related('created_by', 'assignee'), pk=pk)
+    
+    # 获取盘点记录（按资产编号排序）
+    records = list(task.records.select_related('device', 'device__category', 'device__department', 
+                                               'device__user', 'device__location', 'checked_by').order_by('device__asset_no'))
+    
+    # 统计数据
+    total_count = task.device_count
+    checked_count = task.checked_count
+    pending_count = total_count - checked_count
+    
+    # 位置状态统计
+    in_place_count = sum(1 for r in records if r.location_status == 'in_place')
+    moved_count = sum(1 for r in records if r.location_status == 'moved')
+    
+    # 资产状态统计
+    normal_count = sum(1 for r in records if r.asset_status == 'normal')
+    damaged_count = sum(1 for r in records if r.asset_status == 'damaged')
+    
+    # 获取未盘设备（按资产编号排序）
+    pending_task_devices = list(task.task_devices.filter(
+        status='pending'
+    ).select_related('device', 'device__category', 'device__department', 'device__user', 'device__location').order_by('device__asset_no'))
+    
+    # 盘点人列表（去重）
+    checkers = list(set([r.checked_by.realname for r in records if r.checked_by]))
+    checkers_text = '、'.join(checkers) if checkers else '-'
+    
+    # 完成率
+    completion_rate = round(checked_count / total_count * 100, 1) if total_count > 0 else 0
+    
+    # 注册中文字体
+    font_name = 'Helvetica'
+    font_bold_name = 'Helvetica-Bold'
+    
+    font_path = finders.find('fonts/msyh.ttc')
+    if font_path:
+        try:
+            pdfmetrics.registerFont(TTFont('MsYaHei', font_path))
+            font_name = 'MsYaHei'
+            font_bold_name = 'MsYaHei'
+        except:
+            pass
+    
+    # 创建PDF - A4横向
+    buffer = BytesIO()
+    page_size = landscape(A4)  # 297mm x 210mm
+    c = canvas.Canvas(buffer, pagesize=page_size)
+    page_width, page_height = page_size
+    
+    # 页面边距
+    left_margin = 10 * mm
+    right_margin = 10 * mm
+    top_margin = 10 * mm
+    bottom_margin = 15 * mm
+    
+    # 可用宽度
+    usable_width = page_width - left_margin - right_margin
+    
+    # 状态映射
+    status_map = {'normal': '使用', 'fault': '故障', 'scrapped': '报废', 'unused': '闲置'}
+    
+    def draw_page_footer(c, page_num, total_pages=None):
+        c.setFont(font_name, 7)
+        footer_text = f'驰达IT资产管理系统 - 盘点报告 - {task.task_no}'
+        if total_pages:
+            footer_text += f'  第 {page_num}/{total_pages} 页'
+        c.drawCentredString(page_width / 2, 5 * mm, footer_text)
+    
+    def draw_table_header(c, y, headers, col_x, col_widths):
+        """绘制表格头"""
+        c.setFillColor(colors.Color(0.85, 0.85, 0.85))
+        c.rect(left_margin, y - 1.5*mm, usable_width, 5*mm, fill=1)
+        c.setFillColor(colors.black)
+        c.setFont(font_name, 7)
+        for i, h in enumerate(headers):
+            c.drawString(col_x[i], y, h)
+        return y - 5*mm
+    
+    def draw_table_row(c, y, values, col_x, col_widths, is_odd=False):
+        """绘制表格行"""
+        if is_odd:
+            c.setFillColor(colors.Color(0.97, 0.97, 0.97))
+            c.rect(left_margin, y - 1.5*mm, usable_width, 4.5*mm, fill=1)
+        c.setFillColor(colors.black)
+        c.setFont(font_name, 6.5)
+        for i, val in enumerate(values):
+            # 截断过长的文本
+            max_chars = int(col_widths[i] / 2)
+            text = str(val)[:max_chars] if val else '-'
+            c.drawString(col_x[i], y, text)
+        return y - 4.5*mm
+    
+    # ========== 第1页：报告概览 ==========
+    page_num = 1
+    y = page_height - top_margin
+    
+    # 标题
+    c.setFont(font_name, 14)
+    c.drawCentredString(page_width / 2, y, '盘 点 报 告')
+    y -= 7 * mm
+    
+    # 分隔线
+    c.setStrokeColor(colors.grey)
+    c.line(left_margin, y, page_width - right_margin, y)
+    y -= 5 * mm
+    
+    # 任务信息 - 两列布局
+    c.setFont(font_name, 8)
+    col1_x = left_margin
+    col2_x = left_margin + usable_width / 2
+    
+    c.drawString(col1_x, y, f'任务编号: {task.task_no}')
+    c.drawString(col2_x, y, f'任务类型: {task.get_task_type_display()}')
+    y -= 4 * mm
+    c.drawString(col1_x, y, f'创建人: {task.created_by.realname if task.created_by else "-"}')
+    c.drawString(col2_x, y, f'盘点人: {checkers_text}')
+    y -= 4 * mm
+    range_text = '在账设备' if task.is_fixed_only else '所有设备'
+    c.drawString(col1_x, y, f'盘点范围: {range_text}')
+    status_text = '已完成' if task.status == 'completed' else '执行中' if task.status == 'in_progress' else '待执行'
+    c.drawString(col2_x, y, f'状态: {status_text}')
+    y -= 4 * mm
+    c.drawString(col1_x, y, f'创建时间: {task.created_at.strftime("%Y-%m-%d %H:%M")}')
+    if task.completed_at:
+        c.drawString(col2_x, y, f'完成时间: {task.completed_at.strftime("%Y-%m-%d %H:%M")}')
+    y -= 6 * mm
+    
+    # 分隔线
+    c.line(left_margin, y, page_width - right_margin, y)
+    y -= 5 * mm
+    
+    # 统计概览
+    c.setFont(font_name, 10)
+    c.drawString(left_margin, y, '统计概览')
+    y -= 5 * mm
+    
+    c.setFont(font_name, 8)
+    c.drawString(left_margin, y, f'应盘设备: {total_count}')
+    c.drawString(left_margin + 40*mm, y, f'已盘设备: {checked_count}')
+    c.drawString(left_margin + 80*mm, y, f'未盘设备: {pending_count}')
+    c.drawString(left_margin + 120*mm, y, f'完成率: {completion_rate}%')
+    y -= 8 * mm
+    
+    # 位置状态和资产状态统计 - 并排显示
+    c.setFont(font_name, 9)
+    c.drawString(left_margin, y, '位置状态统计')
+    c.drawString(left_margin + 60*mm, y, '资产状态统计')
+    y -= 5 * mm
+    
+    c.setFont(font_name, 8)
+    c.drawString(left_margin, y, f'在位: {in_place_count}')
+    c.drawString(left_margin + 30*mm, y, f'搬离: {moved_count}')
+    c.drawString(left_margin + 60*mm, y, f'正常: {normal_count}')
+    c.drawString(left_margin + 90*mm, y, f'损坏: {damaged_count}')
+    y -= 8 * mm
+    
+    # 分隔线
+    c.line(left_margin, y, page_width - right_margin, y)
+    y -= 5 * mm
+    
+    # ========== 已盘点设备明细表头 ==========
+    c.setFont(font_name, 10)
+    c.drawString(left_margin, y, f'已盘点设备明细 (共{len(records)}条)')
+    y -= 6 * mm
+    
+    # 表格列定义
+    checked_headers = ['#', '资产编号', '设备编号', '设备名称', '型号', '部门', '使用人', 
+                       '位置', '状态', '固资', '卡片编号', '位置状态', '资产状态', '盘点人', '盘点时间']
+    checked_widths = [8*mm, 30*mm, 16*mm, 23*mm, 25*mm, 16*mm, 12*mm, 60*mm, 10*mm, 7*mm, 
+                      21*mm, 12*mm, 12*mm, 10*mm, 24*mm]
+    
+    # 计算列x坐标
+    checked_col_x = []
+    x = left_margin
+    for w in checked_widths:
+        checked_col_x.append(x)
+        x += w
+    
+    # 绘制表头
+    y = draw_table_header(c, y, checked_headers, checked_col_x, checked_widths)
+    
+    # 绘制数据行
+    row_num = 0
+    for i, record in enumerate(records):
+        if y < bottom_margin + 5*mm:
+            # 换页
+            draw_page_footer(c, page_num)
+            c.showPage()
+            page_num += 1
+            y = page_height - top_margin
+            # 重复表头
+            c.setFont(font_name, 10)
+            c.drawString(left_margin, y, f'已盘点设备明细 (共{len(records)}条) - 续')
+            y -= 6 * mm
+            y = draw_table_header(c, y, checked_headers, checked_col_x, checked_widths)
+        
+        row_num += 1
+        device = record.device
+        location_status = '在位' if record.location_status == 'in_place' else '搬离'
+        asset_status = '正常' if record.asset_status == 'normal' else '损坏'
+        
+        values = [
+            str(row_num),
+            device.asset_no or '',
+            device.device_no or '',
+            device.name or '',
+            device.model or '',
+            device.department.name if device.department else '',
+            device.user.realname if device.user else '',
+            device.location_text or '',
+            status_map.get(device.status, device.status or ''),
+            '是' if device.is_fixed else '否',
+            device.asset_card_no or '',
+            location_status,
+            asset_status,
+            record.checked_by.realname if record.checked_by else '',
+            record.checked_at.strftime('%m-%d %H:%M') if record.checked_at else ''
+        ]
+        
+        y = draw_table_row(c, y, values, checked_col_x, checked_widths, is_odd=(row_num % 2 == 0))
+    
+    # ========== 未盘设备列表 ==========
+    if pending_task_devices:
+        y -= 5 * mm
+        if y < bottom_margin + 20*mm:
+            draw_page_footer(c, page_num)
+            c.showPage()
+            page_num += 1
+            y = page_height - top_margin
+        
+        # 分隔线
+        c.line(left_margin, y, page_width - right_margin, y)
+        y -= 5 * mm
+        
+        c.setFont(font_name, 10)
+        c.drawString(left_margin, y, f'未盘设备列表 (共{len(pending_task_devices)}条)')
+        y -= 6 * mm
+        
+        # 未盘设备表头
+        pending_headers = ['#', '资产编号', '设备编号', '设备名称', '型号', '部门', '使用人', 
+                          '位置', '状态', '固资', '卡片编号', '盘点状态']
+        pending_widths = [8*mm, 30*mm, 18*mm, 23*mm, 25*mm, 18*mm, 14*mm, 60*mm, 12*mm, 7*mm, 21*mm, 14*mm]
+        
+        pending_col_x = []
+        x = left_margin
+        for w in pending_widths:
+            pending_col_x.append(x)
+            x += w
+        
+        y = draw_table_header(c, y, pending_headers, pending_col_x, pending_widths)
+        
+        pending_num = 0
+        for td in pending_task_devices:
+            if y < bottom_margin + 5*mm:
+                draw_page_footer(c, page_num)
+                c.showPage()
+                page_num += 1
+                y = page_height - top_margin
+                c.setFont(font_name, 10)
+                c.drawString(left_margin, y, f'未盘设备列表 (共{len(pending_task_devices)}条) - 续')
+                y -= 6 * mm
+                y = draw_table_header(c, y, pending_headers, pending_col_x, pending_widths)
+            
+            pending_num += 1
+            device = td.device
+            
+            values = [
+                str(pending_num),
+                device.asset_no or '',
+                device.device_no or '',
+                device.name or '',
+                device.model or '',
+                device.department.name if device.department else '',
+                device.user.realname if device.user else '',
+                device.location_text or '',
+                status_map.get(device.status, device.status or ''),
+                '是' if device.is_fixed else '否',
+                device.asset_card_no or '',
+                '未盘'
+            ]
+            
+            y = draw_table_row(c, y, values, pending_col_x, pending_widths, is_odd=(pending_num % 2 == 0))
+    
+    # ========== 签字栏 ==========
+    y -= 10 * mm
+    if y < bottom_margin + 15*mm:
+        draw_page_footer(c, page_num)
+        c.showPage()
+        page_num += 1
+        y = page_height - top_margin
+    
+    c.setFont(font_name, 9)
+    c.line(left_margin, y, page_width - right_margin, y)
+    y -= 6 * mm
+    
+    c.drawString(left_margin, y, '盘点人签字: ________________')
+    c.drawString(left_margin + 80*mm, y, '审核人签字: ________________')
+    c.drawString(left_margin + 160*mm, y, '日期: ________________')
+    
+    # 最后一页页脚
+    draw_page_footer(c, page_num)
+    
+    c.save()
+    buffer.seek(0)
+    
+    response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="report_{task.task_no}.pdf"'
+    return response
+
+
+@login_required
+def task_report_export(request, pk):
+    """盘点报告导出Excel"""
+    import openpyxl
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+    from django.utils import timezone as tz
+    
+    task = get_object_or_404(InventoryTask.objects.select_related('created_by', 'assignee'), pk=pk)
+    
+    # 获取盘点记录（按资产编号排序）
+    records = list(task.records.select_related('device', 'device__category', 'device__department', 
+                                               'device__user', 'device__location', 'checked_by').order_by('device__asset_no'))
+    
+    # 统计数据
+    total_count = task.device_count
+    checked_count = task.checked_count
+    pending_count = total_count - checked_count
+    
+    # 位置状态统计
+    in_place_count = sum(1 for r in records if r.location_status == 'in_place')
+    moved_count = sum(1 for r in records if r.location_status == 'moved')
+    
+    # 资产状态统计
+    normal_count = sum(1 for r in records if r.asset_status == 'normal')
+    damaged_count = sum(1 for r in records if r.asset_status == 'damaged')
+    
+    # 获取未盘设备（按资产编号排序）
+    pending_task_devices = list(task.task_devices.filter(
+        status='pending'
+    ).select_related('device', 'device__category', 'device__department', 'device__user').order_by('device__asset_no'))
+    
+    # 盘点人列表（去重）
+    checkers = list(set([r.checked_by.realname for r in records if r.checked_by]))
+    checkers_text = '、'.join(checkers) if checkers else '-'
+    
+    # 完成率
+    completion_rate = round(checked_count / total_count * 100, 1) if total_count > 0 else 0
+    
+    # 部门统计
+    from collections import defaultdict
+    dept_stats = defaultdict(int)
+    for r in records:
+        if r.device.department:
+            dept_stats[r.device.department.name] += 1
+    
+    # 分类统计
+    cat_stats = defaultdict(int)
+    for r in records:
+        if r.device.category:
+            cat_stats[r.device.category.name] += 1
+    
+    # 创建工作簿
+    wb = openpyxl.Workbook()
+    
+    # 样式定义
+    header_font = Font(bold=True, size=11)
+    header_fill = PatternFill(start_color='D9E1F2', end_color='D9E1F2', fill_type='solid')
+    thin_border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    center_align = Alignment(horizontal='center', vertical='center')
+    
+    # ========== 工作表1：统计概览 ==========
+    ws1 = wb.active
+    ws1.title = '统计概览'
+    
+    # 任务信息
+    ws1['A1'] = '盘点报告'
+    ws1['A1'].font = Font(bold=True, size=14)
+    ws1.merge_cells('A1:D1')
+    
+    ws1['A3'] = '任务编号'
+    ws1['B3'] = task.task_no
+    ws1['A4'] = '任务类型'
+    ws1['B4'] = task.get_task_type_display()
+    ws1['A5'] = '创建人'
+    ws1['B5'] = task.created_by.realname if task.created_by else '-'
+    ws1['A6'] = '盘点人'
+    ws1['B6'] = checkers_text
+    ws1['A7'] = '盘点范围'
+    ws1['B7'] = '在账设备' if task.is_fixed_only else '所有设备'
+    ws1['A8'] = '状态'
+    ws1['B8'] = '已完成' if task.status == 'completed' else '执行中'
+    ws1['A9'] = '创建时间'
+    ws1['B9'] = task.created_at.strftime('%Y-%m-%d %H:%M')
+    ws1['A10'] = '完成时间'
+    ws1['B10'] = task.completed_at.strftime('%Y-%m-%d %H:%M') if task.completed_at else '-'
+    
+    for i in range(3, 11):
+        ws1[f'A{i}'].font = Font(bold=True)
+    
+    # 统计概览
+    ws1['D3'] = '统计概览'
+    ws1['D3'].font = Font(bold=True, size=12)
+    
+    ws1['D5'] = '应盘设备'
+    ws1['E5'] = total_count
+    ws1['D6'] = '已盘设备'
+    ws1['E6'] = checked_count
+    ws1['D7'] = '未盘设备'
+    ws1['E7'] = pending_count
+    ws1['D8'] = '完成率'
+    ws1['E8'] = f'{completion_rate}%'
+    
+    for i in range(5, 9):
+        ws1[f'D{i}'].font = Font(bold=True)
+    
+    # 位置状态统计
+    ws1['G3'] = '位置状态'
+    ws1['G3'].font = Font(bold=True, size=12)
+    ws1['G5'] = '在位'
+    ws1['H5'] = in_place_count
+    ws1['G6'] = '搬离'
+    ws1['H6'] = moved_count
+    ws1['G5'].font = Font(bold=True)
+    ws1['G6'].font = Font(bold=True)
+    
+    # 资产状态统计
+    ws1['J3'] = '资产状态'
+    ws1['J3'].font = Font(bold=True, size=12)
+    ws1['J5'] = '正常'
+    ws1['K5'] = normal_count
+    ws1['J6'] = '损坏'
+    ws1['K6'] = damaged_count
+    ws1['J5'].font = Font(bold=True)
+    ws1['J6'].font = Font(bold=True)
+    
+    # 部门统计
+    row = 13
+    ws1[f'A{row}'] = '部门盘点统计'
+    ws1[f'A{row}'].font = Font(bold=True, size=12)
+    row += 1
+    ws1[f'A{row}'] = '部门'
+    ws1[f'B{row}'] = '已盘数量'
+    ws1[f'A{row}'].font = header_font
+    ws1[f'B{row}'].font = header_font
+    row += 1
+    for dept_name, count in sorted(dept_stats.items(), key=lambda x: -x[1]):
+        ws1[f'A{row}'] = dept_name
+        ws1[f'B{row}'] = count
+        row += 1
+    
+    # 分类统计
+    row += 1
+    ws1[f'A{row}'] = '分类盘点统计'
+    ws1[f'A{row}'].font = Font(bold=True, size=12)
+    row += 1
+    ws1[f'A{row}'] = '分类'
+    ws1[f'B{row}'] = '已盘数量'
+    ws1[f'A{row}'].font = header_font
+    ws1[f'B{row}'].font = header_font
+    row += 1
+    for cat_name, count in sorted(cat_stats.items(), key=lambda x: -x[1]):
+        ws1[f'A{row}'] = cat_name
+        ws1[f'B{row}'] = count
+        row += 1
+    
+    # 调整列宽
+    ws1.column_dimensions['A'].width = 15
+    ws1.column_dimensions['B'].width = 20
+    ws1.column_dimensions['D'].width = 12
+    ws1.column_dimensions['E'].width = 12
+    ws1.column_dimensions['G'].width = 12
+    ws1.column_dimensions['H'].width = 12
+    ws1.column_dimensions['J'].width = 12
+    ws1.column_dimensions['K'].width = 12
+    
+    # ========== 工作表2：已盘点设备明细 ==========
+    ws2 = wb.create_sheet('已盘点设备明细')
+    
+    headers2 = ['资产编号', '设备编号', '设备名称', '型号', '所属部门', '使用人', '位置', '状态',
+                '固资在账', '卡片编号', '位置状态', '资产状态', '盘点人', '盘点时间', '备注']
+    ws2.append(headers2)
+    
+    for cell in ws2[1]:
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = center_align
+        cell.border = thin_border
+    
+    status_map = {'normal': '使用', 'fault': '故障', 'scrapped': '报废', 'unused': '闲置'}
+    
+    for record in records:
+        row = [
+            record.device.asset_no or '',
+            record.device.device_no or '',
+            record.device.name or '',
+            record.device.model or '',
+            record.device.department.name if record.device.department else '',
+            record.device.user.realname if record.device.user else '',
+            record.device.location_text or '',
+            status_map.get(record.device.status, record.device.status or ''),
+            '是' if record.device.is_fixed else '否',
+            record.device.asset_card_no or '',
+            '在位' if record.location_status == 'in_place' else '搬离',
+            '正常' if record.asset_status == 'normal' else '损坏',
+            record.checked_by.realname if record.checked_by else '',
+            record.checked_at.strftime('%Y-%m-%d %H:%M') if record.checked_at else '',
+            record.remarks or ''
+        ]
+        ws2.append(row)
+    
+    # 设置边框和对齐
+    for row in ws2.iter_rows(min_row=2, max_row=ws2.max_row, max_col=len(headers2)):
+        for cell in row:
+            cell.border = thin_border
+            cell.alignment = Alignment(vertical='center')
+    
+    # 自动调整列宽
+    for col in ws2.columns:
+        max_length = 0
+        column = col[0].column_letter
+        for cell in col:
+            try:
+                cell_len = len(str(cell.value or ''))
+                for char in str(cell.value or ''):
+                    if '\u4e00' <= char <= '\u9fff':
+                        cell_len += 1
+                if cell_len > max_length:
+                    max_length = cell_len
+            except:
+                pass
+        ws2.column_dimensions[column].width = min(max(max_length + 2, 8), 20)
+    
+    # ========== 工作表3：未盘设备列表 ==========
+    ws3 = wb.create_sheet('未盘设备列表')
+    
+    headers3 = ['资产编号', '设备编号', '设备名称', '型号', '所属部门', '使用人', '位置', '状态',
+                '固资在账', '卡片编号']
+    ws3.append(headers3)
+    
+    for cell in ws3[1]:
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = center_align
+        cell.border = thin_border
+    
+    for td in pending_task_devices:
+        device = td.device
+        row = [
+            device.asset_no or '',
+            device.device_no or '',
+            device.name or '',
+            device.model or '',
+            device.department.name if device.department else '',
+            device.user.realname if device.user else '',
+            device.location_text or '',
+            status_map.get(device.status, device.status or ''),
+            '是' if device.is_fixed else '否',
+            device.asset_card_no or ''
+        ]
+        ws3.append(row)
+    
+    # 设置边框和对齐
+    for row in ws3.iter_rows(min_row=2, max_row=ws3.max_row, max_col=len(headers3)):
+        for cell in row:
+            cell.border = thin_border
+            cell.alignment = Alignment(vertical='center')
+    
+    # 自动调整列宽
+    for col in ws3.columns:
+        max_length = 0
+        column = col[0].column_letter
+        for cell in col:
+            try:
+                cell_len = len(str(cell.value or ''))
+                for char in str(cell.value or ''):
+                    if '\u4e00' <= char <= '\u9fff':
+                        cell_len += 1
+                if cell_len > max_length:
+                    max_length = cell_len
+            except:
+                pass
+        ws3.column_dimensions[column].width = min(max(max_length + 2, 8), 20)
+    
+    # 生成响应
+    from django.utils import timezone as tz
+    import random, string
+    now = tz.localtime(tz.now())
+    random_code = ''.join(random.choices(string.ascii_letters + string.digits, k=4))
+    filename = f'report_{task.task_no}_{now.strftime("%Y%m%d")}_{random_code}.xlsx'
+    
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    wb.save(response)
+    return response
 
 
 # ==================== 兼容旧接口 - 盘点审核 ====================
