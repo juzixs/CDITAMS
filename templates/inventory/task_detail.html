@@ -450,7 +450,7 @@
                     </li>
                     <li class="nav-item">
                         <button class="nav-link" id="import-tab" data-bs-toggle="tab" data-bs-target="#importPane" type="button">
-                            <i class="fas fa-file-import me-1"></i>导入（AI解析）
+                            <i class="fas fa-file-import me-1"></i>导入
                         </button>
                     </li>
                 </ul>
@@ -500,19 +500,63 @@
                     
                     <!-- 导入 -->
                     <div class="tab-pane fade" id="importPane">
-                        <div class="mb-3">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="parsePhotoOnly">
-                                <label class="form-check-label" for="parsePhotoOnly">
-                                    仅解析照片中设备（勾选后仅识别图片中的设备，不匹配系统）
-                                </label>
+                        <!-- Excel上传区域 -->
+                        <div class="card mb-3">
+                            <div class="card-header bg-success text-white">
+                                <i class="fas fa-file-excel me-2"></i>Excel/CSV导入
+                            </div>
+                            <div class="card-body">
+                                <div class="batch-import-area" id="excelDropZone" onclick="document.getElementById('excelFile').click()">
+                                    <i class="fas fa-file-excel fa-3x text-muted mb-3"></i>
+                                    <p class="mb-1">点击或拖拽Excel文件到此处</p>
+                                    <small class="text-muted">支持 .xlsx、.xls、.csv 格式</small>
+                                    <input type="file" id="excelFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleExcelFileSelect(this)">
+                                </div>
+                                <div id="excelFileInfo" class="alert alert-info mt-2 d-none">
+                                    <i class="fas fa-file-excel me-1"></i>已选择文件: <span id="excelFileName"></span>
+                                </div>
+                                <button class="btn btn-success mt-2" id="excelParseBtn" onclick="parseExcelFile()" disabled>
+                                    <i class="fas fa-magic me-1"></i>解析导入
+                                </button>
                             </div>
                         </div>
-                        <div class="batch-import-area" id="importDropZone" onclick="document.getElementById('importFile').click()">
-                            <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
-                            <p class="mb-1">点击或拖拽文件到此处</p>
-                            <small class="text-muted">支持 Excel(.xlsx/.xls)、CSV、图片(.png/.jpg)</small>
-                            <input type="file" id="importFile" accept=".xlsx,.xls,.csv,.png,.jpg,.jpeg" style="display:none" onchange="handleImportFile(this)">
+                        
+                        <!-- 图片上传区域 -->
+                        <div class="card mb-3">
+                            <div class="card-header bg-primary text-white">
+                                <i class="fas fa-image me-2"></i>图片导入（AI多模态识别）
+                            </div>
+                            <div class="card-body">
+                                <div class="batch-import-area" id="imageDropZone" onclick="document.getElementById('imageFile').click()">
+                                    <i class="fas fa-image fa-3x text-muted mb-3"></i>
+                                    <p class="mb-1">点击或拖拽图片文件到此处</p>
+                                    <small class="text-muted">支持 .png、.jpg、.jpeg 格式</small>
+                                    <input type="file" id="imageFile" accept=".png,.jpg,.jpeg" style="display:none" onchange="handleImageFileSelect(this)">
+                                </div>
+                                <div class="form-check mt-2">
+                                    <input class="form-check-input" type="checkbox" id="parsePhotoOnly">
+                                    <label class="form-check-label" for="parsePhotoOnly">
+                                        仅导入选中设备（仅识别照片中有勾选或标记的设备）
+                                    </label>
+                                </div>
+                                <div class="mt-2 d-flex align-items-center gap-3">
+                                    <span class="text-muted small">图片传入方式：</span>
+                                    <div class="form-check form-check-inline mb-0">
+                                        <input class="form-check-input" type="radio" name="imageInputMethod" id="imageInputUrl" value="http_url" checked>
+                                        <label class="form-check-label small" for="imageInputUrl">HTTP URL</label>
+                                    </div>
+                                    <div class="form-check form-check-inline mb-0">
+                                        <input class="form-check-input" type="radio" name="imageInputMethod" id="imageInputBase64" value="base64">
+                                        <label class="form-check-label small" for="imageInputBase64">base64 data URI</label>
+                                    </div>
+                                </div>
+                                <div id="imageFileInfo" class="alert alert-info mt-2 d-none">
+                                    <i class="fas fa-image me-1"></i>已选择文件: <span id="imageFileName"></span>
+                                </div>
+                                <button class="btn btn-primary mt-2" id="imageParseBtn" onclick="parseImageFile()" disabled>
+                                    <i class="fas fa-magic me-1"></i>解析导入
+                                </button>
+                            </div>
                         </div>
                         
                         <!-- 进度显示区域 -->
@@ -525,7 +569,6 @@
                                 <div class="progress mb-3" style="height: 20px;">
                                     <div class="progress-bar progress-bar-striped progress-bar-animated" id="importProgressBar" role="progressbar" style="width: 0%">0/0</div>
                                 </div>
-                                <!-- 日志区域 -->
                                 <div id="importLogContainer" style="max-height: 300px; overflow-y: auto; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; padding: 10px; font-family: 'Consolas', 'Monaco', monospace; font-size: 12px;">
                                     <div class="text-muted">等待处理...</div>
                                 </div>
@@ -833,26 +876,98 @@ let importPollInterval = null;
 let lastImportLogCount = 0;
 let currentTaskIdForManual = null;
 
-function handleImportFile(input) {
+// Excel文件选择
+function handleExcelFileSelect(input) {
     const file = input.files[0];
     if (!file) return;
+    
+    document.getElementById('excelFileName').textContent = file.name;
+    document.getElementById('excelFileInfo').classList.remove('d-none');
+    document.getElementById('excelParseBtn').disabled = false;
+}
+
+// 图片文件选择
+function handleImageFileSelect(input) {
+    const file = input.files[0];
+    if (!file) return;
+    
+    // 清空上一次的进度和错误
+    document.getElementById('importLogContainer').innerHTML = '<div class="text-muted">等待处理...</div>';
+    document.getElementById('importResult').style.display = 'none';
+    document.getElementById('importProgressCard').classList.add('d-none');
+    
+    document.getElementById('imageFileName').textContent = file.name;
+    document.getElementById('imageFileInfo').classList.remove('d-none');
+    document.getElementById('imageParseBtn').disabled = false;
+}
+
+// 解析Excel文件
+function parseExcelFile() {
+    const fileInput = document.getElementById('excelFile');
+    const file = fileInput.files[0];
+    if (!file) {
+        alert('请先选择Excel文件');
+        return;
+    }
     
     const formData = new FormData();
     formData.append('file', file);
     formData.append('task_id', TASK_ID);
+    formData.append('parse_photo_only', 'false');
     
-    // 获取"仅解析照片"复选框状态
-    const parsePhotoOnly = document.getElementById('parsePhotoOnly').checked;
-    formData.append('parse_photo_only', parsePhotoOnly);
-    
-    // 显示进度区域
     document.getElementById('importProgressCard').classList.remove('d-none');
-    document.getElementById('importLogContainer').innerHTML = '<div class="text-muted">正在上传和解析...</div>';
-    document.getElementById('importDropZone').innerHTML = '<i class="fas fa-spinner fa-spin fa-3x"></i><p>处理中...</p>';
+    document.getElementById('importLogContainer').innerHTML = '<div class="text-muted">正在解析Excel...</div>';
+    document.getElementById('excelDropZone').innerHTML = '<i class="fas fa-spinner fa-spin fa-3x"></i><p>处理中...</p>';
+    document.getElementById('excelParseBtn').disabled = true;
     
-    // 隐藏其他区域
-    document.getElementById('parsedDeviceList').classList.add('d-none');
-    document.getElementById('importResult').style.display = 'none';
+    fetch('/inventory/api/tasks/' + TASK_ID + '/import-devices/', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            const taskId = data.task_id;
+            currentTaskIdForManual = taskId;
+            lastImportLogCount = 0;
+            importPollInterval = setInterval(() => pollImportProgress(taskId), 1000);
+        } else {
+            document.getElementById('excelDropZone').innerHTML = `
+                <i class="fas fa-file-excel fa-3x text-muted mb-3"></i>
+                <p class="mb-1">点击或拖拽Excel文件到此处</p>
+                <small class="text-muted">支持 .xlsx、.xls、.csv 格式</small>
+            `;
+            alert('解析失败: ' + data.message);
+            document.getElementById('excelParseBtn').disabled = false;
+        }
+    })
+    .catch(err => {
+        alert('请求失败: ' + err);
+        document.getElementById('excelParseBtn').disabled = false;
+    });
+}
+
+// 解析图片文件
+function parseImageFile() {
+    const fileInput = document.getElementById('imageFile');
+    const file = fileInput.files[0];
+    if (!file) {
+        alert('请先选择图片文件');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('task_id', TASK_ID);
+    formData.append('parse_photo_only', document.getElementById('parsePhotoOnly').checked ? 'true' : 'false');
+    formData.append('image_input_method', document.querySelector('input[name="imageInputMethod"]:checked').value);
+    
+    const logContainer = document.getElementById('importLogContainer');
+    document.getElementById('importProgressCard').classList.remove('d-none');
+    logContainer.innerHTML = '<div class="text-muted">正在解析图片...</div>';
+    document.getElementById('imageDropZone').innerHTML = '<i class="fas fa-spinner fa-spin fa-3x"></i><p>处理中...</p>';
+    document.getElementById('imageParseBtn').disabled = true;
     
     fetch('/inventory/api/tasks/' + TASK_ID + '/import-devices/', {
         method: 'POST',
@@ -863,38 +978,76 @@ function handleImportFile(input) {
     .then(data => {
         if (data.success) {
             if (data.device_list) {
-                // 图片解析模式 - 显示设备列表
-                document.getElementById('importDropZone').innerHTML = `
-                    <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
-                    <p class="mb-1">点击或拖拽文件到此处</p>
-                    <small class="text-muted">支持 Excel(.xlsx/.xls)、CSV、图片(.png/.jpg)</small>
+                document.getElementById('imageDropZone').innerHTML = `
+                    <i class="fas fa-image fa-3x text-muted mb-3"></i>
+                    <p class="mb-1">点击或拖拽图片文件到此处</p>
+                    <small class="text-muted">支持 .png、.jpg、.jpeg 格式</small>
                 `;
                 showParsedDeviceList(data.device_list);
             } else {
-                // Excel导入模式 - 开始轮询进度
                 const taskId = data.task_id;
                 currentTaskIdForManual = taskId;
                 lastImportLogCount = 0;
                 importPollInterval = setInterval(() => pollImportProgress(taskId), 1000);
             }
         } else {
-            document.getElementById('importDropZone').innerHTML = `
-                <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
-                <p class="mb-1">点击或拖拽文件到此处</p>
-                <small class="text-muted">支持 Excel(.xlsx/.xls)、CSV、图片(.png/.jpg)</small>
+            // 失败：保留进度面板，显示错误，恢复按钮
+            logContainer.innerHTML += `<div class="mb-1"><span class="text-muted">[${new Date().toLocaleTimeString()}]</span> <i class="fas fa-times-circle text-danger"></i> <span class="text-danger">解析失败: ${data.message}</span></div>`;
+            logContainer.scrollTop = logContainer.scrollHeight;
+            document.getElementById('imageDropZone').innerHTML = `
+                <i class="fas fa-image fa-3x text-muted mb-3"></i>
+                <p class="mb-1">点击或拖拽图片文件到此处</p>
+                <small class="text-muted">支持 .png、.jpg、.jpeg 格式</small>
             `;
-            alert('导入失败: ' + data.message);
-            document.getElementById('importProgressCard').classList.add('d-none');
+            document.getElementById('imageParseBtn').disabled = false;
         }
     })
     .catch(err => {
-        document.getElementById('importDropZone').innerHTML = `
-            <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
-            <p class="mb-1">点击或拖拽文件到此处</p>
-            <small class="text-muted">支持 Excel(.xlsx/.xls)、CSV、图片(.png/.jpg)</small>
+        logContainer.innerHTML += `<div class="mb-1"><span class="text-muted">[${new Date().toLocaleTimeString()}]</span> <i class="fas fa-times-circle text-danger"></i> <span class="text-danger">请求失败: ${err}</span></div>`;
+        document.getElementById('imageDropZone').innerHTML = `
+            <i class="fas fa-image fa-3x text-muted mb-3"></i>
+            <p class="mb-1">点击或拖拽图片文件到此处</p>
+            <small class="text-muted">支持 .png、.jpg、.jpeg 格式</small>
         `;
+        document.getElementById('imageParseBtn').disabled = false;
+    });
+}
+
+// 保留旧的handleImportFile用于兼容（已不使用）
+function handleImportFile(input) {
+    const file = input.files[0];
+    if (!file) return;
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('task_id', TASK_ID);
+    formData.append('parse_photo_only', document.getElementById('parsePhotoOnly').checked);
+    
+    document.getElementById('importProgressCard').classList.remove('d-none');
+    document.getElementById('importLogContainer').innerHTML = '<div class="text-muted">正在上传和解析...</div>';
+    
+    fetch('/inventory/api/tasks/' + TASK_ID + '/import-devices/', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            if (data.device_list) {
+                showParsedDeviceList(data.device_list);
+            } else {
+                const taskId = data.task_id;
+                currentTaskIdForManual = taskId;
+                lastImportLogCount = 0;
+                importPollInterval = setInterval(() => pollImportProgress(taskId), 1000);
+            }
+        } else {
+            alert('导入失败: ' + data.message);
+        }
+    })
+    .catch(err => {
         alert('导入失败: ' + err);
-        document.getElementById('importProgressCard').classList.add('d-none');
     });
 }
 
@@ -950,11 +1103,14 @@ function pollImportProgress(taskId) {
         // 检查是否需要手动选择列
         if (data.status === 'need_manual') {
             clearInterval(importPollInterval);
-            document.getElementById('importDropZone').innerHTML = `
-                <i class="fas fa-exclamation-triangle fa-3x text-warning mb-3"></i>
-                <p class="mb-1">解析失败</p>
-                <small class="text-muted">本地和AI解析都无法识别列，请手动指定</small>
-            `;
+            const excelDropZone = document.getElementById('excelDropZone');
+            if (excelDropZone) {
+                excelDropZone.innerHTML = `
+                    <i class="fas fa-exclamation-triangle fa-3x text-warning mb-3"></i>
+                    <p class="mb-1">解析失败</p>
+                    <small class="text-muted">本地和AI解析都无法识别列，请手动指定</small>
+                `;
+            }
             
             // 显示手动选择弹窗
             const modal = new bootstrap.Modal(document.getElementById('manualColumnModal'));
@@ -965,13 +1121,30 @@ function pollImportProgress(taskId) {
         if (data.status === 'completed') {
             clearInterval(importPollInterval);
             
-            // 显示结果
-            document.getElementById('importDropZone').innerHTML = `
-                <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
-                <p class="mb-1">点击或拖拽文件到此处</p>
-                <small class="text-muted">支持 Excel(.xlsx/.xls)、CSV、图片(.png/.jpg)</small>
+            // 恢复上传区域
+            document.getElementById('imageDropZone').innerHTML = `
+                <i class="fas fa-image fa-3x text-muted mb-3"></i>
+                <p class="mb-1">点击或拖拽图片文件到此处</p>
+                <small class="text-muted">支持 .png、.jpg、.jpeg 格式</small>
             `;
+            const excelDropZone = document.getElementById('excelDropZone');
+            if (excelDropZone) {
+                excelDropZone.innerHTML = `
+                    <i class="fas fa-file-excel fa-3x text-muted mb-3"></i>
+                    <p class="mb-1">点击或拖拽Excel文件到此处</p>
+                    <small class="text-muted">支持 .xlsx、.xls、.csv 格式</small>
+                `;
+            }
             
+            // 如果有device_list（图片解析），显示识别到的设备列表
+            if (data.device_list && data.device_list.length > 0) {
+                showParsedDeviceListAsImported(data.device_list);
+            }
+            
+            // 刷新待盘点设备列表（实时显示）
+            refreshPendingCount();
+            
+            // 显示结果提示
             const resultDiv = document.getElementById('importResult');
             resultDiv.style.display = 'block';
             const alertDiv = document.getElementById('importAlert');
@@ -981,15 +1154,11 @@ function pollImportProgress(taskId) {
                 alertDiv.innerHTML = `<i class="fas fa-exclamation-circle me-2"></i>处理完成，但有错误: ${data.errors.join(', ')}`;
             } else {
                 alertDiv.className = 'alert alert-success';
-                alertDiv.innerHTML = `<i class="fas fa-check-circle me-2"></i>处理完成！已添加 ${data.added_count || 0} 个设备，已存在 ${data.skipped_count || 0} 个`;
-                
+                alertDiv.innerHTML = `<i class="fas fa-check-circle me-2"></i>导入待盘点完成！已添加 ${data.added_count || 0} 个设备，已存在 ${data.skipped_count || 0} 个`;
                 if (data.not_found && data.not_found.length > 0) {
                     alertDiv.innerHTML += `<br><small class="text-warning">以下设备未在系统中找到: ${data.not_found.join(', ')}</small>`;
                 }
             }
-            
-            // 刷新页面
-            setTimeout(() => location.reload(), 2000);
         }
     });
 }
@@ -1035,6 +1204,55 @@ function showParsedDeviceList(devices) {
     document.getElementById('parsedDeviceList').classList.remove('d-none');
 }
 
+function showParsedDeviceListAsImported(devices) {
+    const tbody = document.getElementById('parsedDeviceTableBody');
+    let html = '';
+    
+    devices.forEach(d => {
+        const secretLevelClass = {
+            '公开': 'bg-success',
+            '内部': 'bg-info',
+            '秘密': 'bg-warning text-dark',
+            '机密': 'bg-danger',
+            '绝密': 'bg-dark',
+            '商密': 'bg-secondary'
+        }[d.secret_level] || 'bg-secondary';
+        
+        const statusClass = {
+            '使用': 'bg-success',
+            '故障': 'bg-danger',
+            '报废': 'bg-secondary',
+            '闲置': 'bg-info'
+        }[d.status] || 'bg-info';
+        
+        html += `<tr class="table-success">
+            <td><i class="fas fa-check-circle text-success"></i></td>
+            <td><strong class="text-primary">${d.asset_no}</strong> <span class="badge bg-success ms-1">已导入</span></td>
+            <td>${d.device_no || '-'}</td>
+            <td>${d.name}</td>
+            <td>${d.model || '-'}</td>
+            <td><span class="badge ${secretLevelClass}">${d.secret_level || '-'}</span></td>
+            <td>${d.department || '-'}</td>
+            <td>${d.user || '-'}</td>
+            <td><small>${d.location || '-'}</small></td>
+            <td><span class="badge ${statusClass}">${d.status || '-'}</span></td>
+            <td>${d.is_fixed ? '<span class="badge bg-success">是</span>' : '<span class="text-muted">否</span>'}</td>
+            <td>${d.asset_card_no || '-'}</td>
+        </tr>`;
+    });
+    
+    tbody.innerHTML = html || '<tr><td colspan="12" class="text-center text-muted">未找到匹配设备</td></tr>';
+    
+    // 隐藏导入按钮（已自动导入）
+    const parsedList = document.getElementById('parsedDeviceList');
+    parsedList.classList.remove('d-none');
+    parsedList.querySelectorAll('.btn-success, .btn-primary').forEach(btn => {
+        btn.style.display = 'none';
+    });
+    const selectAllCb = document.getElementById('selectAllParsed');
+    if (selectAllCb) selectAllCb.style.display = 'none';
+}
+
 function toggleSelectAllParsed() {
     const checked = document.getElementById('selectAllParsed').checked;
     document.querySelectorAll('.parsed-device-checkbox').forEach(cb => {
@@ -1043,9 +1261,11 @@ function toggleSelectAllParsed() {
 }
 
 function importSelectedDevices() {
+    const selectedCheckboxes = [];
     const selectedIds = [];
     document.querySelectorAll('.parsed-device-checkbox:checked').forEach(cb => {
         selectedIds.push(parseInt(cb.value));
+        selectedCheckboxes.push(cb);
     });
     
     if (selectedIds.length === 0) {
@@ -1064,9 +1284,29 @@ function importSelectedDevices() {
     .then(r => r.json())
     .then(data => {
         if (data.success) {
-            alert(`成功添加 ${data.added_count} 台设备`);
-            document.getElementById('parsedDeviceList').classList.add('d-none');
-            location.reload();
+            // 标记已导入的设备行
+            selectedCheckboxes.forEach(cb => {
+                const row = cb.closest('tr');
+                row.classList.add('table-success');
+                cb.disabled = true;
+                cb.checked = false;
+                // 在资产编号列添加"已导入"标记
+                const assetCell = row.querySelector('td:nth-child(2)');
+                if (assetCell && !assetCell.querySelector('.badge.bg-success')) {
+                    const badge = document.createElement('span');
+                    badge.className = 'badge bg-success ms-1';
+                    badge.textContent = '已导入';
+                    assetCell.appendChild(badge);
+                }
+            });
+            // 禁用全选复选框
+            document.getElementById('selectAllParsed').disabled = true;
+            // 在进度面板显示成功日志
+            const logContainer = document.getElementById('importLogContainer');
+            logContainer.innerHTML += `<div class="mb-1"><span class="text-muted">[${new Date().toLocaleTimeString()}]</span> <i class="fas fa-check-circle text-success"></i> <span class="text-success">导入待盘点完成！已添加 ${data.added_count} 台设备</span></div>`;
+            logContainer.scrollTop = logContainer.scrollHeight;
+            // 刷新待盘点设备列表
+            refreshPendingCount();
         } else {
             alert('导入失败: ' + data.message);
         }
@@ -1170,24 +1410,47 @@ function parseTextContent() {
     });
 }
 
-// 拖拽上传
-const dropZone = document.getElementById('importDropZone');
-dropZone.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    dropZone.classList.add('dragover');
-});
-dropZone.addEventListener('dragleave', () => {
-    dropZone.classList.remove('dragover');
-});
-dropZone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    dropZone.classList.remove('dragover');
-    const file = e.dataTransfer.files[0];
-    if (file) {
-        document.getElementById('importFile').files = e.dataTransfer.files;
-        handleImportFile(document.getElementById('importFile'));
-    }
-});
+// Excel拖拽上传
+const excelDropZone = document.getElementById('excelDropZone');
+if (excelDropZone) {
+    excelDropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        excelDropZone.classList.add('dragover');
+    });
+    excelDropZone.addEventListener('dragleave', () => {
+        excelDropZone.classList.remove('dragover');
+    });
+    excelDropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        excelDropZone.classList.remove('dragover');
+        const file = e.dataTransfer.files[0];
+        if (file) {
+            document.getElementById('excelFile').files = e.dataTransfer.files;
+            handleExcelFileSelect(document.getElementById('excelFile'));
+        }
+    });
+}
+
+// 图片拖拽上传
+const imageDropZone = document.getElementById('imageDropZone');
+if (imageDropZone) {
+    imageDropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        imageDropZone.classList.add('dragover');
+    });
+    imageDropZone.addEventListener('dragleave', () => {
+        imageDropZone.classList.remove('dragover');
+    });
+    imageDropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        imageDropZone.classList.remove('dragover');
+        const file = e.dataTransfer.files[0];
+        if (file) {
+            document.getElementById('imageFile').files = e.dataTransfer.files;
+            handleImageFileSelect(document.getElementById('imageFile'));
+        }
+    });
+}
 
 // 移除设备
 function removeDevice(taskDeviceId) {

@@ -28,6 +28,7 @@ from .models import (
 )
 from apps.accounts.models import User, Department
 from apps.settings.views import get_config_value
+from apps.settings.llm_service import is_llm_enabled, call_llm, get_llm_config
 
 # 全局变量存储导入进度
 device_import_progress = {}
@@ -4311,15 +4312,8 @@ def expand_asset_numbers(base_no, count):
     return [base_no]
 
 
-def call_ai_parse_card_numbers(api_key, model_name, excel_data):
-    """调用AI解析资产编号和卡片编号"""
-    from openai import OpenAI
-    
-    client = OpenAI(
-        api_key=api_key,
-        base_url="https://api.xiaomimimo.com/v1"
-    )
-    
+def call_ai_parse_card_numbers(excel_data):
+    """调用AI解析资产编号和卡片编号，使用系统设置中配置的大模型"""
     prompt = f"""请从以下Excel表格数据中提取资产编号和卡片编号的对应关系。
 
 规则：
@@ -4341,19 +4335,11 @@ def call_ai_parse_card_numbers(api_key, model_name, excel_data):
 {excel_data}"""
     
     try:
-        response = client.chat.completions.create(
-            model=model_name,
-            messages=[
-                {"role": "system", "content": "你是一个专业的数据解析助手，擅长从表格数据中提取设备资产编号和卡片编号的对应关系。"},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=4096,
-            temperature=0.1
-        )
+        ai_content = call_llm([
+            {"role": "system", "content": "你是一个专业的数据解析助手，擅长从表格数据中提取设备资产编号和卡片编号的对应关系。"},
+            {"role": "user", "content": prompt}
+        ])
         
-        ai_content = response.choices[0].message.content
-        
-        # 提取JSON
         json_match = re.search(r'\{[\s\S]*\}', ai_content)
         if json_match:
             return json.loads(json_match.group())
@@ -4446,17 +4432,14 @@ def process_update_card_no_task(task_id, file_content, user_id):
             return
         
         # 获取AI配置
-        api_key = get_config_value('llm_api_key', '')
-        model_name = get_config_value('llm_model_name', 'mimo-v2-pro')
-        
-        # 如果有AI配置，使用AI解析复杂数据
-        if api_key:
+        if is_llm_enabled():
+            config = get_llm_config()
+            model_name = config['model_name']
             add_log(task_id, 'ai', f'获取AI配置成功：模型={model_name}')
             add_log(task_id, 'ai', f'调用AI解析数据，发送{len(excel_mappings)}条映射记录...')
             
-            # 将Excel数据转为文本供AI解析
             excel_text = '\n'.join([f"{k}|{v}" for k, v in excel_mappings.items()])
-            ai_result = call_ai_parse_card_numbers(api_key, model_name, excel_text)
+            ai_result = call_ai_parse_card_numbers(excel_text)
             
             if ai_result and 'mappings' in ai_result:
                 ai_mappings = {item['asset_no']: item['card_no'] for item in ai_result['mappings']}
@@ -4466,7 +4449,7 @@ def process_update_card_no_task(task_id, file_content, user_id):
             else:
                 add_log(task_id, 'warning', 'AI解析失败或返回格式错误，使用本地解析结果')
         else:
-            add_log(task_id, 'info', '未配置AI大模型，使用本地解析')
+            add_log(task_id, 'info', 'LLM未启用或未配置API Key，使用本地解析')
         
         # 遍历系统设备
         add_log(task_id, 'info', '开始遍历系统设备...')

@@ -19,6 +19,7 @@ from .models import InventoryPlan, InventoryTask, InventoryRecord, InventoryTask
 from apps.assets.models import Device, AssetLocation, AssetCategory
 from apps.assets.views import save_photo_with_asset_no
 from apps.accounts.models import User, Department
+from apps.settings.llm_service import is_llm_enabled, call_llm, get_llm_config, call_llm_vision_two_step
 from apps.settings.views import get_config_value
 
 
@@ -35,6 +36,43 @@ def inventory_add_log(task_id, level, message):
             'level': level,
             'message': message
         })
+
+
+def parse_ai_json_response(ai_content):
+    """解析AI返回的JSON内容，支持多种格式"""
+    if not ai_content:
+        return None, 'AI返回内容为空'
+    
+    # 清理内容，移除可能的markdown标记
+    ai_content = ai_content.strip()
+    if ai_content.startswith('```'):
+        lines = ai_content.split('\n')
+        ai_content = '\n'.join(lines[1:-1] if lines[-1] == '```' else lines[1:])
+    ai_content = ai_content.strip()
+    
+    # 尝试直接解析
+    try:
+        return json.loads(ai_content), None
+    except:
+        pass
+    
+    # 尝试提取JSON对象
+    match = re.search(r'\{[\s\S]*\}', ai_content)
+    if match:
+        try:
+            return json.loads(match.group()), None
+        except:
+            pass
+    
+    # 尝试提取JSON数组
+    match = re.search(r'\[[\s\S]*\]', ai_content)
+    if match:
+        try:
+            return json.loads(match.group()), None
+        except:
+            pass
+    
+    return None, '无法解析JSON格式'
 
 
 # ==================== 任务管理 ====================
@@ -455,12 +493,9 @@ def expand_asset_no_pattern(asset_no_str):
 
 
 def parse_asset_numbers_with_ai(content, content_type='text'):
-    """使用AI解析资产编号"""
-    api_key = get_config_value('llm_api_key', '')
-    model_name = get_config_value('llm_model_name', 'mimo-v2-pro')
-    
-    if not api_key:
-        return None, '未配置AI模型API Key，请在系统设置中配置'
+    """使用AI解析资产编号，使用系统设置中配置的大模型"""
+    if not is_llm_enabled():
+        return None, '未启用LLM或未配置API Key，请在系统设置-模型设置中配置'
     
     prompt = """请从以下内容中提取所有设备资产编号。
 
@@ -479,28 +514,13 @@ def parse_asset_numbers_with_ai(content, content_type='text'):
 """
     
     try:
-        from openai import OpenAI
-        
-        client = OpenAI(
-            api_key=api_key,
-            base_url="https://api.xiaomimimo.com/v1"
-        )
-        
         messages_list = [
             {"role": "system", "content": "你是一个专业的数据解析助手，擅长从表格、图片等文档中提取设备资产编号信息。"},
             {"role": "user", "content": prompt + content}
         ]
         
-        response = client.chat.completions.create(
-            model=model_name,
-            messages=messages_list,
-            temperature=0.1,
-            max_tokens=2048
-        )
+        ai_content = call_llm(messages_list)
         
-        ai_content = response.choices[0].message.content
-        
-        # 解析JSON
         json_match = re.search(r'\{[\s\S]*\}', ai_content)
         if json_match:
             data = json.loads(json_match.group())
@@ -607,12 +627,10 @@ def api_ai_parse_file(request):
             content = file.read().decode('utf-8', errors='ignore')
             
         elif file_name.endswith(('.png', '.jpg', '.jpeg', '.bmp')):
-            # 图片 - 需要用base64编码传递给AI
-            import base64
-            image_data = base64.b64encode(file.read()).decode('utf-8')
-            content = f"[图片数据: {file_name}]"
-            # 对于图片，需要特殊处理，使用vision API
-            return api_ai_parse_image(request, image_data, task)
+            # 图片 - 使用两步AI识别
+            image_bytes = file.read()
+            app_url = get_config_value('app_url', 'http://127.0.0.1:8000')
+            return api_ai_parse_image(request, image_bytes, task, app_url)
             
         else:
             return JsonResponse({'success': False, 'message': '不支持的文件格式'})
@@ -629,53 +647,25 @@ def api_ai_parse_file(request):
         return JsonResponse({'success': False, 'message': str(e)})
 
 
-def api_ai_parse_image(request, image_data, task):
-    """使用Vision API解析图片"""
-    api_key = get_config_value('llm_api_key', '')
-    model_name = get_config_value('llm_model_name', 'mimo-v2-pro')
-    
-    if not api_key:
-        return JsonResponse({'success': False, 'message': '未配置AI模型API Key'})
+def api_ai_parse_image(request, image_bytes, task, base_url='http://127.0.0.1:8000', image_input_method='http_url'):
+    """使用Vision API解析图片（多模态理解），两步调用：先识别再整理JSON"""
+    if not is_llm_enabled():
+        return JsonResponse({'success': False, 'message': '未启用LLM或未配置API Key，请在系统设置-模型设置中配置'})
     
     try:
-        from openai import OpenAI
-        
-        client = OpenAI(
-            api_key=api_key,
-            base_url="https://api.xiaomimimo.com/v1"
+        ai_content = call_llm_vision_two_step(
+            image_bytes=image_bytes,
+            log_callback=None,
+            base_url=base_url,
+            parse_photo_only=False,
+            image_input_method=image_input_method
         )
         
-        prompt = """请从这张图片中提取所有设备资产编号。
-
-规则：
-1. 资产编号格式类似: XACD-Z-001-001-001
-2. 合并写法如 XACD-Z-001-001-001/003/007 需拆解
-3. 同时识别卡片编号
-4. 返回JSON格式: {"asset_numbers": ["编号1"], "card_numbers": ["卡片编号1"]}"""
-        
-        messages_list = [
-            {"role": "system", "content": "你是一个专业的数据解析助手，擅长从图片中提取设备资产编号。"},
-            {"role": "user", "content": [
-                {"type": "text", "text": prompt},
-                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_data}"}}
-            ]}
-        ]
-        
-        response = client.chat.completions.create(
-            model=model_name,
-            messages=messages_list,
-            temperature=0.1,
-            max_tokens=2048
-        )
-        
-        ai_content = response.choices[0].message.content
-        
-        json_match = re.search(r'\{[\s\S]*\}', ai_content)
-        if json_match:
-            data = json.loads(json_match.group())
+        data, error = parse_ai_json_response(ai_content)
+        if data:
             return process_ai_parse_result(data, task, request.user)
         else:
-            return JsonResponse({'success': False, 'message': 'AI返回格式异常'})
+            return JsonResponse({'success': False, 'message': f'AI返回格式异常: {error}'})
             
     except Exception as e:
         return JsonResponse({'success': False, 'message': f'图片解析失败: {str(e)}'})
@@ -840,16 +830,13 @@ def parse_inventory_excel(file_content):
 
 
 def parse_excel_with_ai_assist(file_content):
-    """使用AI解析Excel/CSV内容（转为文本发送）"""
+    """使用AI解析Excel/CSV内容（转为文本发送），使用系统设置中配置的大模型"""
     import openpyxl
     from io import BytesIO
     import csv
     
-    api_key = get_config_value('llm_api_key', '')
-    model_name = get_config_value('llm_model_name', 'mimo-v2-pro')
-    
-    if not api_key:
-        return None, '未配置AI API Key'
+    if not is_llm_enabled():
+        return None, '未启用LLM或未配置API Key，请在系统设置-模型设置中配置'
     
     content_text = ''
     file_name = 'file.xlsx'
@@ -874,9 +861,6 @@ def parse_excel_with_ai_assist(file_content):
         for row in ws.iter_rows(max_row=50, values_only=True):
             content_text += ' | '.join([str(cell) if cell else '' for cell in row]) + '\n'
     
-    from openai import OpenAI
-    client = OpenAI(api_key=api_key, base_url="https://api.xiaomimimo.com/v1")
-    
     prompt = f"""请从以下Excel/CSV表格数据中提取资产编号和卡片编号的对应关系。
 
 规则：
@@ -899,17 +883,11 @@ def parse_excel_with_ai_assist(file_content):
 {content_text}"""
     
     try:
-        response = client.chat.completions.create(
-            model=model_name,
-            messages=[
-                {"role": "system", "content": "你是一个专业的数据解析助手，擅长从表格数据中提取设备资产编号和卡片编号的对应关系。"},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=4096,
-            temperature=0.1
-        )
+        ai_content = call_llm([
+            {"role": "system", "content": "你是一个专业的数据解析助手，擅长从表格数据中提取设备资产编号和卡片编号的对应关系。"},
+            {"role": "user", "content": prompt}
+        ])
         
-        ai_content = response.choices[0].message.content
         json_match = re.search(r'\{[\s\S]*\}', ai_content)
         
         if json_match:
@@ -919,15 +897,8 @@ def parse_excel_with_ai_assist(file_content):
         return None, f'AI解析失败: {str(e)}'
 
 
-def call_ai_for_inventory_import(api_key, model_name, excel_data):
-    """调用AI解析资产编号（与update_card_no相同）"""
-    from openai import OpenAI
-    
-    client = OpenAI(
-        api_key=api_key,
-        base_url="https://api.xiaomimimo.com/v1"
-    )
-    
+def call_ai_for_inventory_import(excel_data):
+    """调用AI解析资产编号，使用系统设置中配置的大模型"""
     prompt = f"""请从以下Excel表格数据中提取资产编号和卡片编号的对应关系。
 
 规则：
@@ -949,17 +920,10 @@ def call_ai_for_inventory_import(api_key, model_name, excel_data):
 {excel_data}"""
     
     try:
-        response = client.chat.completions.create(
-            model=model_name,
-            messages=[
-                {"role": "system", "content": "你是一个专业的数据解析助手，擅长从表格数据中提取设备资产编号和卡片编号的对应关系。"},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=4096,
-            temperature=0.1
-        )
-        
-        ai_content = response.choices[0].message.content
+        ai_content = call_llm([
+            {"role": "system", "content": "你是一个专业的数据解析助手，擅长从表格数据中提取设备资产编号和卡片编号的对应关系。"},
+            {"role": "user", "content": prompt}
+        ])
         
         json_match = re.search(r'\{[\s\S]*\}', ai_content)
         if json_match:
@@ -969,7 +933,7 @@ def call_ai_for_inventory_import(api_key, model_name, excel_data):
         return None
 
 
-def process_inventory_import_task(task_id, file_content, task, user, parse_photo_only):
+def process_inventory_import_task(task_id, file_content, task, user, parse_photo_only, file_name='unknown', base_url='http://127.0.0.1:8000', image_input_method='http_url'):
     """后台处理导入任务"""
     from io import BytesIO
     import openpyxl
@@ -977,105 +941,124 @@ def process_inventory_import_task(task_id, file_content, task, user, parse_photo
     progress = inventory_import_progress[task_id]
     
     try:
-        file_name = 'unknown'
-        if hasattr(file_content, 'name'):
-            file_name = file_content.name.lower()
-        elif isinstance(file_content, bytes):
-            file_name = 'file.xlsx'
+        # 使用传入的文件名，兜底用magic bytes检测
+        if file_name in ('unknown', 'file.xlsx', 'file.xls', 'file'):
+            if isinstance(file_content, bytes):
+                if file_content[:8] == b'\x89PNG\r\n\x1a\n':
+                    file_name = 'image.png'
+                elif file_content[:3] == b'\xFF\xD8\xFF':
+                    file_name = 'image.jpg'
+                elif file_content[:4] == b'PK\x03\x04':
+                    file_name = 'file.xlsx'
+                elif file_content[:2] == b'\xD0\xCF':
+                    file_name = 'file.xls'
         
         # 判断文件类型
         if file_name.endswith(('.png', '.jpg', '.jpeg', '.bmp')):
-            # 图片文件 - 仅解析模式
-            if parse_photo_only:
-                inventory_add_log(task_id, 'info', '开始解析图片中的设备...')
-                import base64
-                image_data = base64.b64encode(file_content).decode('utf-8')
-                
-                # 调用AI解析图片
-                api_key = get_config_value('llm_api_key', '')
-                model_name = get_config_value('llm_model_name', 'mimo-v2-pro')
-                
-                if not api_key:
-                    progress['status'] = 'completed'
-                    inventory_add_log(task_id, 'error', '未配置AI API Key')
-                    return
-                
-                inventory_add_log(task_id, 'ai', f'调用AI Vision解析图片...')
-                
-                from openai import OpenAI
-                client = OpenAI(api_key=api_key, base_url="https://api.xiaomimimo.com/v1")
-                
-                prompt = """请从这张图片中提取所有设备资产编号和卡片编号。
-
-规则：
-1. 资产编号格式类似: XACD-Z-001-001-001
-2. 合并写法如 XACD-Z-001-001-001/003/007 需拆解
-3. 同时识别卡片编号
-4. 返回JSON格式: {"asset_numbers": ["编号1"], "card_numbers": ["卡片编号1"]}"""
-                
-                messages = [
-                    {"role": "system", "content": "你是一个专业的数据解析助手，擅长从图片中提取设备资产编号。"},
-                    {"role": "user", "content": [
-                        {"type": "text", "text": prompt},
-                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_data}"}}
-                    ]}
-                ]
-                
-                response = client.chat.completions.create(
-                    model=model_name,
-                    messages=messages,
-                    temperature=0.1,
-                    max_tokens=2048
+            # 图片文件 - 使用两步AI识别
+            inventory_add_log(task_id, 'info', f'开始解析图片中的设备... (文件: {file_name})')
+            
+            if not is_llm_enabled():
+                progress['status'] = 'completed'
+                inventory_add_log(task_id, 'error', 'LLM未启用或未配置API Key，请在系统设置-模型设置中配置')
+                return
+            
+            config = get_llm_config()
+            model_name = config['model_name']
+            inventory_add_log(task_id, 'ai', f'调用AI解析图片，使用模型: {model_name}，图片大小: {len(file_content)} bytes')
+            
+            try:
+                ai_content = call_llm_vision_two_step(
+                    image_bytes=file_content,
+                    log_callback=lambda msg: inventory_add_log(task_id, 'ai', msg),
+                    base_url=base_url,
+                    parse_photo_only=parse_photo_only,
+                    image_input_method=image_input_method
                 )
-                
-                ai_content = response.choices[0].message.content
-                json_match = re.search(r'\{[\s\S]*\}', ai_content)
-                
-                if json_match:
-                    data = json.loads(json_match.group())
-                    asset_nos = data.get('asset_numbers', [])
-                    card_nos = data.get('card_numbers', [])
-                    
-                    # 展开合并写法
-                    all_asset_numbers = []
-                    for no in asset_nos:
-                        expanded = expand_asset_numbers_for_inventory(no, None)
-                        all_asset_numbers.extend(expanded)
-                    
-                    inventory_add_log(task_id, 'success', f'AI解析成功，识别到 {len(all_asset_numbers)} 个资产编号')
-                    
-                    # 查找系统设备
-                    found_devices = Device.objects.filter(
-                        Q(asset_no__in=all_asset_numbers) | Q(asset_card_no__in=card_nos)
-                    ).exclude(status='scrapped').select_related('category', 'location', 'user', 'department')
-                    
-                    progress['device_list'] = []
-                    for d in found_devices:
-                        progress['device_list'].append({
-                            'id': d.id,
-                            'asset_no': d.asset_no,
-                            'asset_card_no': d.asset_card_no or '',
-                            'name': d.name,
-                            'category': d.category.name if d.category else '',
-                            'location': d.location.get_full_path() if d.location else d.location_text or '',
-                            'device_no': d.device_no or '',
-                            'model': d.model or '',
-                            'secret_level': d.get_secret_level_display(),
-                            'department': d.department.name if d.department else '',
-                            'user': d.user.realname if d.user else '',
-                            'status': d.get_status_display(),
-                            'is_fixed': d.is_fixed,
-                        })
-                    
-                    inventory_add_log(task_id, 'success', f'在系统中找到 {len(progress["device_list"])} 台匹配设备')
-                else:
-                    inventory_add_log(task_id, 'error', 'AI返回格式异常，无法解析')
-                
+            except Exception as e:
+                inventory_add_log(task_id, 'error', f'AI API调用失败: {str(e)}')
                 progress['status'] = 'completed'
                 return
             
-            # 图片但不是仅解析模式 - 按Excel处理（一般不会走到这里）
-            file_content = file_content.read() if hasattr(file_content, 'read') else file_content
+            if not ai_content:
+                inventory_add_log(task_id, 'error', 'AI返回内容为空，请检查API配置或模型是否支持图片解析')
+                progress['status'] = 'completed'
+                progress['errors'].append('AI返回内容为空')
+                return
+            
+            data, error = parse_ai_json_response(ai_content)
+            
+            if data:
+                asset_nos = data.get('asset_numbers', [])
+                card_nos = data.get('card_numbers', [])
+                
+                # 展开合并写法
+                all_asset_numbers = []
+                for no in asset_nos:
+                    expanded = expand_asset_numbers_for_inventory(no, None)
+                    all_asset_numbers.extend(expanded)
+                
+                inventory_add_log(task_id, 'success', f'AI解析成功，识别到 {len(all_asset_numbers)} 个资产编号')
+                
+                # 查找系统设备
+                found_devices = Device.objects.filter(
+                    Q(asset_no__in=all_asset_numbers) | Q(asset_card_no__in=card_nos)
+                ).exclude(status='scrapped').select_related('category', 'location', 'user', 'department')
+                
+                # 构建设备列表（两种模式都需要，供前端展示）
+                device_list = []
+                for d in found_devices:
+                    device_list.append({
+                        'id': d.id,
+                        'asset_no': d.asset_no,
+                        'asset_card_no': d.asset_card_no or '',
+                        'name': d.name,
+                        'category': d.category.name if d.category else '',
+                        'location': d.location.get_full_path() if d.location else d.location_text or '',
+                        'device_no': d.device_no or '',
+                        'model': d.model or '',
+                        'secret_level': d.get_secret_level_display(),
+                        'department': d.department.name if d.department else '',
+                        'user': d.user.realname if d.user else '',
+                        'status': d.get_status_display(),
+                        'is_fixed': d.is_fixed,
+                    })
+                progress['device_list'] = device_list
+                
+                inventory_add_log(task_id, 'success', f'在系统中找到 {len(device_list)} 台匹配设备')
+                
+                # 自动添加设备到待盘点列表（两种模式都自动添加）
+                existing_device_ids = set(InventoryTaskDevice.objects.filter(task=task).values_list('device_id', flat=True))
+                added_count = 0
+                skipped_count = 0
+                
+                for d in found_devices:
+                    if d.id in existing_device_ids:
+                        skipped_count += 1
+                        inventory_add_log(task_id, 'warning', f'设备 {d.asset_no}：已在任务中，跳过')
+                    else:
+                        InventoryTaskDevice.objects.create(
+                            task=task,
+                            device=d,
+                            status='pending',
+                            sort_order=added_count + skipped_count + 1,
+                            added_by=user,
+                        )
+                        added_count += 1
+                        inventory_add_log(task_id, 'success', f'设备 {d.asset_no}：匹配成功，已添加到任务')
+                
+                # 更新任务设备计数
+                task.device_count = InventoryTaskDevice.objects.filter(task=task).count()
+                task.save()
+                
+                progress['added_count'] = added_count
+                progress['skipped_count'] = skipped_count
+                inventory_add_log(task_id, 'success', f'导入待盘点完成！已添加 {added_count} 个，已存在 {skipped_count} 个')
+            else:
+                inventory_add_log(task_id, 'error', f'AI返回格式异常: {error}')
+            
+            progress['status'] = 'completed'
+            return
         
         # Excel文件处理
         inventory_add_log(task_id, 'info', '开始读取Excel文件...')
@@ -1104,15 +1087,13 @@ def process_inventory_import_task(task_id, file_content, task, user, parse_photo
         inventory_add_log(task_id, 'success', f'Excel文件读取成功，共 {len(excel_mappings)} 条资产编号映射')
         
         # 获取AI配置
-        api_key = get_config_value('llm_api_key', '')
-        model_name = get_config_value('llm_model_name', 'mimo-v2-pro')
-        
-        # 如果有AI配置，使用AI解析
-        if api_key:
-            inventory_add_log(task_id, 'ai', f'调用AI解析数据，发送 {len(excel_mappings)} 条映射记录...')
+        if is_llm_enabled():
+            config = get_llm_config()
+            model_name = config['model_name']
+            inventory_add_log(task_id, 'ai', f'调用AI解析数据，模型: {model_name}，发送 {len(excel_mappings)} 条映射记录...')
             
             excel_text = '\n'.join([f"{k}|{v}" for k, v in excel_mappings.items()])
-            ai_result = call_ai_for_inventory_import(api_key, model_name, excel_text)
+            ai_result = call_ai_for_inventory_import(excel_text)
             
             if ai_result and 'mappings' in ai_result:
                 ai_mappings = {item['asset_no']: item['card_no'] for item in ai_result['mappings']}
@@ -1191,16 +1172,15 @@ def api_import_devices(request, task_id):
         return JsonResponse({'success': False, 'message': '请上传文件'})
     
     parse_photo_only = request.POST.get('parse_photo_only', 'false').lower() == 'true'
+    image_input_method = request.POST.get('image_input_method', 'http_url')
     
-    # 如果是图片且选择仅解析模式
+    # 获取原始文件名
     file_name = file.name.lower()
-    is_image = file_name.endswith(('.png', '.jpg', '.jpeg', '.bmp'))
     
-    if is_image and parse_photo_only:
-        # 图片解析模式 - 同步处理，返回设备列表
-        return handle_image_parse_only(task, file, request.user)
+    # 获取app_url配置，用于构造图片HTTP URL
+    app_url = get_config_value('app_url', 'http://127.0.0.1:8000')
     
-    # Excel导入模式 - 后台异步处理
+    # 所有情况统一走后台异步处理（包括图片+勾选仅解析照片）
     task_id_str = str(uuid.uuid4())[:8]
     file_content = file.read()
     
@@ -1219,7 +1199,7 @@ def api_import_devices(request, task_id):
     
     thread = threading.Thread(
         target=process_inventory_import_task,
-        args=(task_id_str, file_content, task, request.user, parse_photo_only)
+        args=(task_id_str, file_content, task, request.user, parse_photo_only, file_name, app_url, image_input_method)
     )
     thread.daemon = True
     thread.start()
@@ -1227,52 +1207,31 @@ def api_import_devices(request, task_id):
     return JsonResponse({'success': True, 'task_id': task_id_str})
 
 
-def handle_image_parse_only(task, file, user):
-    """处理图片仅解析模式"""
-    import base64
-    from openai import OpenAI
+def handle_image_parse_only(task, file, user, base_url='http://127.0.0.1:8000', image_input_method='http_url'):
+    """处理图片仅解析模式（人工勾选），使用系统设置中配置的大模型"""
     
-    api_key = get_config_value('llm_api_key', '')
-    model_name = get_config_value('llm_model_name', 'mimo-v2-pro')
-    
-    if not api_key:
-        return JsonResponse({'success': False, 'message': '未配置AI API Key'})
+    if not is_llm_enabled():
+        return JsonResponse({'success': False, 'message': '未启用LLM或未配置API Key，请在系统设置-模型设置中配置'})
     
     try:
-        image_data = base64.b64encode(file.read()).decode('utf-8')
+        image_bytes = file.read()
         
-        client = OpenAI(api_key=api_key, base_url="https://api.xiaomimimo.com/v1")
-        
-        prompt = """请从这张图片中提取所有设备资产编号和卡片编号。
-
-规则：
-1. 资产编号格式类似: XACD-Z-001-001-001
-2. 合并写法如 XACD-Z-001-001-001/003/007 需拆解
-3. 同时识别卡片编号
-4. 返回JSON格式: {"asset_numbers": ["编号1"], "card_numbers": ["卡片编号1"]}"""
-        
-        messages = [
-            {"role": "system", "content": "你是一个专业的数据解析助手，擅长从图片中提取设备资产编号。"},
-            {"role": "user", "content": [
-                {"type": "text", "text": prompt},
-                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_data}"}}
-            ]}
-        ]
-        
-        response = client.chat.completions.create(
-            model=model_name,
-            messages=messages,
-            temperature=0.1,
-            max_tokens=2048
+        ai_content = call_llm_vision_two_step(
+            image_bytes=image_bytes,
+            log_callback=None,  # 同步场景无进度面板
+            base_url=base_url,
+            parse_photo_only=True,
+            image_input_method=image_input_method
         )
         
-        ai_content = response.choices[0].message.content
-        json_match = re.search(r'\{[\s\S]*\}', ai_content)
+        if not ai_content:
+            return JsonResponse({'success': False, 'message': 'AI返回内容为空，请检查API配置或模型是否支持图片解析'})
         
-        if not json_match:
-            return JsonResponse({'success': False, 'message': 'AI返回格式异常'})
+        data, error = parse_ai_json_response(ai_content)
         
-        data = json.loads(json_match.group())
+        if not data:
+            return JsonResponse({'success': False, 'message': f'AI返回格式异常: {error}'})
+        
         asset_nos = data.get('asset_numbers', [])
         card_nos = data.get('card_numbers', [])
         
