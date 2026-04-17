@@ -22,17 +22,46 @@
         font-size: 0.9rem;
         opacity: 0.9;
     }
-    .progress-ring {
-        width: 120px;
-        height: 120px;
-        margin: 0 auto;
-    }
     .report-table th {
         background-color: #f8f9fa;
     }
     .badge-location {
         font-size: 0.85rem;
         padding: 0.4em 0.8em;
+    }
+    /* 移动端卡片样式 */
+    .device-card {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 0.75rem;
+        margin-bottom: 0.5rem;
+        background: #fff;
+        transition: all 0.2s;
+    }
+    .device-card:hover {
+        border-color: #0d6efd;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .device-card.clickable {
+        cursor: pointer;
+    }
+    .device-card .asset-no {
+        font-weight: bold;
+        color: #0d6efd;
+    }
+    .device-card .info-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+    }
+    .device-card .info-item {
+        font-size: 0.85rem;
+        color: #666;
+    }
+    .device-card .info-item i {
+        width: 16px;
+        margin-right: 4px;
     }
 </style>
 {% endblock %}
@@ -73,7 +102,7 @@
                 <strong>创建人:</strong> {{ task.created_by.realname|default:'-' }}
             </div>
             <div class="col-md-3 col-6 mb-2">
-                <strong>负责人:</strong> {{ task.assignee.realname|default:'-' }}
+                <strong>盘点人:</strong> {{ checkers_text }}
             </div>
             <div class="col-md-3 col-6 mb-2">
                 <strong>创建时间:</strong> {{ task.created_at|date:"Y-m-d H:i" }}
@@ -82,7 +111,7 @@
                 <strong>完成时间:</strong> {{ task.completed_at|date:"Y-m-d H:i"|default:'-' }}
             </div>
             <div class="col-md-3 col-6 mb-2">
-                <strong>固资在账:</strong> {% if task.is_fixed_only %}<span class="badge bg-success">是</span>{% else %}<span class="text-muted">否</span>{% endif %}
+                <strong>盘点范围:</strong> {% if task.is_fixed_only %}<span class="badge bg-primary">在账设备</span>{% else %}<span class="badge bg-secondary">所有设备</span>{% endif %}
             </div>
             <div class="col-md-3 col-6 mb-2">
                 <strong>状态:</strong> <span class="badge bg-success">{{ task.get_status_display }}</span>
@@ -109,16 +138,16 @@
     </div>
     <div class="col-lg-3 col-md-6">
         <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
-            <i class="fas fa-percentage stat-icon"></i>
-            <div class="stat-value">{{ completion_rate }}%</div>
-            <div class="stat-label">完成率</div>
+            <i class="fas fa-clock stat-icon"></i>
+            <div class="stat-value">{{ pending_count }}</div>
+            <div class="stat-label">未盘设备</div>
         </div>
     </div>
     <div class="col-lg-3 col-md-6">
         <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
-            <i class="fas fa-exclamation-triangle stat-icon"></i>
-            <div class="stat-value">{{ damaged_count }}</div>
-            <div class="stat-label">损坏设备</div>
+            <i class="fas fa-percentage stat-icon"></i>
+            <div class="stat-value">{{ completion_rate }}%</div>
+            <div class="stat-label">完成率</div>
         </div>
     </div>
 </div>
@@ -256,22 +285,28 @@
 </div>
 {% endif %}
 
-<!-- 盘点明细 -->
-<div class="card">
-    <div class="card-header bg-secondary text-white">
-        <i class="fas fa-list me-2"></i>盘点明细（{% if records|length >= 100 %}显示前100条{% else %}共{{ records|length }}条{% endif %}）
+<!-- 已盘点设备明细 -->
+<div class="card mb-4">
+    <div class="card-header bg-success text-white">
+        <i class="fas fa-check-circle me-2"></i>已盘点设备明细（{% if records|length >= 100 %}显示前100条{% else %}共{{ records|length }}条{% endif %}）
     </div>
-    <div class="card-body p-0">
+    <!-- 桌面端表格 -->
+    <div class="card-body p-0 d-none d-lg-block">
         <div class="table-responsive">
             <table class="table table-hover table-sm report-table mb-0">
                 <thead class="table-light">
                     <tr>
                         <th>#</th>
                         <th>资产编号</th>
+                        <th>设备编号</th>
                         <th>设备名称</th>
                         <th>型号</th>
-                        <th>部门</th>
+                        <th>所属部门</th>
                         <th>使用人</th>
+                        <th>位置</th>
+                        <th>状态</th>
+                        <th>固资在账</th>
+                        <th>卡片编号</th>
                         <th>位置状态</th>
                         <th>资产状态</th>
                         <th>盘点人</th>
@@ -284,10 +319,18 @@
                     <tr>
                         <td>{{ forloop.counter }}</td>
                         <td><strong class="text-primary">{{ record.device.asset_no }}</strong></td>
+                        <td>{{ record.device.device_no|default:'-' }}</td>
                         <td>{{ record.device.name }}</td>
                         <td>{{ record.device.model|default:'-' }}</td>
                         <td>{{ record.device.department.name|default:'-' }}</td>
                         <td>{{ record.device.user.realname|default:'-' }}</td>
+                        <td><small>{{ record.device.location_text|default:'-' }}</small></td>
+                        <td>{% if record.device.status == 'normal' %}<span class="badge bg-success">使用</span>
+                            {% elif record.device.status == 'fault' %}<span class="badge bg-danger">故障</span>
+                            {% elif record.device.status == 'scrapped' %}<span class="badge bg-secondary">报废</span>
+                            {% else %}<span class="badge bg-info">闲置</span>{% endif %}</td>
+                        <td>{% if record.device.is_fixed %}<span class="badge bg-success">是</span>{% else %}<span class="text-muted">否</span>{% endif %}</td>
+                        <td>{{ record.device.asset_card_no|default:'-' }}</td>
                         <td>
                             {% if record.location_status == 'in_place' %}
                             <span class="badge bg-success">在位</span>
@@ -312,12 +355,144 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="11" class="text-center text-muted py-4">暂无盘点记录</td>
+                        <td colspan="16" class="text-center text-muted py-4">暂无盘点记录</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
+    </div>
+    <!-- 移动端卡片 -->
+    <div class="card-body d-lg-none">
+        {% for record in records %}
+        <div class="device-card">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <div>
+                    <span class="asset-no">{{ record.device.asset_no }}</span>
+                    {% if record.device.device_no %}<span class="text-muted ms-2 small">{{ record.device.device_no }}</span>{% endif %}
+                </div>
+                <div>
+                    {% if record.device.status == 'normal' %}<span class="badge bg-success">使用</span>
+                    {% elif record.device.status == 'fault' %}<span class="badge bg-danger">故障</span>
+                    {% elif record.device.status == 'scrapped' %}<span class="badge bg-secondary">报废</span>
+                    {% else %}<span class="badge bg-info">闲置</span>{% endif %}
+                </div>
+            </div>
+            <div class="mb-1"><strong>{{ record.device.name }}</strong>{% if record.device.model %} <span class="text-muted small">({{ record.device.model }})</span>{% endif %}</div>
+            <div class="info-row">
+                <span class="info-item"><i class="fas fa-building"></i>{{ record.device.department.name|default:'-' }}</span>
+                <span class="info-item"><i class="fas fa-user"></i>{{ record.device.user.realname|default:'-' }}</span>
+                <span class="info-item"><i class="fas fa-map-marker-alt"></i>{{ record.device.location_text|default:'-' }}</span>
+            </div>
+            <div class="info-row mt-1">
+                <span class="info-item">{% if record.device.is_fixed %}<span class="badge bg-success">固资</span>{% else %}<span class="badge bg-secondary">非固资</span>{% endif %}</span>
+                {% if record.device.asset_card_no %}<span class="info-item"><i class="fas fa-id-card"></i>{{ record.device.asset_card_no }}</span>{% endif %}
+                <span class="info-item">
+                    {% if record.location_status == 'in_place' %}<span class="badge bg-success">在位</span>
+                    {% elif record.location_status == 'moved' %}<span class="badge bg-warning">搬离</span>{% endif %}
+                    {% if record.asset_status == 'normal' %}<span class="badge bg-success ms-1">正常</span>
+                    {% elif record.asset_status == 'damaged' %}<span class="badge bg-danger ms-1">损坏</span>{% endif %}
+                </span>
+            </div>
+            <div class="info-row mt-1">
+                <span class="info-item"><i class="fas fa-user-check"></i>盘点人: {{ record.checked_by.realname|default:'-' }}</span>
+                <span class="info-item"><i class="fas fa-clock"></i>{{ record.checked_at|date:"Y-m-d H:i" }}</span>
+            </div>
+            {% if record.remarks %}<div class="mt-1 small text-muted"><i class="fas fa-sticky-note me-1"></i>{{ record.remarks|truncatechars:50 }}</div>{% endif %}
+        </div>
+        {% empty %}
+        <div class="text-center text-muted py-4">暂无盘点记录</div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- 未盘设备列表 -->
+<div class="card">
+    <div class="card-header bg-warning text-dark">
+        <i class="fas fa-clock me-2"></i>未盘设备列表（共{{ pending_count }}条）
+    </div>
+    <!-- 桌面端表格 -->
+    <div class="card-body p-0 d-none d-lg-block">
+        <div class="table-responsive">
+            <table class="table table-hover table-sm mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>#</th>
+                        <th>资产编号</th>
+                        <th>设备编号</th>
+                        <th>设备名称</th>
+                        <th>型号</th>
+                        <th>所属部门</th>
+                        <th>使用人</th>
+                        <th>位置</th>
+                        <th>状态</th>
+                        <th>固资在账</th>
+                        <th>卡片编号</th>
+                        <th>盘点状态</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for device in pending_devices %}
+                    <tr style="cursor: pointer;" onclick="location.href='{% url 'device_detail' device.id %}'">
+                        <td>{{ forloop.counter }}</td>
+                        <td><strong class="text-primary">{{ device.asset_no }}</strong></td>
+                        <td>{{ device.device_no|default:'-' }}</td>
+                        <td>{{ device.name }}</td>
+                        <td>{{ device.model|default:'-' }}</td>
+                        <td>{{ device.department.name|default:'-' }}</td>
+                        <td>{{ device.user.realname|default:'-' }}</td>
+                        <td><small>{{ device.location_text|default:'-' }}</small></td>
+                        <td>{% if device.status == 'normal' %}<span class="badge bg-success">使用</span>
+                            {% elif device.status == 'fault' %}<span class="badge bg-danger">故障</span>
+                            {% elif device.status == 'scrapped' %}<span class="badge bg-secondary">报废</span>
+                            {% else %}<span class="badge bg-info">闲置</span>{% endif %}</td>
+                        <td>{% if device.is_fixed %}<span class="badge bg-success">是</span>{% else %}<span class="text-muted">否</span>{% endif %}</td>
+                        <td>{{ device.asset_card_no|default:'-' }}</td>
+                        <td><span class="badge bg-secondary">未盘</span></td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="12" class="text-center text-muted py-4">暂无未盘设备</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <!-- 移动端卡片 -->
+    <div class="card-body d-lg-none">
+        {% for device in pending_devices %}
+        <div class="device-card clickable" onclick="location.href='{% url 'device_detail' device.id %}'">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <div>
+                    <span class="asset-no">{{ device.asset_no }}</span>
+                    {% if device.device_no %}<span class="text-muted ms-2 small">{{ device.device_no }}</span>{% endif %}
+                </div>
+                <span class="badge bg-secondary">未盘</span>
+            </div>
+            <div class="mb-1"><strong>{{ device.name }}</strong>{% if device.model %} <span class="text-muted small">({{ device.model }})</span>{% endif %}</div>
+            <div class="info-row">
+                <span class="info-item"><i class="fas fa-building"></i>{{ device.department.name|default:'-' }}</span>
+                <span class="info-item"><i class="fas fa-user"></i>{{ device.user.realname|default:'-' }}</span>
+                <span class="info-item"><i class="fas fa-map-marker-alt"></i>{{ device.location_text|default:'-' }}</span>
+            </div>
+            <div class="info-row mt-1">
+                <span class="info-item">
+                    {% if device.status == 'normal' %}<span class="badge bg-success">使用</span>
+                    {% elif device.status == 'fault' %}<span class="badge bg-danger">故障</span>
+                    {% elif device.status == 'scrapped' %}<span class="badge bg-secondary">报废</span>
+                    {% else %}<span class="badge bg-info">闲置</span>{% endif %}
+                </span>
+                {% if device.is_fixed %}<span class="info-item"><span class="badge bg-success">固资</span></span>{% endif %}
+                {% if device.asset_card_no %}<span class="info-item"><i class="fas fa-id-card"></i>{{ device.asset_card_no }}</span>{% endif %}
+            </div>
+            <div class="text-end mt-2">
+                <small class="text-primary"><i class="fas fa-external-link-alt me-1"></i>点击查看详情</small>
+            </div>
+        </div>
+        {% empty %}
+        <div class="text-center text-muted py-4">暂无未盘设备</div>
+        {% endfor %}
     </div>
 </div>
 
@@ -340,11 +515,11 @@
 {% block extra_js %}
 <script>
 function exportReport() {
-    // 简单的CSV导出功能
-    const rows = document.querySelectorAll('.report-table tbody tr');
-    let csv = '资产编号,设备名称,型号,部门,使用人,位置状态,资产状态,盘点人,盘点时间,备注\n';
+    // 导出已盘点设备
+    const checkedRows = document.querySelectorAll('.report-table tbody tr');
+    let csv = '\ufeff资产编号,设备编号,设备名称,型号,所属部门,使用人,位置,状态,固资在账,卡片编号,位置状态,资产状态,盘点人,盘点时间,备注\n';
     
-    rows.forEach(row => {
+    checkedRows.forEach(row => {
         const cells = row.querySelectorAll('td');
         if (cells.length > 1) {
             const rowData = [
@@ -357,13 +532,18 @@ function exportReport() {
                 cells[7].textContent.trim(),
                 cells[8].textContent.trim(),
                 cells[9].textContent.trim(),
-                cells[10].textContent.trim()
+                cells[10].textContent.trim(),
+                cells[11].textContent.trim(),
+                cells[12].textContent.trim(),
+                cells[13].textContent.trim(),
+                cells[14].textContent.trim(),
+                cells[15].textContent.trim()
             ];
             csv += rowData.map(cell => `"${cell.replace(/"/g, '""')}"`).join(',') + '\n';
         }
     });
     
-    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.download = `盘点报告_{{ task.task_no }}_${new Date().toISOString().slice(0,10)}.csv`;
@@ -377,6 +557,8 @@ style.textContent = `
         .btn, nav, footer { display: none !important; }
         .card { border: 1px solid #ddd !important; box-shadow: none !important; }
         .stat-card { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .d-lg-none { display: none !important; }
+        .d-none.d-lg-block { display: block !important; }
     }
 `;
 document.head.appendChild(style);

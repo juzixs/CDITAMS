@@ -1885,6 +1885,7 @@ def task_report(request, pk):
     # 统计数据
     total_count = task.device_count
     checked_count = task.checked_count
+    pending_count = total_count - checked_count
     
     # 位置状态统计
     in_place_count = records.filter(location_status='in_place').count()
@@ -1893,6 +1894,12 @@ def task_report(request, pk):
     # 资产状态统计
     normal_count = records.filter(asset_status='normal').count()
     damaged_count = records.filter(asset_status='damaged').count()
+    
+    # 获取未盘设备列表（通过InventoryTaskDevice关联）
+    pending_task_devices = task.task_devices.filter(
+        status='pending'
+    ).select_related('device', 'device__category', 'device__department', 'device__user', 'device__location').order_by('sort_order', 'id')
+    pending_devices = [td.device for td in pending_task_devices]
     
     # 部门统计
     from django.db.models import Count
@@ -1913,14 +1920,29 @@ def task_report(request, pk):
         count=Count('id')
     ).order_by('-count')
     
+    # 盘点人列表（去重）
+    checkers = list(records.filter(
+        checked_by__isnull=False
+    ).values_list('checked_by__realname', flat=True).distinct())
+    # 使用set去重，保持去重后的顺序
+    seen = set()
+    unique_checkers = []
+    for name in checkers:
+        if name not in seen:
+            seen.add(name)
+            unique_checkers.append(name)
+    checkers_text = '、'.join(unique_checkers) if unique_checkers else '-'
+    
     # 完成率
     completion_rate = round(checked_count / total_count * 100, 1) if total_count > 0 else 0
     
     context = {
         'task': task,
         'records': records[:100],  # 限制显示数量
+        'pending_devices': pending_devices,
         'total_count': total_count,
         'checked_count': checked_count,
+        'pending_count': pending_count,
         'in_place_count': in_place_count,
         'moved_count': moved_count,
         'normal_count': normal_count,
@@ -1928,6 +1950,7 @@ def task_report(request, pk):
         'completion_rate': completion_rate,
         'department_stats': department_stats,
         'category_stats': category_stats,
+        'checkers_text': checkers_text,
     }
     
     return render(request, 'inventory/task_report.html', context)
