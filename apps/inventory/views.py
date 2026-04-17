@@ -220,6 +220,13 @@ def task_complete(request, pk):
     if task.status != 'in_progress':
         return JsonResponse({'success': False, 'message': '只有执行中的任务才能完成'})
     
+    # 动态盘点任务：只统计已盘点设备，删除未盘点的设备
+    if task.task_type == 'dynamic':
+        # 删除未盘点的设备记录
+        InventoryTaskDevice.objects.filter(task=task, status='pending').delete()
+        # 更新设备数量为已盘点数量
+        task.device_count = InventoryTaskDevice.objects.filter(task=task).count()
+    
     task.status = 'completed'
     task.completed_at = timezone.now()
     task.save()

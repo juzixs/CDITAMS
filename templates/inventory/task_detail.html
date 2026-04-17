@@ -1501,7 +1501,18 @@ function startTask() {
 
 // 完成任务
 function completeTask() {
+    {% if task.task_type == 'dynamic' %}
+    // 动态盘点特殊提示
+    const pendingCount = {{ pending_count }};
+    const checkedCount = {{ checked_count }};
+    if (pendingCount > 0) {
+        if (!confirm(`动态盘点可随时完成！\n\n当前状态：\n- 已盘点：${checkedCount} 台\n- 未盘点：${pendingCount} 台\n\n完成任务后，将只统计已盘点的 ${checkedCount} 台设备。\n\n确定要完成任务吗？`)) return;
+    } else {
+        if (!confirm('确定要完成盘点任务吗？')) return;
+    }
+    {% else %}
     if (!confirm('确定要完成盘点任务吗？')) return;
+    {% endif %}
     
     fetch(`/inventory/tasks/${TASK_ID}/complete/`, {
         method: 'POST',
