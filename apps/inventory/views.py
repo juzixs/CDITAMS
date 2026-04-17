@@ -1846,29 +1846,89 @@ def plan_detail(request, pk):
 @login_required
 def inventory_report(request):
     """盘点报表"""
-    plans = InventoryPlan.objects.all()
-    tasks = InventoryTask.objects.all()
+    from django.core.paginator import Paginator
+    from django.db.models import Sum, Count, Q
     
-    total_plans = plans.count()
-    completed_plans = plans.filter(status='completed').count()
+    # 获取筛选参数
+    task_type = request.GET.get('task_type', '')
+    search = request.GET.get('search', '')
     
-    total_tasks = tasks.count()
-    completed_tasks = tasks.filter(status='completed').count()
-    in_progress_tasks = tasks.filter(status='in_progress').count()
+    # 查询最新一个已完成的全盘任务
+    latest_full_task = InventoryTask.objects.filter(
+        status='completed',
+        task_type='full'
+    ).order_by('-completed_at').first()
     
-    total_records = InventoryRecord.objects.count()
-    not_found_count = InventoryRecord.objects.filter(location_status='not_found').count()
-    damaged_count = InventoryRecord.objects.filter(asset_status='damaged').count()
+    if latest_full_task:
+        # 从该任务获取统计数据
+        total_count = latest_full_task.device_count
+        checked_count = latest_full_task.checked_count
+        pending_count = total_count - checked_count
+        completion_rate = round(checked_count / total_count * 100, 1) if total_count > 0 else 0
+        
+        # 获取该任务的盘点记录
+        task_records = InventoryRecord.objects.filter(task=latest_full_task)
+        in_place_count = task_records.filter(location_status='in_place').count()
+        moved_count = task_records.filter(location_status='moved').count()
+        normal_count = task_records.filter(asset_status='normal').count()
+        damaged_count = task_records.filter(asset_status='damaged').count()
+    else:
+        # 没有已完成的全盘任务，显示为0
+        total_count = 0
+        checked_count = 0
+        pending_count = 0
+        completion_rate = 0
+        in_place_count = 0
+        moved_count = 0
+        normal_count = 0
+        damaged_count = 0
+    
+    # 盘点报告列表（已完成任务）
+    completed_tasks_qs = InventoryTask.objects.filter(status='completed').select_related('created_by').order_by('-completed_at')
+    
+    # 筛选
+    if task_type:
+        completed_tasks_qs = completed_tasks_qs.filter(task_type=task_type)
+    if search:
+        completed_tasks_qs = completed_tasks_qs.filter(Q(task_no__icontains=search) | Q(name__icontains=search))
+    
+    # 分页
+    paginator = Paginator(completed_tasks_qs, 15)
+    page = request.GET.get('page', 1)
+    reports = paginator.get_page(page)
+    
+    # 为每个报告获取盘点人信息
+    for task in reports:
+        checkers = list(InventoryRecord.objects.filter(
+            task=task,
+            checked_by__isnull=False
+        ).values_list('checked_by__realname', flat=True).distinct())
+        # 去重
+        seen = set()
+        unique_checkers = []
+        for name in checkers:
+            if name not in seen:
+                seen.add(name)
+                unique_checkers.append(name)
+        task.checkers_text = '、'.join(unique_checkers) if unique_checkers else '-'
     
     context = {
-        'total_plans': total_plans,
-        'completed_plans': completed_plans,
-        'total_tasks': total_tasks,
-        'completed_tasks': completed_tasks,
-        'in_progress_tasks': in_progress_tasks,
-        'total_records': total_records,
-        'not_found_count': not_found_count,
+        # 统计数据
+        'total_count': total_count,
+        'checked_count': checked_count,
+        'pending_count': pending_count,
+        'completion_rate': completion_rate,
+        'in_place_count': in_place_count,
+        'moved_count': moved_count,
+        'normal_count': normal_count,
         'damaged_count': damaged_count,
+        # 当前统计的任务
+        'latest_task': latest_full_task,
+        # 报告列表
+        'reports': reports,
+        # 筛选参数
+        'task_type': task_type,
+        'search': search,
     }
     
     return render(request, 'inventory/report.html', context)

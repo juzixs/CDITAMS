@@ -1,30 +1,354 @@
 {% extends 'base.html' %}
 {% block title %}盘点报表 - 驰达IT资产管理系统{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stat-card {
+        border-radius: 10px;
+        padding: 1.2rem;
+        text-align: center;
+        color: white;
+        margin-bottom: 1rem;
+    }
+    .stat-card .stat-icon {
+        font-size: 2rem;
+        opacity: 0.8;
+    }
+    .stat-card .stat-value {
+        font-size: 1.8rem;
+        font-weight: bold;
+        margin: 0.5rem 0;
+    }
+    .stat-card .stat-label {
+        font-size: 0.85rem;
+        opacity: 0.9;
+    }
+    .report-table th {
+        background-color: #f8f9fa;
+    }
+    .badge-location {
+        font-size: 0.85rem;
+        padding: 0.4em 0.8em;
+    }
+    /* 移动端卡片样式 */
+    .device-card {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 0.75rem;
+        margin-bottom: 0.5rem;
+        background: #fff;
+        transition: all 0.2s;
+    }
+    .device-card:hover {
+        border-color: #0d6efd;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .device-card .asset-no {
+        font-weight: bold;
+        color: #0d6efd;
+    }
+    .device-card .info-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+    }
+    .device-card .info-item {
+        font-size: 0.85rem;
+        color: #666;
+    }
+    .device-card .info-item i {
+        width: 16px;
+        margin-right: 4px;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<h4 class="mb-4">盘点统计报表</h4>
-<div class="row mb-4">
-<div class="col-md-3"><div class="stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"><i class="fas fa-clipboard-list"></i><div class="stat-value">{{ total_plans }}</div><div class="stat-label">盘点计划总数</div></div></div>
-<div class="col-md-3"><div class="stat-card" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);"><i class="fas fa-check-circle"></i><div class="stat-value">{{ completed_plans }}</div><div class="stat-label">已完成计划</div></div></div>
-<div class="col-md-3"><div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);"><i class="fas fa-spinner"></i><div class="stat-value">{{ in_progress_plans }}</div><div class="stat-label">进行中计划</div></div></div>
-<div class="col-md-3"><div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);"><i class="fas fa-tasks"></i><div class="stat-value">{{ total_tasks }}</div><div class="stat-label">盘点任务总数</div></div></div>
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-2">
+    <h4 class="mb-0"><i class="fas fa-chart-bar me-2"></i>盘点报表</h4>
 </div>
-<div class="row mb-4">
-<div class="col-md-4"><div class="card"><div class="card-header">设备盘点情况</div><div class="card-body">
-<p>设备总数：<strong>{{ total_devices }}</strong></p>
-<p>已盘点记录：<strong>{{ total_records }}</strong></p>
-</div></div></div>
-<div class="col-md-4"><div class="card"><div class="card-header">差异统计</div><div class="card-body">
-<p class="text-danger">未找到：<strong>{{ not_found_count }}</strong></p>
-<p class="text-warning">损坏：<strong>{{ damaged_count }}</strong></p>
-<p class="text-danger">丢失：<strong>{{ lost_count }}</strong></p>
-</div></div></div>
-<div class="col-md-4"><div class="card"><div class="card-header">任务完成情况</div><div class="card-body">
-<p>已完成任务：<strong>{{ completed_tasks }}</strong></p>
-<p>已审核任务：<strong>{{ verified_tasks }}</strong></p>
-</div></div></div>
+
+<!-- 当前统计任务提示 -->
+{% if latest_task %}
+<div class="alert alert-info mb-3">
+    <i class="fas fa-info-circle me-2"></i>
+    当前统计数据来自最新全盘任务：<a href="{% url 'inventory_task_report' latest_task.id %}" class="alert-link"><strong>{{ latest_task.task_no }}</strong></a>
+    （完成时间：{{ latest_task.completed_at|date:"Y-m-d H:i" }}）
 </div>
-<div class="card"><div class="card-header">盘点完成率</div><div class="card-body">
-{% if total_devices > 0 %}
-{% widthratio total_records total_devices 100 %}%
-{% else %}0%{% endif %}
-</div></div>{% endblock %}
+{% else %}
+<div class="alert alert-warning mb-3">
+    <i class="fas fa-exclamation-triangle me-2"></i>
+    暂无已完成的全盘任务，统计数据将显示为0
+</div>
+{% endif %}
+
+<!-- 统计概览卡片 -->
+<div class="row mb-4">
+    <div class="col-lg col-md-4 col-6">
+        <div class="stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+            <i class="fas fa-clipboard-list stat-icon"></i>
+            <div class="stat-value">{{ total_count }}</div>
+            <div class="stat-label">应盘设备</div>
+        </div>
+    </div>
+    <div class="col-lg col-md-4 col-6">
+        <div class="stat-card" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">
+            <i class="fas fa-check-circle stat-icon"></i>
+            <div class="stat-value">{{ checked_count }}</div>
+            <div class="stat-label">已盘设备</div>
+        </div>
+    </div>
+    <div class="col-lg col-md-4 col-6">
+        <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+            <i class="fas fa-clock stat-icon"></i>
+            <div class="stat-value">{{ pending_count }}</div>
+            <div class="stat-label">未盘设备</div>
+        </div>
+    </div>
+    <div class="col-lg col-md-4 col-6">
+        <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+            <i class="fas fa-percentage stat-icon"></i>
+            <div class="stat-value">{{ completion_rate }}%</div>
+            <div class="stat-label">完成率</div>
+        </div>
+    </div>
+    <div class="col-lg col-md-4 col-6">
+        <div class="stat-card" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
+            <i class="fas fa-exclamation-triangle stat-icon"></i>
+            <div class="stat-value">{{ damaged_count }}</div>
+            <div class="stat-label">损坏设备</div>
+        </div>
+    </div>
+</div>
+
+<!-- 位置状态和资产状态统计 -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header bg-info text-white">
+                <i class="fas fa-map-marker-alt me-2"></i>位置状态统计
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>状态</th>
+                                <th class="text-end">数量</th>
+                                <th class="text-end">占比</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><span class="badge bg-success badge-location">在位</span></td>
+                                <td class="text-end">{{ in_place_count }}</td>
+                                <td class="text-end">{% if checked_count > 0 %}{% widthratio in_place_count checked_count 100 %}%{% else %}0%{% endif %}</td>
+                            </tr>
+                            <tr>
+                                <td><span class="badge bg-warning badge-location">搬离</span></td>
+                                <td class="text-end">{{ moved_count }}</td>
+                                <td class="text-end">{% if checked_count > 0 %}{% widthratio moved_count checked_count 100 %}%{% else %}0%{% endif %}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header bg-danger text-white">
+                <i class="fas fa-heart me-2"></i>资产状态统计
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>状态</th>
+                                <th class="text-end">数量</th>
+                                <th class="text-end">占比</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><span class="badge bg-success badge-location">正常</span></td>
+                                <td class="text-end">{{ normal_count }}</td>
+                                <td class="text-end">{% if checked_count > 0 %}{% widthratio normal_count checked_count 100 %}%{% else %}0%{% endif %}</td>
+                            </tr>
+                            <tr>
+                                <td><span class="badge bg-danger badge-location">损坏</span></td>
+                                <td class="text-end">{{ damaged_count }}</td>
+                                <td class="text-end">{% if checked_count > 0 %}{% widthratio damaged_count checked_count 100 %}%{% else %}0%{% endif %}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 盘点报告列表 -->
+<div class="card">
+    <div class="card-header bg-secondary text-white">
+        <i class="fas fa-file-alt me-2"></i>盘点报告列表
+    </div>
+    <div class="card-body py-2">
+        <form method="get" class="row g-2 align-items-center">
+            <div class="col-auto">
+                <select name="task_type" class="form-select form-select-sm">
+                    <option value="">全部类型</option>
+                    <option value="full" {% if task_type == 'full' %}selected{% endif %}>全盘</option>
+                    <option value="sample" {% if task_type == 'sample' %}selected{% endif %}>抽盘</option>
+                    <option value="dynamic" {% if task_type == 'dynamic' %}selected{% endif %}>动态盘点</option>
+                </select>
+            </div>
+            <div class="col-auto">
+                <input type="text" name="search" class="form-control form-control-sm" placeholder="搜索任务编号/名称" value="{{ search }}">
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-sm btn-outline-primary"><i class="fas fa-search me-1"></i>搜索</button>
+            </div>
+        </form>
+    </div>
+    <!-- 桌面端表格 -->
+    <div class="card-body p-0 d-none d-lg-block">
+        <div class="table-responsive">
+            <table class="table table-hover report-table mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>任务编号</th>
+                        <th>任务名称</th>
+                        <th>类型</th>
+                        <th>应盘/已盘</th>
+                        <th>完成率</th>
+                        <th>盘点人</th>
+                        <th>完成时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for task in reports %}
+                    <tr>
+                        <td><strong class="text-primary">{{ task.task_no }}</strong></td>
+                        <td>{{ task.name|default:'-' }}</td>
+                        <td>
+                            {% if task.task_type == 'full' %}<span class="badge bg-primary">全盘</span>
+                            {% elif task.task_type == 'sample' %}<span class="badge bg-info">抽盘</span>
+                            {% else %}<span class="badge bg-warning text-dark">动态</span>{% endif %}
+                        </td>
+                        <td>{{ task.device_count }} / {{ task.checked_count }}</td>
+                        <td>
+                            {% if task.device_count > 0 %}
+                                {% widthratio task.checked_count task.device_count 100 %}%
+                            {% else %}
+                                0%
+                            {% endif %}
+                        </td>
+                        <td>{{ task.checkers_text|truncatechars:20 }}</td>
+                        <td>{{ task.completed_at|date:"Y-m-d H:i" }}</td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{% url 'inventory_task_report' task.id %}" class="btn btn-outline-primary" title="查看报告">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <a href="{% url 'inventory_task_report_print' task.id %}" class="btn btn-outline-success" title="打印PDF" target="_blank">
+                                    <i class="fas fa-print"></i>
+                                </a>
+                                <a href="{% url 'inventory_task_report_export' task.id %}" class="btn btn-outline-info" title="导出Excel">
+                                    <i class="fas fa-download"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center text-muted py-4">暂无盘点报告</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <!-- 移动端卡片 -->
+    <div class="card-body d-lg-none">
+        {% for task in reports %}
+        <div class="device-card">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <div>
+                    <span class="asset-no">{{ task.task_no }}</span>
+                </div>
+                <div>
+                    {% if task.task_type == 'full' %}<span class="badge bg-primary">全盘</span>
+                    {% elif task.task_type == 'sample' %}<span class="badge bg-info">抽盘</span>
+                    {% else %}<span class="badge bg-warning text-dark">动态</span>{% endif %}
+                </div>
+            </div>
+            <div class="mb-1"><strong>{{ task.name|default:task.get_task_type_display }}</strong></div>
+            <div class="info-row">
+                <span class="info-item"><i class="fas fa-clipboard-list"></i>应盘: {{ task.device_count }}</span>
+                <span class="info-item"><i class="fas fa-check-circle"></i>已盘: {{ task.checked_count }}</span>
+                <span class="info-item"><i class="fas fa-percentage"></i>
+                    {% if task.device_count > 0 %}
+                        {% widthratio task.checked_count task.device_count 100 %}%
+                    {% else %}
+                        0%
+                    {% endif %}
+                </span>
+            </div>
+            <div class="info-row mt-1">
+                <span class="info-item"><i class="fas fa-user-check"></i>盘点人: {{ task.checkers_text|truncatechars:15 }}</span>
+            </div>
+            <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
+                <small class="text-muted"><i class="fas fa-clock me-1"></i>{{ task.completed_at|date:"Y-m-d H:i" }}</small>
+                <div class="btn-group btn-group-sm">
+                    <a href="{% url 'inventory_task_report' task.id %}" class="btn btn-outline-primary" title="查看报告">
+                        <i class="fas fa-eye"></i>
+                    </a>
+                    <a href="{% url 'inventory_task_report_print' task.id %}" class="btn btn-outline-success" title="打印PDF" target="_blank">
+                        <i class="fas fa-print"></i>
+                    </a>
+                    <a href="{% url 'inventory_task_report_export' task.id %}" class="btn btn-outline-info" title="导出Excel">
+                        <i class="fas fa-download"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="text-center text-muted py-4">暂无盘点报告</div>
+        {% endfor %}
+    </div>
+    <!-- 分页 -->
+    {% if reports.has_other_pages %}
+    <div class="card-footer">
+        <nav aria-label="Page navigation">
+            <ul class="pagination pagination-sm justify-content-center mb-0">
+                {% if reports.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ reports.previous_page_number }}&task_type={{ task_type }}&search={{ search }}" aria-label="Previous">
+                        <span aria-hidden="true">&laquo;</span>
+                    </a>
+                </li>
+                {% endif %}
+                {% for num in reports.paginator.page_range %}
+                    {% if reports.number == num %}
+                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                    {% elif num > reports.number|add:'-3' and num < reports.number|add:'3' %}
+                    <li class="page-item"><a class="page-link" href="?page={{ num }}&task_type={{ task_type }}&search={{ search }}">{{ num }}</a></li>
+                    {% endif %}
+                {% endfor %}
+                {% if reports.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ reports.next_page_number }}&task_type={{ task_type }}&search={{ search }}" aria-label="Next">
+                        <span aria-hidden="true">&raquo;</span>
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
