@@ -142,12 +142,12 @@ def init_permissions():
         
         # ==================== 6. 工单服务 (module=工单, sort=600-699) ====================
         {'name': '工单服务', 'code': 'workorder', 'type': 'menu', 'module': '工单', 'sort': 600},
+        {'name': '创建工单', 'code': 'service_create', 'type': 'menu', 'module': '工单', 'parent_code': 'workorder', 'sort': 605},
         {'name': '服务请求', 'code': 'service_list', 'type': 'menu', 'module': '工单', 'parent_code': 'workorder', 'sort': 610},
-        {'name': '创建工单', 'code': 'service_create', 'type': 'button', 'module': '工单', 'parent_code': 'service_list', 'sort': 611},
-        {'name': '工单编辑', 'code': 'service_edit', 'type': 'button', 'module': '工单', 'parent_code': 'service_list', 'sort': 612},
-        {'name': '工单删除', 'code': 'service_delete', 'type': 'button', 'module': '工单', 'parent_code': 'service_list', 'sort': 613},
-        {'name': '工单查看', 'code': 'service_view', 'type': 'button', 'module': '工单', 'parent_code': 'service_list', 'sort': 614},
-        {'name': '工单处理', 'code': 'service_process', 'type': 'button', 'module': '工单', 'parent_code': 'service_list', 'sort': 615},
+        {'name': '工单编辑', 'code': 'service_edit', 'type': 'button', 'module': '工单', 'parent_code': 'service_list', 'sort': 611},
+        {'name': '工单删除', 'code': 'service_delete', 'type': 'button', 'module': '工单', 'parent_code': 'service_list', 'sort': 612},
+        {'name': '工单查看', 'code': 'service_view', 'type': 'button', 'module': '工单', 'parent_code': 'service_list', 'sort': 613},
+        {'name': '工单处理', 'code': 'service_process', 'type': 'button', 'module': '工单', 'parent_code': 'service_list', 'sort': 614},
         
         # ==================== 7. 日志管理 (module=日志, sort=700-799) ====================
         {'name': '日志管理', 'code': 'log', 'type': 'menu', 'module': '日志', 'sort': 700},
