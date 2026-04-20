@@ -39,41 +39,87 @@
                     <button type="button" class="btn btn-sm btn-outline-primary me-2" onclick="selectAll()">全选</button>
                     <button type="button" class="btn btn-sm btn-outline-secondary" onclick="unselectAll()">反选</button>
                 </div>
-                <div class="border rounded p-3" style="max-height:400px;overflow-y:auto;">
-                    {% for module_name, module_data in modules.items %}
-                    <div class="mb-3">
-                        <div class="d-flex align-items-center mb-2">
-                            <input type="checkbox" class="form-check-input me-2 module-check" data-module="{{ module_name }}" onchange="toggleModule(this)">
-                            <strong class="text-primary">{{ module_name }}</strong>
+                <div class="border rounded p-3" style="max-height:500px;overflow-y:auto;">
+                    {% for item in perm_tree %}
+                    <div class="mb-4">
+                        <!-- 一级菜单 -->
+                        <div class="d-flex align-items-center mb-2 pb-2 border-bottom">
+                            <input type="checkbox" class="form-check-input me-2 top-check" data-top="{{ item.menu.id }}" onchange="toggleTop(this)">
+                            <strong class="text-primary fs-5">{{ item.menu.name }}</strong>
                         </div>
-                        <div class="ms-4">
-                            {% for parent_perm in module_data.parent %}
-                            <div class="mb-2">
-                                <div class="d-flex align-items-center">
-                                    <input type="checkbox" class="form-check-input me-2 perm-check" name="permissions" value="{{ parent_perm.id }}" 
-                                           {% if role_perm_ids and parent_perm.id in role_perm_ids %}checked{% endif %}
-                                           data-parent="{{ parent_perm.id }}" onchange="toggleParent(this)">
-                                    <span class="badge bg-info me-2">菜单</span>
-                                    <span>{{ parent_perm.name }}</span>
+                        
+                        <!-- 一级菜单下的直接按钮 -->
+                        {% if item.buttons %}
+                        <div class="ms-4 mb-2">
+                            {% for btn in item.buttons %}
+                            <span class="d-inline-flex align-items-center me-3 mb-1">
+                                <input type="checkbox" class="form-check-input me-1 perm-check" name="permissions" value="{{ btn.id }}"
+                                       {% if role_perm_ids and btn.id in role_perm_ids %}checked{% endif %}
+                                       data-parent-id="{{ item.menu.id }}">
+                                <span class="badge bg-secondary me-1">按钮</span>
+                                <small>{{ btn.name }}</small>
+                            </span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                        
+                        <!-- 二级菜单 -->
+                        {% for child in item.children %}
+                        <div class="ms-4 mb-3">
+                            <div class="d-flex align-items-center mb-2">
+                                <input type="checkbox" class="form-check-input me-2 second-check" 
+                                       data-second="{{ child.menu.id }}" 
+                                       data-top-parent="{{ item.menu.id }}"
+                                       onchange="toggleSecond(this)">
+                                <span class="badge bg-info me-2">菜单</span>
+                                <strong>{{ child.menu.name }}</strong>
+                            </div>
+                            
+                            <!-- 二级菜单下的按钮 -->
+                            {% if child.buttons %}
+                            <div class="ms-4">
+                                {% for btn in child.buttons %}
+                                <span class="d-inline-flex align-items-center me-3 mb-1">
+                                    <input type="checkbox" class="form-check-input me-1 perm-check" name="permissions" value="{{ btn.id }}"
+                                           {% if role_perm_ids and btn.id in role_perm_ids %}checked{% endif %}
+                                           data-parent-id="{{ child.menu.id }}"
+                                           data-top-parent="{{ item.menu.id }}">
+                                    <small>{{ btn.name }}</small>
+                                </span>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                            
+                            <!-- 三级菜单 -->
+                            {% for third in child.children %}
+                            <div class="ms-4 mt-2">
+                                <div class="d-flex align-items-center mb-1">
+                                    <input type="checkbox" class="form-check-input me-2 third-check"
+                                           data-third="{{ third.menu.id }}"
+                                           data-second-parent="{{ child.menu.id }}"
+                                           data-top-parent="{{ item.menu.id }}"
+                                           onchange="toggleThird(this)">
+                                    <span class="badge bg-warning text-dark me-2">子菜单</span>
+                                    <strong>{{ third.menu.name }}</strong>
                                 </div>
-                                {% with children=module_data.children|get_item:parent_perm.id %}
-                                {% if children %}
-                                <div class="ms-4 mt-1">
-                                    {% for child_perm in children %}
-                                    <div class="d-flex align-items-center mb-1">
-                                        <input type="checkbox" class="form-check-input me-2 perm-check" name="permissions" value="{{ child_perm.id }}"
-                                               {% if role_perm_ids and child_perm.id in role_perm_ids %}checked{% endif %}
-                                               data-child-of="{{ parent_perm.id }}">
-                                        <span class="badge bg-secondary me-2">按钮</span>
-                                        <span>{{ child_perm.name }}</span>
-                                    </div>
+                                {% if third.buttons %}
+                                <div class="ms-4">
+                                    {% for btn in third.buttons %}
+                                    <span class="d-inline-flex align-items-center me-3 mb-1">
+                                        <input type="checkbox" class="form-check-input me-1 perm-check" name="permissions" value="{{ btn.id }}"
+                                               {% if role_perm_ids and btn.id in role_perm_ids %}checked{% endif %}
+                                               data-parent-id="{{ third.menu.id }}"
+                                               data-second-parent="{{ child.menu.id }}"
+                                               data-top-parent="{{ item.menu.id }}">
+                                        <small>{{ btn.name }}</small>
+                                    </span>
                                     {% endfor %}
                                 </div>
                                 {% endif %}
-                                {% endwith %}
                             </div>
                             {% endfor %}
                         </div>
+                        {% endfor %}
                     </div>
                     {% endfor %}
                 </div>
@@ -90,39 +136,111 @@
 
 {% block extra_js %}
 <script>
+// 全选
 function selectAll() {
     document.querySelectorAll('.perm-check').forEach(cb => cb.checked = true);
-    updateModuleChecks();
+    document.querySelectorAll('.top-check, .second-check, .third-check').forEach(cb => cb.checked = true);
 }
 
+// 反选
 function unselectAll() {
     document.querySelectorAll('.perm-check').forEach(cb => cb.checked = false);
-    updateModuleChecks();
+    document.querySelectorAll('.top-check, .second-check, .third-check').forEach(cb => cb.checked = false);
 }
 
-function toggleModule(checkbox) {
-    const container = checkbox.closest('.mb-3');
-    container.querySelectorAll('.perm-check').forEach(cb => cb.checked = checkbox.checked);
+// 切换一级菜单
+function toggleTop(checkbox) {
+    const topId = checkbox.dataset.top;
+    const checked = checkbox.checked;
+    
+    // 选中/取消该一级菜单下的所有复选框
+    document.querySelectorAll(`[data-top-parent="${topId}"]`).forEach(cb => cb.checked = checked);
+    document.querySelectorAll(`input.perm-check[data-parent-id="${topId}"]`).forEach(cb => cb.checked = checked);
 }
 
-function toggleParent(checkbox) {
-    const parentId = checkbox.dataset.parent;
-    document.querySelectorAll(`input[data-child-of="${parentId}"]`).forEach(cb => cb.checked = checkbox.checked);
+// 切换二级菜单
+function toggleSecond(checkbox) {
+    const secondId = checkbox.dataset.second;
+    const topParentId = checkbox.dataset.topParent;
+    const checked = checkbox.checked;
+    
+    // 选中/取消该二级菜单下的所有按钮和三级菜单
+    document.querySelectorAll(`[data-second-parent="${secondId}"]`).forEach(cb => cb.checked = checked);
+    document.querySelectorAll(`input.perm-check[data-parent-id="${secondId}"]`).forEach(cb => cb.checked = checked);
+    
+    // 更新一级菜单状态
+    updateTopCheck(topParentId);
 }
 
-function updateModuleChecks() {
-    document.querySelectorAll('.module-check').forEach(moduleCb => {
-        const container = moduleCb.closest('.mb-3');
-        const checks = container.querySelectorAll('.perm-check');
-        const allChecked = checks.length > 0 && Array.from(checks).every(cb => cb.checked);
-        moduleCb.checked = allChecked;
-    });
+// 切换三级菜单
+function toggleThird(checkbox) {
+    const thirdId = checkbox.dataset.third;
+    const secondParentId = checkbox.dataset.secondParent;
+    const topParentId = checkbox.dataset.topParent;
+    const checked = checkbox.checked;
+    
+    // 选中/取消该三级菜单下的所有按钮
+    document.querySelectorAll(`input.perm-check[data-parent-id="${thirdId}"]`).forEach(cb => cb.checked = checked);
+    
+    // 更新二级菜单状态
+    updateSecondCheck(secondParentId, topParentId);
 }
 
+// 更新一级菜单复选框状态
+function updateTopCheck(topId) {
+    const topCheckbox = document.querySelector(`input.top-check[data-top="${topId}"]`);
+    if (!topCheckbox) return;
+    
+    const allRelated = document.querySelectorAll(`[data-top-parent="${topId}"], input.perm-check[data-parent-id="${topId}"]`);
+    const checkedRelated = Array.from(allRelated).filter(cb => cb.checked);
+    
+    if (allRelated.length === 0) {
+        topCheckbox.checked = false;
+    } else if (checkedRelated.length === allRelated.length) {
+        topCheckbox.checked = true;
+    } else {
+        topCheckbox.checked = false;
+    }
+}
+
+// 更新二级菜单复选框状态
+function updateSecondCheck(secondId, topParentId) {
+    const secondCheckbox = document.querySelector(`input.second-check[data-second="${secondId}"]`);
+    if (!secondCheckbox) return;
+    
+    const allRelated = document.querySelectorAll(`[data-second-parent="${secondId}"], input.perm-check[data-parent-id="${secondId}"]`);
+    const checkedRelated = Array.from(allRelated).filter(cb => cb.checked);
+    
+    if (allRelated.length === 0) {
+        secondCheckbox.checked = false;
+    } else if (checkedRelated.length === allRelated.length) {
+        secondCheckbox.checked = true;
+    } else {
+        secondCheckbox.checked = false;
+    }
+    
+    // 同时更新一级菜单
+    updateTopCheck(topParentId);
+}
+
+// 监听权限复选框变化
 document.querySelectorAll('.perm-check').forEach(cb => {
-    cb.addEventListener('change', updateModuleChecks);
+    cb.addEventListener('change', function() {
+        const topParentId = this.dataset.topParent;
+        const secondParentId = this.dataset.secondParent;
+        const parentId = this.dataset.parentId;
+        
+        if (secondParentId) {
+            updateSecondCheck(secondParentId, topParentId);
+        } else if (topParentId) {
+            updateTopCheck(topParentId);
+        }
+    });
 });
 
-updateModuleChecks();
+// 初始化状态
+document.querySelectorAll('.perm-check:checked').forEach(cb => {
+    cb.dispatchEvent(new Event('change'));
+});
 </script>
 {% endblock %}

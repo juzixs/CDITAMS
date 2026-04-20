@@ -21,68 +21,151 @@ from apps.settings.models import SystemConfig, Organization
 
 
 def init_permissions():
+    """初始化权限数据，按侧边栏顺序排列：
+    首页 -> 待办事项 -> 资产管理 -> 盘点管理 -> 组织管理 -> 工单服务 -> 日志管理 -> 系统设置
+    """
     print("初始化权限...")
     
     permission_data = [
-        # 首页
-        {'name': '首页', 'code': 'dashboard', 'type': 'menu', 'module': '首页', 'sort': 1},
+        # ==================== 1. 首页 (module=首页) ====================
+        {'name': '首页', 'code': 'dashboard', 'type': 'menu', 'module': '首页', 'sort': 100},
         
-        # 资产管理
-        {'name': '资产管理', 'code': 'asset', 'type': 'menu', 'module': '资产', 'sort': 10},
-        {'name': '设备管理', 'code': 'device', 'type': 'menu', 'module': '资产', 'parent_code': 'asset', 'sort': 11},
-        {'name': '设备新增', 'code': 'device_create', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 1},
-        {'name': '设备编辑', 'code': 'device_edit', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 2},
-        {'name': '设备删除', 'code': 'device_delete', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 3},
-        {'name': '设备查看', 'code': 'device_view', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 4},
-        {'name': '设备导入', 'code': 'device_import', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 5},
-        {'name': '设备导出', 'code': 'device_export', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 6},
-        {'name': '报障', 'code': 'device_fault', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 7},
-        {'name': '维修', 'code': 'device_repair', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 8},
-        {'name': '报废', 'code': 'device_scrap', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 9},
-        {'name': '批量报废', 'code': 'device_batch_scrap', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 10},
-        {'name': '撤回', 'code': 'device_recall', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 11},
-        {'name': '打印标签', 'code': 'device_print', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 12},
-        {'name': '分配', 'code': 'device_assign', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 13},
-        {'name': '回收', 'code': 'device_revoke', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 14},
+        # ==================== 2. 待办事项 (module=待办, sort=200-299) ====================
+        {'name': '待办事项', 'code': 'todo_module', 'type': 'menu', 'module': '待办', 'sort': 200},
+        {'name': '我的待办', 'code': 'todo_list', 'type': 'menu', 'module': '待办', 'parent_code': 'todo_module', 'sort': 201},
+        {'name': '待办创建', 'code': 'todo_create', 'type': 'button', 'module': '待办', 'parent_code': 'todo_list', 'sort': 202},
+        {'name': '待办编辑', 'code': 'todo_edit', 'type': 'button', 'module': '待办', 'parent_code': 'todo_list', 'sort': 203},
+        {'name': '待办删除', 'code': 'todo_delete', 'type': 'button', 'module': '待办', 'parent_code': 'todo_list', 'sort': 204},
+        {'name': '通知消息', 'code': 'notification_list', 'type': 'menu', 'module': '待办', 'parent_code': 'todo_module', 'sort': 210},
+        {'name': '通知删除', 'code': 'notification_delete', 'type': 'button', 'module': '待办', 'parent_code': 'notification_list', 'sort': 211},
         
-        # 故障设备
-        {'name': '故障设备', 'code': 'device_fault_list', 'type': 'menu', 'module': '资产', 'parent_code': 'asset', 'sort': 15},
-        # 报废设备
-        {'name': '报废设备', 'code': 'device_scrap_list', 'type': 'menu', 'module': '资产', 'parent_code': 'asset', 'sort': 16},
+        # ==================== 3. 资产管理 (module=资产, sort=300-399) ====================
+        {'name': '资产管理', 'code': 'asset', 'type': 'menu', 'module': '资产', 'sort': 300},
         
-        # 分类管理
-        {'name': '分类管理', 'code': 'category', 'type': 'menu', 'module': '资产', 'parent_code': 'asset', 'sort': 20},
-        {'name': '分类新增', 'code': 'category_create', 'type': 'button', 'module': '资产', 'parent_code': 'category', 'sort': 1},
-        {'name': '分类编辑', 'code': 'category_edit', 'type': 'button', 'module': '资产', 'parent_code': 'category', 'sort': 2},
-        {'name': '分类删除', 'code': 'category_delete', 'type': 'button', 'module': '资产', 'parent_code': 'category', 'sort': 3},
+        # 设备管理 (sort=301-319)
+        {'name': '设备管理', 'code': 'device', 'type': 'menu', 'module': '资产', 'parent_code': 'asset', 'sort': 301},
+        {'name': '设备新增', 'code': 'device_create', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 302},
+        {'name': '设备编辑', 'code': 'device_edit', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 303},
+        {'name': '设备删除', 'code': 'device_delete', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 304},
+        {'name': '设备查看', 'code': 'device_view', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 305},
+        {'name': '设备导入', 'code': 'device_import', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 306},
+        {'name': '设备导出', 'code': 'device_export', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 307},
+        {'name': '报障', 'code': 'device_fault', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 308},
+        {'name': '维修', 'code': 'device_repair', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 309},
+        {'name': '报废', 'code': 'device_scrap', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 310},
+        {'name': '批量报废', 'code': 'device_batch_scrap', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 311},
+        {'name': '撤回', 'code': 'device_recall', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 312},
+        {'name': '打印标签', 'code': 'device_print', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 313},
+        {'name': '分配', 'code': 'device_assign', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 314},
+        {'name': '回收', 'code': 'device_revoke', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 315},
+        {'name': '故障设备', 'code': 'device_fault_list', 'type': 'menu', 'module': '资产', 'parent_code': 'asset', 'sort': 316},
+        {'name': '报废设备', 'code': 'device_scrap_list', 'type': 'menu', 'module': '资产', 'parent_code': 'asset', 'sort': 317},
         
-        # 位置管理
-        {'name': '位置管理', 'code': 'location', 'type': 'menu', 'module': '资产', 'parent_code': 'asset', 'sort': 30},
-        {'name': '位置新增', 'code': 'location_create', 'type': 'button', 'module': '资产', 'parent_code': 'location', 'sort': 1},
-        {'name': '位置编辑', 'code': 'location_edit', 'type': 'button', 'module': '资产', 'parent_code': 'location', 'sort': 2},
-        {'name': '位置删除', 'code': 'location_delete', 'type': 'button', 'module': '资产', 'parent_code': 'location', 'sort': 3},
-        {'name': '地图编辑', 'code': 'location_map', 'type': 'button', 'module': '资产', 'parent_code': 'location', 'sort': 4},
-        {'name': '工位管理', 'code': 'workstation_manage', 'type': 'button', 'module': '资产', 'parent_code': 'location', 'sort': 5},
+        # 软件管理 (sort=320-329)
+        {'name': '软件管理', 'code': 'software', 'type': 'menu', 'module': '资产', 'parent_code': 'asset', 'sort': 320},
+        {'name': '软件新增', 'code': 'software_create', 'type': 'button', 'module': '资产', 'parent_code': 'software', 'sort': 321},
+        {'name': '软件编辑', 'code': 'software_edit', 'type': 'button', 'module': '资产', 'parent_code': 'software', 'sort': 322},
+        {'name': '软件删除', 'code': 'software_delete', 'type': 'button', 'module': '资产', 'parent_code': 'software', 'sort': 323},
+        {'name': '软件查看', 'code': 'software_view', 'type': 'button', 'module': '资产', 'parent_code': 'software', 'sort': 324},
+        {'name': '软件导入', 'code': 'software_import', 'type': 'button', 'module': '资产', 'parent_code': 'software', 'sort': 325},
+        {'name': '软件导出', 'code': 'software_export', 'type': 'button', 'module': '资产', 'parent_code': 'software', 'sort': 326},
+        {'name': '授权分配', 'code': 'software_license', 'type': 'button', 'module': '资产', 'parent_code': 'software', 'sort': 327},
         
-        # 盘点管理
-        {'name': '盘点管理', 'code': 'inventory', 'type': 'menu', 'module': '盘点', 'sort': 40},
-        {'name': '盘点计划', 'code': 'plan', 'type': 'menu', 'module': '盘点', 'parent_code': 'inventory', 'sort': 41},
-        {'name': '盘点任务', 'code': 'task', 'type': 'menu', 'module': '盘点', 'parent_code': 'inventory', 'sort': 42},
+        # 服务管理 (sort=330-339)
+        {'name': '服务管理', 'code': 'service_contract', 'type': 'menu', 'module': '资产', 'parent_code': 'asset', 'sort': 330},
+        {'name': '服务新增', 'code': 'service_contract_create', 'type': 'button', 'module': '资产', 'parent_code': 'service_contract', 'sort': 331},
+        {'name': '服务编辑', 'code': 'service_contract_edit', 'type': 'button', 'module': '资产', 'parent_code': 'service_contract', 'sort': 332},
+        {'name': '服务删除', 'code': 'service_contract_delete', 'type': 'button', 'module': '资产', 'parent_code': 'service_contract', 'sort': 333},
+        {'name': '服务查看', 'code': 'service_contract_view', 'type': 'button', 'module': '资产', 'parent_code': 'service_contract', 'sort': 334},
         
-        # 组织管理
-        {'name': '组织管理', 'code': 'organization', 'type': 'menu', 'module': '组织', 'sort': 50},
-        {'name': '用户管理', 'code': 'user', 'type': 'menu', 'module': '组织', 'parent_code': 'organization', 'sort': 51},
-        {'name': '部门管理', 'code': 'department', 'type': 'menu', 'module': '组织', 'parent_code': 'organization', 'sort': 52},
-        {'name': '角色管理', 'code': 'role', 'type': 'menu', 'module': '组织', 'parent_code': 'organization', 'sort': 53},
+        # 耗材管理 (sort=340-349)
+        {'name': '耗材管理', 'code': 'consumable', 'type': 'menu', 'module': '资产', 'parent_code': 'asset', 'sort': 340},
+        {'name': '耗材新增', 'code': 'consumable_create', 'type': 'button', 'module': '资产', 'parent_code': 'consumable', 'sort': 341},
+        {'name': '耗材编辑', 'code': 'consumable_edit', 'type': 'button', 'module': '资产', 'parent_code': 'consumable', 'sort': 342},
+        {'name': '耗材删除', 'code': 'consumable_delete', 'type': 'button', 'module': '资产', 'parent_code': 'consumable', 'sort': 343},
+        {'name': '耗材查看', 'code': 'consumable_view', 'type': 'button', 'module': '资产', 'parent_code': 'consumable', 'sort': 344},
+        {'name': '耗材入库', 'code': 'consumable_receive', 'type': 'button', 'module': '资产', 'parent_code': 'consumable', 'sort': 345},
+        {'name': '耗材领用', 'code': 'consumable_use', 'type': 'button', 'module': '资产', 'parent_code': 'consumable', 'sort': 346},
         
-        # 待办管理
-        {'name': '待办管理', 'code': 'todo', 'type': 'menu', 'module': '待办', 'sort': 60},
+        # 分类管理 (sort=350-359)
+        {'name': '分类管理', 'code': 'category', 'type': 'menu', 'module': '资产', 'parent_code': 'asset', 'sort': 350},
+        {'name': '分类新增', 'code': 'category_create', 'type': 'button', 'module': '资产', 'parent_code': 'category', 'sort': 351},
+        {'name': '分类编辑', 'code': 'category_edit', 'type': 'button', 'module': '资产', 'parent_code': 'category', 'sort': 352},
+        {'name': '分类删除', 'code': 'category_delete', 'type': 'button', 'module': '资产', 'parent_code': 'category', 'sort': 353},
         
-        # 日志管理
-        {'name': '日志管理', 'code': 'log', 'type': 'menu', 'module': '日志', 'sort': 70},
+        # 位置管理 (sort=360-369)
+        {'name': '位置管理', 'code': 'location', 'type': 'menu', 'module': '资产', 'parent_code': 'asset', 'sort': 360},
+        {'name': '位置新增', 'code': 'location_create', 'type': 'button', 'module': '资产', 'parent_code': 'location', 'sort': 361},
+        {'name': '位置编辑', 'code': 'location_edit', 'type': 'button', 'module': '资产', 'parent_code': 'location', 'sort': 362},
+        {'name': '位置删除', 'code': 'location_delete', 'type': 'button', 'module': '资产', 'parent_code': 'location', 'sort': 363},
+        {'name': '地图编辑', 'code': 'location_map', 'type': 'button', 'module': '资产', 'parent_code': 'location', 'sort': 364},
+        {'name': '工位管理', 'code': 'workstation_manage', 'type': 'button', 'module': '资产', 'parent_code': 'location', 'sort': 365},
         
-        # 系统设置
-        {'name': '系统设置', 'code': 'settings', 'type': 'menu', 'module': '设置', 'sort': 80},
+        # ==================== 4. 盘点管理 (module=盘点, sort=400-499) ====================
+        {'name': '盘点管理', 'code': 'inventory', 'type': 'menu', 'module': '盘点', 'sort': 400},
+        {'name': '盘点任务', 'code': 'inventory_task', 'type': 'menu', 'module': '盘点', 'parent_code': 'inventory', 'sort': 410},
+        {'name': '任务创建', 'code': 'inventory_task_create', 'type': 'button', 'module': '盘点', 'parent_code': 'inventory_task', 'sort': 411},
+        {'name': '任务编辑', 'code': 'inventory_task_edit', 'type': 'button', 'module': '盘点', 'parent_code': 'inventory_task', 'sort': 412},
+        {'name': '任务删除', 'code': 'inventory_task_delete', 'type': 'button', 'module': '盘点', 'parent_code': 'inventory_task', 'sort': 413},
+        {'name': '任务查看', 'code': 'inventory_task_view', 'type': 'button', 'module': '盘点', 'parent_code': 'inventory_task', 'sort': 414},
+        {'name': '盘点执行', 'code': 'inventory_execute', 'type': 'button', 'module': '盘点', 'parent_code': 'inventory_task', 'sort': 415},
+        {'name': '盘点报表', 'code': 'inventory_report', 'type': 'menu', 'module': '盘点', 'parent_code': 'inventory', 'sort': 420},
+        {'name': '报表导出', 'code': 'inventory_report_export', 'type': 'button', 'module': '盘点', 'parent_code': 'inventory_report', 'sort': 421},
+        
+        # ==================== 5. 组织管理 (module=组织, sort=500-599) ====================
+        {'name': '组织管理', 'code': 'organization', 'type': 'menu', 'module': '组织', 'sort': 500},
+        
+        # 用户管理 (sort=510-519)
+        {'name': '用户管理', 'code': 'user', 'type': 'menu', 'module': '组织', 'parent_code': 'organization', 'sort': 510},
+        {'name': '用户新增', 'code': 'user_create', 'type': 'button', 'module': '组织', 'parent_code': 'user', 'sort': 511},
+        {'name': '用户编辑', 'code': 'user_edit', 'type': 'button', 'module': '组织', 'parent_code': 'user', 'sort': 512},
+        {'name': '用户删除', 'code': 'user_delete', 'type': 'button', 'module': '组织', 'parent_code': 'user', 'sort': 513},
+        {'name': '用户查看', 'code': 'user_view', 'type': 'button', 'module': '组织', 'parent_code': 'user', 'sort': 514},
+        {'name': '用户导入', 'code': 'user_import', 'type': 'button', 'module': '组织', 'parent_code': 'user', 'sort': 515},
+        {'name': '用户导出', 'code': 'user_export', 'type': 'button', 'module': '组织', 'parent_code': 'user', 'sort': 516},
+        {'name': '重置密码', 'code': 'user_reset_password', 'type': 'button', 'module': '组织', 'parent_code': 'user', 'sort': 517},
+        {'name': '批量启用', 'code': 'user_batch_enable', 'type': 'button', 'module': '组织', 'parent_code': 'user', 'sort': 518},
+        {'name': '批量禁用', 'code': 'user_batch_disable', 'type': 'button', 'module': '组织', 'parent_code': 'user', 'sort': 519},
+        
+        # 部门管理 (sort=520-529)
+        {'name': '部门管理', 'code': 'department', 'type': 'menu', 'module': '组织', 'parent_code': 'organization', 'sort': 520},
+        {'name': '部门新增', 'code': 'department_create', 'type': 'button', 'module': '组织', 'parent_code': 'department', 'sort': 521},
+        {'name': '部门编辑', 'code': 'department_edit', 'type': 'button', 'module': '组织', 'parent_code': 'department', 'sort': 522},
+        {'name': '部门删除', 'code': 'department_delete', 'type': 'button', 'module': '组织', 'parent_code': 'department', 'sort': 523},
+        
+        # 角色管理 (sort=530-539)
+        {'name': '角色管理', 'code': 'role', 'type': 'menu', 'module': '组织', 'parent_code': 'organization', 'sort': 530},
+        {'name': '角色新增', 'code': 'role_create', 'type': 'button', 'module': '组织', 'parent_code': 'role', 'sort': 531},
+        {'name': '角色编辑', 'code': 'role_edit', 'type': 'button', 'module': '组织', 'parent_code': 'role', 'sort': 532},
+        {'name': '角色删除', 'code': 'role_delete', 'type': 'button', 'module': '组织', 'parent_code': 'role', 'sort': 533},
+        {'name': '角色查看', 'code': 'role_view', 'type': 'button', 'module': '组织', 'parent_code': 'role', 'sort': 534},
+        
+        # ==================== 6. 工单服务 (module=工单, sort=600-699) ====================
+        {'name': '工单服务', 'code': 'workorder', 'type': 'menu', 'module': '工单', 'sort': 600},
+        {'name': '服务请求', 'code': 'service_list', 'type': 'menu', 'module': '工单', 'parent_code': 'workorder', 'sort': 610},
+        {'name': '创建工单', 'code': 'service_create', 'type': 'button', 'module': '工单', 'parent_code': 'service_list', 'sort': 611},
+        {'name': '工单编辑', 'code': 'service_edit', 'type': 'button', 'module': '工单', 'parent_code': 'service_list', 'sort': 612},
+        {'name': '工单删除', 'code': 'service_delete', 'type': 'button', 'module': '工单', 'parent_code': 'service_list', 'sort': 613},
+        {'name': '工单查看', 'code': 'service_view', 'type': 'button', 'module': '工单', 'parent_code': 'service_list', 'sort': 614},
+        {'name': '工单处理', 'code': 'service_process', 'type': 'button', 'module': '工单', 'parent_code': 'service_list', 'sort': 615},
+        
+        # ==================== 7. 日志管理 (module=日志, sort=700-799) ====================
+        {'name': '日志管理', 'code': 'log', 'type': 'menu', 'module': '日志', 'sort': 700},
+        {'name': '登录日志', 'code': 'login_log', 'type': 'menu', 'module': '日志', 'parent_code': 'log', 'sort': 710},
+        {'name': '操作日志', 'code': 'operation_log', 'type': 'menu', 'module': '日志', 'parent_code': 'log', 'sort': 720},
+        {'name': '资产日志', 'code': 'asset_log', 'type': 'menu', 'module': '日志', 'parent_code': 'log', 'sort': 730},
+        
+        # ==================== 8. 系统设置 (module=设置, sort=800-899) ====================
+        {'name': '系统设置', 'code': 'settings', 'type': 'menu', 'module': '设置', 'sort': 800},
+        {'name': '系统配置', 'code': 'config', 'type': 'menu', 'module': '设置', 'parent_code': 'settings', 'sort': 810},
+        {'name': '配置编辑', 'code': 'config_edit', 'type': 'button', 'module': '设置', 'parent_code': 'config', 'sort': 811},
+        {'name': '企业信息', 'code': 'org_info', 'type': 'menu', 'module': '设置', 'parent_code': 'settings', 'sort': 820},
+        {'name': '企业编辑', 'code': 'org_edit', 'type': 'button', 'module': '设置', 'parent_code': 'org_info', 'sort': 821},
+        {'name': '数据管理', 'code': 'data_management', 'type': 'menu', 'module': '设置', 'parent_code': 'settings', 'sort': 830},
+        {'name': '数据备份', 'code': 'data_backup', 'type': 'button', 'module': '设置', 'parent_code': 'data_management', 'sort': 831},
+        {'name': '数据恢复', 'code': 'data_restore', 'type': 'button', 'module': '设置', 'parent_code': 'data_management', 'sort': 832},
+        {'name': '数据清理', 'code': 'data_cleanup', 'type': 'button', 'module': '设置', 'parent_code': 'data_management', 'sort': 833},
+        {'name': '个人设置', 'code': 'profile', 'type': 'menu', 'module': '设置', 'parent_code': 'settings', 'sort': 840},
     ]
     
     created = {}
@@ -112,7 +195,7 @@ def init_roles():
     )
     admin_role.permissions.set(permissions)
     
-    # 普通用户 - 基本权限
+    # 普通用户 - 基本查看和待办权限
     user_role, _ = Role.objects.get_or_create(
         code='user',
         defaults={
@@ -121,10 +204,23 @@ def init_roles():
             'sort': 2,
         }
     )
-    basic_perms = Permission.objects.filter(code__in=[
-        'dashboard', 'device', 'device_create', 'device_edit', 'device_view'
+    user_basic_perms = Permission.objects.filter(code__in=[
+        # 待办事项 - 我的待办
+        'todo_create', 'todo_edit', 'todo_delete', 'todo_complete',
+        # 待办事项 - 通知消息
+        'notification_read', 'notification_mark_all_read', 'notification_delete',
+        # 资产管理 - 查看权限
+        'device_view', 'software_view', 'service_contract_view', 'consumable_view',
+        # 盘点管理 - 查看权限
+        'inventory_task_view',
+        # 工单服务 - 创建和查看
+        'service_create', 'service_view',
+        # 日志 - 查看权限
+        'login_log_view', 'operation_log_view', 'asset_log_view',
+        # 个人设置
+        'profile_edit',
     ])
-    user_role.permissions.set(basic_perms)
+    user_role.permissions.set(user_basic_perms)
     
     return admin_role
 

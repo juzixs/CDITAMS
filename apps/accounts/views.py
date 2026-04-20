@@ -583,19 +583,54 @@ def role_create(request):
         messages.success(request, '角色创建成功')
         return redirect('role_list')
     
-    all_perms = Permission.objects.all().order_by('module', 'sort', 'id')
-    modules = {}
-    for perm in all_perms:
-        if perm.module not in modules:
-            modules[perm.module] = {'parent': [], 'children': {}}
-        if perm.parent is None:
-            modules[perm.module]['parent'].append(perm)
-        else:
-            if perm.parent_id not in modules[perm.module]['children']:
-                modules[perm.module]['children'][perm.parent_id] = []
-            modules[perm.module]['children'][perm.parent_id].append(perm)
+    perm_tree = build_permission_tree()
     
-    return render(request, 'accounts/role_form.html', {'modules': modules})
+    return render(request, 'accounts/role_form.html', {'perm_tree': perm_tree})
+
+
+def build_permission_tree():
+    """构建权限树结构"""
+    all_perms = Permission.objects.all().order_by('sort', 'id')
+    
+    # 构建权限树结构：一级菜单 -> 二级菜单 -> 按钮/三级菜单
+    perm_tree = []
+    top_menus = all_perms.filter(parent__isnull=True)
+    
+    for top_menu in top_menus:
+        menu_data = {
+            'menu': top_menu,
+            'children': []
+        }
+        # 获取二级菜单/按钮
+        second_level = all_perms.filter(parent=top_menu)
+        for second_item in second_level:
+            if second_item.type == 'menu':
+                second_data = {
+                    'menu': second_item,
+                    'buttons': [],
+                    'children': []
+                }
+                # 获取三级按钮
+                buttons = all_perms.filter(parent=second_item, type='button')
+                second_data['buttons'] = list(buttons)
+                
+                # 获取三级菜单
+                third_menus = all_perms.filter(parent=second_item, type='menu')
+                for third_menu in third_menus:
+                    third_data = {
+                        'menu': third_menu,
+                        'buttons': list(all_perms.filter(parent=third_menu, type='button'))
+                    }
+                    second_data['children'].append(third_data)
+                
+                menu_data['children'].append(second_data)
+            else:
+                # 一级菜单下的直接按钮
+                menu_data.setdefault('buttons', []).append(second_item)
+        
+        perm_tree.append(menu_data)
+    
+    return perm_tree
 
 
 @login_required
@@ -612,45 +647,30 @@ def role_edit(request, pk):
         messages.success(request, '角色更新成功')
         return redirect('role_list')
     
-    all_perms = Permission.objects.all().order_by('module', 'sort', 'id')
-    modules = {}
-    for perm in all_perms:
-        if perm.module not in modules:
-            modules[perm.module] = {'parent': [], 'children': {}}
-        if perm.parent is None:
-            modules[perm.module]['parent'].append(perm)
-        else:
-            if perm.parent_id not in modules[perm.module]['children']:
-                modules[perm.module]['children'][perm.parent_id] = []
-            modules[perm.module]['children'][perm.parent_id].append(perm)
-    
+    perm_tree = build_permission_tree()
     role_perm_ids = set(role.permissions.values_list('id', flat=True))
-    return render(request, 'accounts/role_form.html', {'role': role, 'modules': modules, 'role_perm_ids': role_perm_ids})
+    
+    return render(request, 'accounts/role_form.html', {
+        'role': role,
+        'perm_tree': perm_tree,
+        'role_perm_ids': role_perm_ids
+    })
 
 
 @login_required
 def role_detail(request, pk):
     role = get_object_or_404(Role.objects.prefetch_related('permissions', 'users'), pk=pk)
-    permissions = role.permissions.all().order_by('module', 'sort', 'id')
     users = role.users.all().select_related('department')
     
-    # 构建权限层级结构
-    perm_tree = {}
-    for perm in permissions:
-        if perm.module not in perm_tree:
-            perm_tree[perm.module] = {'menus': [], 'buttons': {}}
-        if perm.type == 'menu':
-            perm_tree[perm.module]['menus'].append(perm)
-        else:
-            if perm.parent_id not in perm_tree[perm.module]['buttons']:
-                perm_tree[perm.module]['buttons'][perm.parent_id] = []
-            perm_tree[perm.module]['buttons'][perm.parent_id].append(perm)
+    perm_tree = build_permission_tree()
+    role_perm_ids = set(role.permissions.values_list('id', flat=True))
     
     return render(request, 'accounts/role_detail.html', {
         'role': role,
         'perm_tree': perm_tree,
+        'role_perm_ids': role_perm_ids,
         'users': users,
-        'perm_count': permissions.count(),
+        'perm_count': role.permissions.count(),
         'user_count': users.count(),
     })
 

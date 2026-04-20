@@ -10,7 +10,7 @@
     </div>
 </div>
 
-<!-- 基本信息卡片（全宽） -->
+<!-- 基本信息卡片 -->
 <div class="card mb-4">
     <div class="card-header bg-primary text-white">
         <i class="fas fa-info-circle me-2"></i>基本信息
@@ -67,38 +67,91 @@
                 <i class="fas fa-key me-2"></i>权限列表
             </div>
             <div class="card-body" style="max-height:500px;overflow-y:auto;">
-                {% for module_name, module_data in perm_tree.items %}
+                {% for item in perm_tree %}
                 <div class="mb-4">
-                    <div class="d-flex align-items-center mb-2">
+                    <!-- 一级菜单 -->
+                    <div class="d-flex align-items-center mb-2 pb-2 border-bottom">
                         <i class="fas fa-folder text-primary me-2"></i>
-                        <strong class="text-primary">{{ module_name }}</strong>
+                        <strong class="text-primary fs-5">{{ item.menu.name }}</strong>
+                        {% if item.menu.id in role_perm_ids %}
+                        <i class="fas fa-check text-success ms-2"></i>
+                        {% endif %}
                     </div>
-                    <div class="ms-4">
-                        {% for menu_perm in module_data.menus %}
-                        <div class="mb-2">
-                            <div class="d-flex align-items-center">
-                                <i class="fas fa-bars text-info me-2"></i>
-                                <span class="badge bg-info me-2">菜单</span>
-                                <span>{{ menu_perm.name }}</span>
-                                <small class="text-muted ms-2">{{ menu_perm.code }}</small>
+                    
+                    <!-- 一级菜单下的直接按钮 -->
+                    {% if item.buttons %}
+                    <div class="ms-4 mb-2">
+                        {% for btn in item.buttons %}
+                        <span class="d-inline-flex align-items-center me-3 mb-1">
+                            {% if btn.id in role_perm_ids %}
+                            <i class="fas fa-check text-success me-1"></i>
+                            {% else %}
+                            <i class="fas fa-times text-muted me-1"></i>
+                            {% endif %}
+                            <span class="badge bg-secondary me-1">按钮</span>
+                            <small {% if btn.id not in role_perm_ids %}class="text-muted"{% endif %}>{{ btn.name }}</small>
+                        </span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    
+                    <!-- 二级菜单 -->
+                    {% for child in item.children %}
+                    <div class="ms-4 mb-3">
+                        <div class="d-flex align-items-center mb-2">
+                            <i class="fas fa-bars text-info me-2"></i>
+                            <span class="badge bg-info me-2">菜单</span>
+                            <strong {% if child.menu.id not in role_perm_ids %}class="text-muted"{% endif %}>{{ child.menu.name }}</strong>
+                            {% if child.menu.id in role_perm_ids %}
+                            <i class="fas fa-check text-success ms-2"></i>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- 二级菜单下的按钮 -->
+                        {% if child.buttons %}
+                        <div class="ms-4">
+                            {% for btn in child.buttons %}
+                            <span class="d-inline-flex align-items-center me-3 mb-1">
+                                {% if btn.id in role_perm_ids %}
+                                <i class="fas fa-check text-success me-1"></i>
+                                {% else %}
+                                <i class="fas fa-times text-muted me-1"></i>
+                                {% endif %}
+                                <small {% if btn.id not in role_perm_ids %}class="text-muted"{% endif %}>{{ btn.name }}</small>
+                            </span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                        
+                        <!-- 三级菜单 -->
+                        {% for third in child.children %}
+                        <div class="ms-4 mt-2">
+                            <div class="d-flex align-items-center mb-1">
+                                <i class="fas fa-angle-right text-warning me-2"></i>
+                                <span class="badge bg-warning text-dark me-2">子菜单</span>
+                                <strong {% if third.menu.id not in role_perm_ids %}class="text-muted"{% endif %}>{{ third.menu.name }}</strong>
+                                {% if third.menu.id in role_perm_ids %}
+                                <i class="fas fa-check text-success ms-2"></i>
+                                {% endif %}
                             </div>
-                            {% with buttons=module_data.buttons|get_item:menu_perm.id %}
-                            {% if buttons %}
-                            <div class="ms-4 mt-1">
-                                {% for btn_perm in buttons %}
-                                <div class="d-flex align-items-center mb-1">
-                                    <i class="fas fa-hand-pointer text-secondary me-2"></i>
-                                    <span class="badge bg-secondary me-2">按钮</span>
-                                    <span>{{ btn_perm.name }}</span>
-                                    <small class="text-muted ms-2">{{ btn_perm.code }}</small>
-                                </div>
+                            {% if third.buttons %}
+                            <div class="ms-4">
+                                {% for btn in third.buttons %}
+                                <span class="d-inline-flex align-items-center me-3 mb-1">
+                                    {% if btn.id in role_perm_ids %}
+                                    <i class="fas fa-check text-success me-1"></i>
+                                    {% else %}
+                                    <i class="fas fa-times text-muted me-1"></i>
+                                    {% endif %}
+                                    <small {% if btn.id not in role_perm_ids %}class="text-muted"{% endif %}>{{ btn.name }}</small>
+                                </span>
                                 {% endfor %}
                             </div>
                             {% endif %}
-                            {% endwith %}
                         </div>
                         {% endfor %}
                     </div>
+                    {% endfor %}
                 </div>
                 {% empty %}
                 <div class="text-center text-muted py-4">
