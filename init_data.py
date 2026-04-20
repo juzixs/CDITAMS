@@ -478,6 +478,78 @@ def init_software_fields():
     print(f"已初始化 {len(system_fields)} 个软件系统字段")
 
 
+def init_software_categories():
+    print("初始化软件分类...")
+    
+    categories = [
+        {'name': '操作系统', 'description': '操作系统类软件'},
+        {'name': '办公软件', 'description': '办公自动化软件'},
+        {'name': '开发工具', 'description': '软件开发工具'},
+        {'name': '安全软件', 'description': '杀毒、防火墙等安全软件'},
+        {'name': '设计软件', 'description': 'CAD、Photoshop等设计软件'},
+        {'name': '行业软件', 'description': '专业行业软件'},
+        {'name': '数据库', 'description': '数据库管理系统'},
+        {'name': '中间件', 'description': '应用中间件'},
+        {'name': '其他', 'description': '其他软件'},
+    ]
+    
+    for cat_data in categories:
+        SoftwareCategory.objects.get_or_create(name=cat_data['name'], defaults=cat_data)
+    
+    print(f"已初始化 {SoftwareCategory.objects.count()} 条软件分类数据")
+
+
+def init_consumable_categories():
+    print("初始化耗材分类...")
+    
+    categories = [
+        {'name': '办公耗材', 'description': '纸张、笔等办公用品'},
+        {'name': '打印耗材', 'description': '墨盒、硒鼓、碳粉等'},
+        {'name': '电脑配件', 'description': '内存、硬盘、鼠标、键盘等'},
+        {'name': '网络设备', 'description': '网线、水晶头、交换机配件等'},
+        {'name': '存储介质', 'description': 'U盘、移动硬盘、光盘等'},
+        {'name': '其他', 'description': '其他耗材物资'},
+    ]
+    
+    for cat_data in categories:
+        ConsumableCategory.objects.get_or_create(name=cat_data['name'], defaults=cat_data)
+    
+    print(f"已初始化 {ConsumableCategory.objects.count()} 条耗材分类数据")
+
+
+def init_label_templates():
+    print("初始化标签模板...")
+    
+    # 默认标签模板
+    default_template, created = LabelTemplate.objects.get_or_create(
+        is_default=True,
+        defaults={
+            'name': '默认标签模板',
+            'size_type': '50x80',
+            'width': 50,
+            'height': 80,
+            'fields_config': [
+                {'field': 'asset_no', 'label': '资产编号', 'show': True},
+                {'field': 'name', 'label': '设备名称', 'show': True},
+                {'field': 'model', 'label': '型号', 'show': True},
+                {'field': 'department', 'label': '部门', 'show': True},
+                {'field': 'user', 'label': '使用人', 'show': True},
+                {'field': 'location', 'label': '位置', 'show': True},
+            ],
+            'layout_config': {
+                'font_size': 10,
+                'show_qrcode': True,
+                'qrcode_size': 25,
+            }
+        }
+    )
+    
+    if created:
+        print("已创建默认标签模板")
+    else:
+        print("默认标签模板已存在")
+
+
 def run():
     print("开始初始化数据...")
     
@@ -491,6 +563,9 @@ def run():
     init_org()
     init_device_fields()
     init_software_fields()
+    init_software_categories()
+    init_consumable_categories()
+    init_label_templates()
     create_superuser()
     
     print("数据初始化完成!")
