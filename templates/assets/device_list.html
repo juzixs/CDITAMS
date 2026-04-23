@@ -210,7 +210,7 @@
             <div class="col-auto">
                 <div class="btn-group">
                     <button type="submit" class="btn btn-primary"><i class="fas fa-search me-1"></i>搜索</button>
-                    <a href="{% url 'device_list' %}" class="btn btn-outline-secondary">重置</a>
+                    <button type="button" class="btn btn-outline-secondary" onclick="resetFilters()">重置</button>
                     <div class="dropdown">
                         <button class="btn btn-outline-info dropdown-toggle" type="button" data-bs-toggle="dropdown">
                             <i class="fas fa-columns me-1"></i>显示字段
@@ -537,6 +537,20 @@
         params.set('page_size', size);
         params.set('page', 1); // 切换页码大小后回到第一页
         window.location.href = '?' + params.toString();
+    }
+
+    // 重置筛选条件
+    function resetFilters() {
+        fetch('{% url "api_clear_device_filters" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+            },
+        }).then(() => {
+            window.location.href = '{% url "device_list" %}';
+        }).catch(() => {
+            window.location.href = '{% url "device_list" %}';
+        });
     }
 
     document.addEventListener('DOMContentLoaded', function() {

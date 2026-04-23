@@ -36,6 +36,7 @@ urlpatterns = [
     path('api/users-by-department/', views.api_users_by_department, name='api_users_by_department'),
     path('api/users/search/', views.api_users_search, name='api_users_search'),
     path('api/save-field-visibility/', views.api_save_field_visibility, name='api_save_field_visibility'),
+    path('api/clear-device-filters/', views.api_clear_device_filters, name='api_clear_device_filters'),
     path('api/regenerate-all-qrcodes/', views.api_regenerate_all_qrcodes, name='api_regenerate_all_qrcodes'),
     
     path('categories/', views.category_list, name='category_list'),

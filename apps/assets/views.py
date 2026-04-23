@@ -100,6 +100,26 @@ def get_location_tree_data():
 @login_required
 @permission_required('device')
 def device_list(request):
+    # 检查是否有搜索参数传入
+    has_params = any([
+        request.GET.get('search'),
+        request.GET.get('category'),
+        request.GET.get('location'),
+        request.GET.get('secret_level'),
+        request.GET.get('status'),
+        request.GET.get('is_fixed'),
+        request.GET.get('is_secret'),
+        request.GET.get('secret_category'),
+        request.GET.get('page'),
+    ])
+    
+    # 如果没有参数且 session 中有存储的筛选条件，则重定向带参数
+    if not has_params and 'device_list_filters' in request.session:
+        filters = request.session['device_list_filters']
+        params = '&'.join([f'{k}={v}' for k, v in filters.items() if v])
+        if params:
+            return redirect(f'/assets/?{params}')
+    
     search = request.GET.get('search', '')
     category_id = request.GET.get('category', '')
     location_id = request.GET.get('location', '')
@@ -108,6 +128,23 @@ def device_list(request):
     is_fixed = request.GET.get('is_fixed', '')
     is_secret = request.GET.get('is_secret', '')
     secret_category = request.GET.get('secret_category', '')
+    page = request.GET.get('page', '1')
+    page_size_param = request.GET.get('page_size', '')
+    
+    # 存储搜索参数到 session
+    if has_params or 'device_list_filters' in request.session:
+        request.session['device_list_filters'] = {
+            'search': search,
+            'category': category_id,
+            'location': location_id,
+            'secret_level': secret_level,
+            'status': status,
+            'is_fixed': is_fixed,
+            'is_secret': is_secret,
+            'secret_category': secret_category,
+            'page': page if page != '1' else '',
+            'page_size': page_size_param,
+        }
     
     devices = Device.objects.select_related('category', 'location', 'user', 'department', 'workstation').exclude(status='scrapped').order_by('id').all()
     
@@ -128,7 +165,8 @@ def device_list(request):
             Q(location_text__icontains=search) |
             Q(workstation__workstation_code__icontains=search) |
             Q(os_name__icontains=search) |
-            Q(asset_card_no__icontains=search)
+            Q(asset_card_no__icontains=search) |
+            Q(disk_serial__icontains=search)
         ).distinct()
     if category_id:
         devices = devices.filter(category_id=category_id)
@@ -244,7 +282,8 @@ def device_fault_list(request):
             Q(location_text__icontains=search) |
             Q(workstation__workstation_code__icontains=search) |
             Q(os_name__icontains=search) |
-            Q(asset_card_no__icontains=search)
+            Q(asset_card_no__icontains=search) |
+            Q(disk_serial__icontains=search)
         ).distinct()
     if category_id:
         devices = devices.filter(category_id=category_id)
@@ -390,7 +429,8 @@ def device_scrap_list(request):
             Q(remarks__icontains=search) |
             Q(category__name__icontains=search) |
             Q(os_name__icontains=search) |
-            Q(asset_card_no__icontains=search)
+            Q(asset_card_no__icontains=search) |
+            Q(disk_serial__icontains=search)
         ).distinct()
     if category_id:
         devices = devices.filter(category_id=category_id)
@@ -427,12 +467,11 @@ def device_scrap_list(request):
                 pass
     
     # 获取页码大小，默认20
-    page_size = int(request.GET.get('page_size', 20))
+    page_size = int(page_size_param) if page_size_param else 20
     if page_size not in [20, 50, 100, 200]:
         page_size = 20
     
-    paginator = Paginator(devices_list, page_size)
-    page = request.GET.get('page', 1)
+    paginator = Paginator(devices, page_size)
     devices = paginator.get_page(page)
     
     # 计算分页范围
@@ -571,6 +610,16 @@ def api_save_field_visibility(request):
             return JsonResponse({'success': True})
         except Exception as e:
             return JsonResponse({'success': False, 'message': str(e)})
+    return JsonResponse({'success': False, 'message': '仅支持POST请求'})
+
+
+@login_required
+@csrf_exempt
+def api_clear_device_filters(request):
+    if request.method == 'POST':
+        if 'device_list_filters' in request.session:
+            del request.session['device_list_filters']
+        return JsonResponse({'success': True})
     return JsonResponse({'success': False, 'message': '仅支持POST请求'})
 
 
