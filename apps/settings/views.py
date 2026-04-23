@@ -9,7 +9,7 @@ import shutil
 import sqlite3
 from datetime import datetime
 from .models import SystemConfig, Organization
-from apps.accounts.decorators import permission_required
+from apps.accounts.decorators import permission_required, has_permission
 
 
 def get_config_value(key, default=None):
@@ -98,27 +98,36 @@ def data_backup(request):
             messages.success(request, f'数据备份成功: {backup_file}')
             
         elif action == 'restore':
-            backup_file = request.POST.get('backup_file')
-            if backup_file and os.path.exists(backup_file):
-                db_path = settings.DATABASES['default']['NAME']
-                shutil.copy2(backup_file, db_path)
-                messages.success(request, '数据恢复成功，请重新启动系统')
+            if not has_permission(request.user, 'data_restore'):
+                messages.error(request, '您没有数据恢复权限')
             else:
-                messages.error(request, '备份文件不存在')
+                backup_file = request.POST.get('backup_file')
+                if backup_file and os.path.exists(backup_file):
+                    db_path = settings.DATABASES['default']['NAME']
+                    shutil.copy2(backup_file, db_path)
+                    messages.success(request, '数据恢复成功，请重新启动系统')
+                else:
+                    messages.error(request, '备份文件不存在')
         
         elif action == 'clean_logs':
-            from apps.logs.models import SystemLog, SystemAssetLog
-            from apps.accounts.models import LoginLog
-            
-            SystemLog.objects.all().delete()
-            SystemAssetLog.objects.all().delete()
-            LoginLog.objects.all().delete()
-            messages.success(request, '日志数据已清理')
+            if not has_permission(request.user, 'data_cleanup'):
+                messages.error(request, '您没有数据清理权限')
+            else:
+                from apps.logs.models import SystemLog, SystemAssetLog
+                from apps.accounts.models import LoginLog
+                
+                SystemLog.objects.all().delete()
+                SystemAssetLog.objects.all().delete()
+                LoginLog.objects.all().delete()
+                messages.success(request, '日志数据已清理')
         
         elif action == 'clean_old_devices':
-            from apps.assets.models import Device
-            deleted = Device.objects.filter(status='scrapped').delete()[0]
-            messages.success(request, f'已清理 {deleted} 条报废设备记录')
+            if not has_permission(request.user, 'data_cleanup'):
+                messages.error(request, '您没有数据清理权限')
+            else:
+                from apps.assets.models import Device
+                deleted = Device.objects.filter(status='scrapped').delete()[0]
+                messages.success(request, f'已清理 {deleted} 条报废设备记录')
         
         return redirect('data_management')
     
@@ -152,6 +161,24 @@ def download_backup(request):
     if backup_file and os.path.exists(backup_file):
         return FileResponse(open(backup_file, 'rb'), as_attachment=True)
     messages.error(request, '文件不存在')
+    return redirect('data_management')
+
+
+@login_required
+@permission_required('data_backup')
+def delete_backup(request):
+    if request.method == 'POST':
+        backup_file = request.POST.get('backup_file')
+        if backup_file and os.path.exists(backup_file):
+            # 安全检查：确保文件在 backups 目录中
+            backup_dir = os.path.join(settings.BASE_DIR, 'backups')
+            if os.path.abspath(backup_file).startswith(os.path.abspath(backup_dir)):
+                os.remove(backup_file)
+                messages.success(request, f'备份文件已删除: {os.path.basename(backup_file)}')
+            else:
+                messages.error(request, '无效的备份文件路径')
+        else:
+            messages.error(request, '备份文件不存在')
     return redirect('data_management')
 
 

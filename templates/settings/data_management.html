@@ -1,31 +1,337 @@
 {% extends 'base.html' %}
 {% block title %}数据管理 - 驰达IT资产管理系统{% endblock %}
+{% block extra_css %}
+<style>
+    .action-card {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        transition: all 0.2s;
+    }
+    .action-card:hover {
+        box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    }
+    .action-card .card-header {
+        border-radius: 12px 12px 0 0;
+        font-weight: 600;
+        padding: 1rem 1.25rem;
+    }
+    .action-card .card-body {
+        padding: 1.25rem;
+    }
+    .backup-card .card-header {
+        background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+        color: #1565c0;
+    }
+    .restore-card .card-header {
+        background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+        color: #2e7d32;
+    }
+    .clean-card .card-header {
+        background: linear-gradient(135deg, #fff3e0, #ffe0b2);
+        color: #e65100;
+    }
+    .backup-table .card-header {
+        background: linear-gradient(135deg, #f3e5f5, #e1bee7);
+        color: #6a1b9a;
+    }
+    .btn-action {
+        padding: 0.6rem 1.5rem;
+        font-weight: 500;
+        border-radius: 8px;
+    }
+    .backup-item {
+        transition: background-color 0.2s;
+    }
+    .backup-item:hover {
+        background-color: #f8f9fa;
+    }
+    .file-upload-area {
+        border: 2px dashed #dee2e6;
+        border-radius: 8px;
+        padding: 1.5rem;
+        text-align: center;
+        transition: all 0.2s;
+        cursor: pointer;
+    }
+    .file-upload-area:hover {
+        border-color: #0d6efd;
+        background-color: #f8f9ff;
+    }
+    .file-upload-area.has-file {
+        border-color: #28a745;
+        background-color: #f0fff4;
+    }
+    .file-upload-area i {
+        font-size: 2rem;
+        color: #6c757d;
+        margin-bottom: 0.5rem;
+    }
+    .file-upload-area.has-file i {
+        color: #28a745;
+    }
+    /* 移动端卡片视图 */
+    .backup-card-mobile {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 0.75rem;
+        margin-bottom: 0.75rem;
+        background: #fff;
+    }
+    .backup-card-mobile .backup-info {
+        margin-bottom: 0.75rem;
+    }
+    .backup-card-mobile .backup-name {
+        font-weight: 600;
+        color: #1976D2;
+        word-break: break-all;
+    }
+    .backup-card-mobile .backup-meta {
+        font-size: 12px;
+        color: #666;
+    }
+    /* 响应式适配 */
+    @media (max-width: 768px) {
+        .action-card .card-body {
+            padding: 1rem;
+        }
+        .action-card .card-header {
+            padding: 0.75rem 1rem;
+        }
+        .file-upload-area {
+            padding: 1rem;
+        }
+        .file-upload-area i {
+            font-size: 1.5rem;
+        }
+        .btn-action {
+            padding: 0.5rem 1rem;
+            font-size: 14px;
+        }
+        /* 隐藏桌面表格，显示移动卡片 */
+        .backup-table-desktop {
+            display: none !important;
+        }
+        .backup-table-mobile {
+            display: block !important;
+        }
+        .backup-table .card-header {
+            padding: 0.75rem 1rem;
+            font-size: 14px;
+        }
+    }
+    @media (min-width: 769px) {
+        /* 隐藏移动卡片，显示桌面表格 */
+        .backup-table-mobile {
+            display: none !important;
+        }
+        .backup-table-desktop {
+            display: block !important;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<h4 class="mb-4">数据管理</h4>
-<div class="row">
-<div class="col-md-6">
-<div class="card mb-4"><div class="card-header">数据备份</div><div class="card-body">
-<form method="post">{% csrf_token %}
-<input type="hidden" name="action" value="backup">
-<button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> 立即备份</button>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0"><i class="fas fa-database me-2"></i>数据管理</h4>
+</div>
+
+<div class="row g-3 g-md-4">
+    <!-- 数据备份 -->
+    {% if 'data_backup' in user_perm_set %}
+    <div class="col-12 col-md-4">
+        <div class="card action-card backup-card h-100">
+            <div class="card-header">
+                <i class="fas fa-save me-2"></i>数据备份
+            </div>
+            <div class="card-body d-flex flex-column">
+                <p class="text-muted mb-3 mb-md-4">立即创建数据库备份文件，备份文件将保存在服务器的 backups 目录中。</p>
+                <form method="post" action="{% url 'data_backup' %}" class="mt-auto">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="backup">
+                    <button type="submit" class="btn btn-primary btn-action w-100" onclick="return confirm('确定要立即备份数据库吗？')">
+                        <i class="fas fa-download me-2"></i>立即备份
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 数据恢复 -->
+    {% if 'data_restore' in user_perm_set %}
+    <div class="col-12 col-md-4">
+        <div class="card action-card restore-card h-100">
+            <div class="card-header">
+                <i class="fas fa-undo me-2"></i>数据恢复
+            </div>
+            <div class="card-body d-flex flex-column">
+                <p class="text-muted mb-2 mb-md-3">上传备份文件恢复数据。<strong class="text-danger">注意：恢复将覆盖当前数据！</strong></p>
+                <form method="post" action="{% url 'data_backup' %}" enctype="multipart/form-data" id="restoreForm" class="mt-auto">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="restore">
+                    <div class="file-upload-area mb-2 mb-md-3" id="uploadArea" onclick="document.getElementById('restoreFile').click()">
+                        <i class="fas fa-cloud-upload-alt d-block"></i>
+                        <div id="uploadText">点击选择备份文件</div>
+                        <div id="fileName" class="text-success fw-bold mt-1" style="display:none;"></div>
+                        <input type="file" name="backup_file" id="restoreFile" accept=".sqlite3" style="display:none;" onchange="handleFileSelect(this)">
+                    </div>
+                    <button type="submit" class="btn btn-success btn-action w-100" id="restoreBtn" disabled
+                            onclick="return confirm('确定要恢复数据吗？此操作将覆盖当前所有数据，且不可撤销！')">
+                        <i class="fas fa-upload me-2"></i>恢复数据
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 数据清理 -->
+    {% if 'data_cleanup' in user_perm_set %}
+    <div class="col-12 col-md-4">
+        <div class="card action-card clean-card h-100">
+            <div class="card-header">
+                <i class="fas fa-broom me-2"></i>数据清理
+            </div>
+            <div class="card-body d-flex flex-column">
+                <p class="text-muted mb-3 mb-md-4">清理系统日志数据，包括操作日志、资产日志和登录日志。</p>
+                <form method="post" action="{% url 'data_backup' %}" class="mt-auto">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="clean_logs">
+                    <button type="submit" class="btn btn-warning btn-action w-100" 
+                            onclick="return confirm('确定要清理所有日志数据吗？此操作不可撤销！')">
+                        <i class="fas fa-broom me-2"></i>清理日志
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- 备份文件列表 -->
+<div class="card action-card backup-table mt-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="fas fa-list me-2"></i>备份文件列表</span>
+        <span class="badge bg-purple bg-opacity-10 text-purple" style="background-color: #6a1b9a !important; color: #fff !important;">
+            {{ backups|length }} 个备份
+        </span>
+    </div>
+    
+    <!-- 桌面端表格视图 -->
+    <div class="card-body p-0 backup-table-desktop">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th class="ps-4">文件名</th>
+                    <th style="width:100px;">大小</th>
+                    <th style="width:180px;">创建时间</th>
+                    <th style="width:160px;" class="text-center">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for b in backups %}
+                <tr class="backup-item">
+                    <td class="ps-4">
+                        <i class="fas fa-file-archive text-primary me-2"></i>{{ b.name }}
+                    </td>
+                    <td>{{ b.size|filesizeformat }}</td>
+                    <td>{{ b.time|date:"Y-m-d H:i:s" }}</td>
+                    <td class="text-center">
+                        <div class="btn-group btn-group-sm">
+                            <a href="{% url 'download_backup' %}?file={{ b.path }}" class="btn btn-outline-primary" title="下载">
+                                <i class="fas fa-download me-1"></i>下载
+                            </a>
+                            {% if 'data_backup' in user_perm_set %}
+                            <button type="button" class="btn btn-outline-danger" title="删除"
+                                    onclick="deleteBackup('{{ b.path }}', '{{ b.name }}')">
+                                <i class="fas fa-trash me-1"></i>删除
+                            </button>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="text-center text-muted py-5">
+                        <i class="fas fa-inbox fa-3x mb-3 d-block text-muted opacity-50"></i>
+                        暂无备份文件
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- 移动端卡片视图 -->
+    <div class="card-body backup-table-mobile" style="display:none;">
+        {% for b in backups %}
+        <div class="backup-card-mobile">
+            <div class="backup-info">
+                <div class="backup-name mb-1">
+                    <i class="fas fa-file-archive text-primary me-2"></i>{{ b.name }}
+                </div>
+                <div class="backup-meta">
+                    <span class="me-3"><i class="fas fa-hdd me-1"></i>{{ b.size|filesizeformat }}</span>
+                    <span><i class="fas fa-clock me-1"></i>{{ b.time|date:"m-d H:i" }}</span>
+                </div>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="{% url 'download_backup' %}?file={{ b.path }}" class="btn btn-sm btn-outline-primary flex-fill">
+                    <i class="fas fa-download me-1"></i>下载
+                </a>
+                {% if 'data_backup' in user_perm_set %}
+                <button type="button" class="btn btn-sm btn-outline-danger flex-fill"
+                        onclick="deleteBackup('{{ b.path }}', '{{ b.name }}')">
+                    <i class="fas fa-trash me-1"></i>删除
+                </button>
+                {% endif %}
+            </div>
+        </div>
+        {% empty %}
+        <div class="text-center text-muted py-4">
+            <i class="fas fa-inbox fa-2x mb-2 d-block text-muted opacity-50"></i>
+            暂无备份文件
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- 删除备份的隐藏表单 -->
+<form id="deleteForm" method="post" action="{% url 'delete_backup' %}" style="display:none;">
+    {% csrf_token %}
+    <input type="hidden" name="backup_file" id="deleteFile">
 </form>
-<p class="mt-3 text-muted">点击按钮将立即创建数据库备份文件</p>
-</div></div>
-</div>
-<div class="col-md-6">
-<div class="card mb-4"><div class="card-header">数据清理</div><div class="card-body">
-<form method="post">{% csrf_token %}
-<div class="mb-3"><button type="submit" name="action" value="clean_logs" class="btn btn-warning"><i class="fas fa-broom"></i> 清理日志</button></div>
-<p class="text-muted">清理所有系统日志、操作日志、登录日志</p>
-<hr>
-<div class="mb-3"><button type="submit" name="action" value="clean_old_devices" class="btn btn-danger"><i class="fas fa-trash"></i> 清理报废设备</button></div>
-<p class="text-muted">删除所有状态为"已报废"的设备记录</p>
-</form>
-</div></div>
-</div>
-</div>
-<div class="card"><div class="card-header">备份文件列表</div><div class="card-body">
-<table class="table"><thead><tr><th>文件名</th><th>大小</th><th>创建时间</th><th>操作</th></tr></thead>
-<tbody>{% for b in backups %}<tr><td>{{ b.name }}</td><td>{{ b.size|filesizeformat }}</td><td>{{ b.time|date:"Y-m-d H:i:s" }}</td>
-<td><a href="{% url 'download_backup' %}?file={{ b.path }}" class="btn btn-sm btn-outline-primary">下载</a></td></tr>{% empty %}<tr><td colspan="4" class="text-center">暂无备份文件</td></tr>{% endfor %}</tbody></table>
-</div></div>{% endblock %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function handleFileSelect(input) {
+    const uploadArea = document.getElementById('uploadArea');
+    const fileName = document.getElementById('fileName');
+    const uploadText = document.getElementById('uploadText');
+    const restoreBtn = document.getElementById('restoreBtn');
+    
+    if (input.files && input.files[0]) {
+        uploadArea.classList.add('has-file');
+        fileName.textContent = input.files[0].name;
+        fileName.style.display = 'block';
+        uploadText.style.display = 'none';
+        restoreBtn.disabled = false;
+    } else {
+        uploadArea.classList.remove('has-file');
+        fileName.style.display = 'none';
+        uploadText.style.display = 'block';
+        restoreBtn.disabled = true;
+    }
+}
+
+function deleteBackup(filePath, fileName) {
+    if (confirm('确定要删除备份文件 "' + fileName + '" 吗？此操作不可撤销！')) {
+        document.getElementById('deleteFile').value = filePath;
+        document.getElementById('deleteForm').submit();
+    }
+}
+</script>
+{% endblock %}
