@@ -4600,21 +4600,23 @@ def process_update_card_no_task(task_id, file_content, user_id):
                     new_card_no = excel_mappings[device.asset_no]
                     
                     if not new_card_no:
-                        # 表格中卡片编号为空，跳过
+                        # Excel中卡片编号为空，跳过
                         progress['skipped'] += 1
-                        add_log(task_id, 'warning', f'设备{device.asset_no}：表格中卡片编号为空，跳过')
-                    elif device.asset_card_no == new_card_no:
-                        # 卡片编号相同，跳过
+                        add_log(task_id, 'warning', f'设备{device.asset_no}：Excel卡片编号为空，跳过')
+                    elif device.asset_card_no:
+                        # 设备已有卡片编号，跳过但记录比对结果
+                        if device.asset_card_no == new_card_no:
+                            add_log(task_id, 'info', f'设备{device.asset_no}：卡片编号相同，{new_card_no}，跳过')
+                        else:
+                            add_log(task_id, 'info', f'设备{device.asset_no}：卡片编号不同，现有:{device.asset_card_no}，Excel:{new_card_no}，跳过')
                         progress['skipped'] += 1
-                        add_log(task_id, 'info', f'设备{device.asset_no}：卡片编号相同({new_card_no})，跳过')
                     else:
-                        # 卡片编号不同，更新
-                        old_card_no = device.asset_card_no or '(空)'
+                        # 设备卡片编号为空，更新
                         device.asset_card_no = new_card_no
                         device.is_fixed = True
                         device.save(update_fields=['asset_card_no', 'is_fixed'])
                         progress['updated'] += 1
-                        add_log(task_id, 'success', f'设备{device.asset_no}：卡片编号从{old_card_no}更新为{new_card_no}，固资在账设为"是"')
+                        add_log(task_id, 'success', f'设备{device.asset_no}：更新卡片编号为{new_card_no}，固资在账设为"是"')
                 else:
                     # 表格中未找到该设备，跳过
                     progress['skipped'] += 1

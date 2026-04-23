@@ -1086,6 +1086,7 @@ function confirmCheck() {
             document.getElementById('locationStatus').value = 'in_place';
             document.getElementById('assetStatus').value = 'normal';
             document.getElementById('checkRemarks').value = '';
+            document.getElementById('checkPhoto').value = '';
             
             // 关闭面板
             closePanel();
@@ -1184,6 +1185,8 @@ function showLocationModal() {
 }
 
 function initLocationSelect() {
+    document.getElementById('workstationSelect').innerHTML = '<option value="">请选择位置后选择工位</option>';
+    document.getElementById('locationMapContainer').innerHTML = '<div style="padding:20px;color:#999;text-align:center;">请选择位置</div>';
     fetch('/assets/api/location-tree/')
     .then(r => r.json())
     .then(data => {
