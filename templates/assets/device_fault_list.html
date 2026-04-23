@@ -196,6 +196,10 @@
         const formData = new FormData(form);
         const params = new URLSearchParams(formData);
         params.set('page', pageNum);
+        const pageSizeSelect = document.querySelector('select[onchange*="changePageSize"]');
+        if (pageSizeSelect) {
+            params.set('page_size', pageSizeSelect.value);
+        }
         window.location.href = '?' + params.toString();
     }
     

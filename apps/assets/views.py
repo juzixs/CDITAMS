@@ -100,8 +100,8 @@ def get_location_tree_data():
 @login_required
 @permission_required('device')
 def device_list(request):
-    # 检查是否有搜索参数传入
-    has_params = any([
+    # 检查是否有搜索筛选参数传入（不含分页参数）
+    has_filter_params = any([
         request.GET.get('search'),
         request.GET.get('category'),
         request.GET.get('location'),
@@ -110,15 +110,19 @@ def device_list(request):
         request.GET.get('is_fixed'),
         request.GET.get('is_secret'),
         request.GET.get('secret_category'),
-        request.GET.get('page'),
     ])
     
-    # 如果没有参数且 session 中有存储的筛选条件，则重定向带参数
-    if not has_params and 'device_list_filters' in request.session:
+    # 如果没有筛选参数且 session 中有存储的筛选条件，则重定向带参数
+    if not has_filter_params and 'device_list_filters' in request.session:
         filters = request.session['device_list_filters']
-        params = '&'.join([f'{k}={v}' for k, v in filters.items() if v])
+        # 只保留筛选参数，排除分页参数
+        filter_keys = ['search', 'category', 'location', 'secret_level', 'status', 'is_fixed', 'is_secret', 'secret_category']
+        params = '&'.join([f'{k}={v}' for k, v in filters.items() if v and k in filter_keys])
         if params:
             return redirect(f'/assets/?{params}')
+        else:
+            # 没有有效筛选参数，清除 session
+            del request.session['device_list_filters']
     
     search = request.GET.get('search', '')
     category_id = request.GET.get('category', '')
@@ -131,8 +135,8 @@ def device_list(request):
     page = request.GET.get('page', '1')
     page_size_param = request.GET.get('page_size', '')
     
-    # 存储搜索参数到 session
-    if has_params or 'device_list_filters' in request.session:
+    # 存储筛选参数到 session（只存搜索筛选，不存分页）
+    if has_filter_params:
         request.session['device_list_filters'] = {
             'search': search,
             'category': category_id,
@@ -142,8 +146,6 @@ def device_list(request):
             'is_fixed': is_fixed,
             'is_secret': is_secret,
             'secret_category': secret_category,
-            'page': page if page != '1' else '',
-            'page_size': page_size_param,
         }
     
     devices = Device.objects.select_related('category', 'location', 'user', 'department', 'workstation').exclude(status='scrapped').order_by('id').all()
