@@ -23,7 +23,9 @@
     <h4><i class="fas fa-tags"></i> 分类管理</h4>
     <div>
         <a href="{% url 'device_list' %}" class="btn btn-outline-secondary me-2"><i class="fas fa-arrow-left"></i> 返回设备管理</a>
+        {% if 'category_create' in user_perm_set %}
         <a href="{% url 'category_create' %}" class="btn btn-primary"><i class="fas fa-plus"></i> 新增分类</a>
+        {% endif %}
     </div>
 </div>
 

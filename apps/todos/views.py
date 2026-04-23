@@ -6,9 +6,11 @@ from django.http import JsonResponse
 from django.utils import timezone
 
 from .models import Todo, Notification
+from apps.accounts.decorators import permission_required
 
 
 @login_required
+@permission_required('todo_list')
 def todo_list(request):
     status = request.GET.get('status', '')
     todos = Todo.objects.filter(assignee=request.user)
@@ -18,6 +20,7 @@ def todo_list(request):
 
 
 @login_required
+@permission_required('todo_create')
 def todo_create(request):
     if request.method == 'POST':
         Todo.objects.create(
@@ -35,6 +38,7 @@ def todo_create(request):
 
 
 @login_required
+@permission_required('todo_edit')
 def todo_edit(request, pk):
     todo = get_object_or_404(Todo, pk=pk, assignee=request.user)
     
@@ -52,6 +56,7 @@ def todo_edit(request, pk):
 
 
 @login_required
+@permission_required('todo_complete')
 def todo_complete(request, pk):
     if request.method == 'POST':
         todo = get_object_or_404(Todo, pk=pk, assignee=request.user)
@@ -63,6 +68,7 @@ def todo_complete(request, pk):
 
 
 @login_required
+@permission_required('todo_delete')
 def todo_delete(request, pk):
     if request.method == 'POST':
         todo = get_object_or_404(Todo, pk=pk, assignee=request.user)
@@ -72,6 +78,7 @@ def todo_delete(request, pk):
 
 
 @login_required
+@permission_required('notification_list')
 def notification_list(request):
     notifications = request.user.notifications.all()
     return render(request, 'todos/notification_list.html', {'notifications': notifications})

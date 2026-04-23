@@ -60,7 +60,7 @@
 </div>
 
 <div class="row">
-    <!-- 权限列表（8列） -->
+    <!-- 权限列表 -->
     <div class="col-md-8">
         <div class="card mb-4">
             <div class="card-header bg-info text-white">
@@ -71,11 +71,12 @@
                 <div class="mb-4">
                     <!-- 一级菜单 -->
                     <div class="d-flex align-items-center mb-2 pb-2 border-bottom">
-                        <i class="fas fa-folder text-primary me-2"></i>
-                        <strong class="text-primary fs-5">{{ item.menu.name }}</strong>
                         {% if item.menu.id in role_perm_ids %}
-                        <i class="fas fa-check text-success ms-2"></i>
+                        <i class="fas fa-check text-success me-2"></i>
+                        {% else %}
+                        <i class="fas fa-times text-muted me-2"></i>
                         {% endif %}
+                        <strong class="text-primary fs-5">{{ item.menu.name }}</strong>
                     </div>
                     
                     <!-- 一级菜单下的直接按钮 -->
@@ -88,7 +89,6 @@
                             {% else %}
                             <i class="fas fa-times text-muted me-1"></i>
                             {% endif %}
-                            <span class="badge bg-secondary me-1">按钮</span>
                             <small {% if btn.id not in role_perm_ids %}class="text-muted"{% endif %}>{{ btn.name }}</small>
                         </span>
                         {% endfor %}
@@ -99,12 +99,12 @@
                     {% for child in item.children %}
                     <div class="ms-4 mb-3">
                         <div class="d-flex align-items-center mb-2">
-                            <i class="fas fa-bars text-info me-2"></i>
-                            <span class="badge bg-info me-2">菜单</span>
-                            <strong {% if child.menu.id not in role_perm_ids %}class="text-muted"{% endif %}>{{ child.menu.name }}</strong>
                             {% if child.menu.id in role_perm_ids %}
-                            <i class="fas fa-check text-success ms-2"></i>
+                            <i class="fas fa-check text-success me-2"></i>
+                            {% else %}
+                            <i class="fas fa-times text-muted me-2"></i>
                             {% endif %}
+                            <strong {% if child.menu.id not in role_perm_ids %}class="text-muted"{% endif %}>{{ child.menu.name }}</strong>
                         </div>
                         
                         <!-- 二级菜单下的按钮 -->
@@ -127,12 +127,12 @@
                         {% for third in child.children %}
                         <div class="ms-4 mt-2">
                             <div class="d-flex align-items-center mb-1">
-                                <i class="fas fa-angle-right text-warning me-2"></i>
-                                <span class="badge bg-warning text-dark me-2">子菜单</span>
-                                <strong {% if third.menu.id not in role_perm_ids %}class="text-muted"{% endif %}>{{ third.menu.name }}</strong>
                                 {% if third.menu.id in role_perm_ids %}
-                                <i class="fas fa-check text-success ms-2"></i>
+                                <i class="fas fa-check text-success me-2"></i>
+                                {% else %}
+                                <i class="fas fa-times text-muted me-2"></i>
                                 {% endif %}
+                                <strong {% if third.menu.id not in role_perm_ids %}class="text-muted"{% endif %}>{{ third.menu.name }}</strong>
                             </div>
                             {% if third.buttons %}
                             <div class="ms-4">
@@ -164,7 +164,7 @@
         </div>
     </div>
     
-    <!-- 关联用户（4列） -->
+    <!-- 关联用户 -->
     <div class="col-md-4">
         <div class="card mb-4">
             <div class="card-header bg-success text-white">

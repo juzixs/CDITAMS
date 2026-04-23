@@ -52,6 +52,35 @@ class User(AbstractUser):
 
     def __str__(self):
         return f"{self.emp_no} - {self.realname}"
+    
+    def get_permissions(self):
+        """获取用户的所有权限代码"""
+        # 超级管理员或拥有superuser/admin角色的用户拥有所有权限
+        if self.is_superuser or (self.role and self.role.code in ('superuser', 'admin')):
+            return Permission.objects.values_list('code', flat=True)
+        
+        if self.role:
+            return self.role.permissions.values_list('code', flat=True)
+        
+        return []
+    
+    def has_perm(self, *perm_codes):
+        """检查用户是否拥有指定权限"""
+        # 超级管理员或拥有superuser/admin角色的用户拥有所有权限
+        if self.is_superuser or (self.role and self.role.code in ('superuser', 'admin')):
+            return True
+        
+        user_perms = set(self.get_permissions())
+        return any(perm in user_perms for perm in perm_codes)
+    
+    def has_perm_all(self, *perm_codes):
+        """检查用户是否拥有所有指定权限"""
+        # 超级管理员或拥有superuser/admin角色的用户拥有所有权限
+        if self.is_superuser or (self.role and self.role.code in ('superuser', 'admin')):
+            return True
+        
+        user_perms = set(self.get_permissions())
+        return all(perm in user_perms for perm in perm_codes)
 
 
 class Role(models.Model):

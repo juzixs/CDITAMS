@@ -20,11 +20,15 @@
 <td>{{ root.parent.name|default:'-' }}</td>
 <td>{{ root.sort }}</td>
 <td>
+{% if 'category_edit' in user_perm_set %}
 <a href="{% url 'category_edit' root.id %}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-edit"></i></a>
+{% endif %}
+{% if 'category_delete' in user_perm_set %}
 {% if not root.children.exists and not root.devices.exists %}
 <a href="{% url 'category_delete' root.id %}" class="btn btn-sm btn-outline-danger" onclick="return confirm('确定删除该分类？')"><i class="fas fa-trash"></i></a>
 {% else %}
 <button type="button" class="btn btn-sm btn-outline-secondary" disabled title="该分类下有子分类或设备"><i class="fas fa-trash"></i></button>
+{% endif %}
 {% endif %}
 </td>
 </tr>

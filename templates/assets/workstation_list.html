@@ -10,10 +10,14 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h4><i class="fas fa-th"></i> 工位管理 - {{ location.get_full_path }}</h4>
     <div>
+        {% if 'location_map' in user_perm_set %}
         <a href="{% url 'location_map_edit' location.id %}" class="btn btn-primary"><i class="fas fa-edit"></i> 编辑地图</a>
+        {% endif %}
         <a href="{% url 'location_map' location.id %}" class="btn btn-outline-secondary ms-1"><i class="fas fa-map"></i> 地图查看</a>
         <a href="{% url 'device_list' %}" class="btn btn-outline-secondary ms-1"><i class="fas fa-desktop"></i> 设备管理</a>
+        {% if 'location' in user_perm_set %}
         <a href="{% url 'location_list' %}" class="btn btn-outline-secondary ms-1"><i class="fas fa-arrow-left"></i> 返回位置管理</a>
+        {% endif %}
     </div>
 </div>
 <div class="card">
@@ -54,7 +58,9 @@
                         <div class="device-badge" title="{{ d.asset_no }} {{ d.name }}{% if d.department %} | {{ d.department }}{% endif %}{% if d.user %} | {{ d.user }}{% endif %}">
                             <span class="dot" style="background:{% if d.status == 'normal' %}#28a745{% elif d.status == 'fault' %}#dc3545{% else %}#6c757d{% endif %};"></span>
                             <span style="overflow:hidden;text-overflow:ellipsis;">{{ d.asset_no }} {{ d.name }}</span>
+                            {% if 'workstation' in user_perm_set %}
                             <button class="btn btn-link btn-sm p-0 text-danger" style="font-size:9px;line-height:1;margin-left:2px;" onclick="unbindDevice({{ item.workstation.id }}, {{ d.id }})" title="解绑">&times;</button>
+                            {% endif %}
                         </div>
                         {% endfor %}
                         {% else %}
@@ -62,9 +68,11 @@
                         {% endif %}
                     </td>
                     <td style="white-space:nowrap;">
+                        {% if 'workstation' in user_perm_set %}
                         <button class="btn btn-sm btn-outline-success" onclick="showBindPanel({{ item.workstation.id }})"><i class="fas fa-link"></i></button>
                         <a href="{% url 'workstation_edit' item.workstation.id %}" class="btn btn-sm btn-outline-primary"><i class="fas fa-edit"></i></a>
                         <button class="btn btn-sm btn-outline-danger" onclick="deleteWs({{ item.workstation.id }})"><i class="fas fa-trash"></i></button>
+                        {% endif %}
                     </td>
                 </tr>
                 {% empty %}

@@ -25,18 +25,28 @@
 {% if root.level == 3 %}
     {% if root.has_map %}
     <a href="{% url 'location_map' root.id %}" class="btn btn-sm btn-outline-success btn-map" title="查看平面图"><i class="fas fa-map"></i></a>
+    {% if 'location_map' in user_perm_set %}
     <a href="{% url 'location_map_edit' root.id %}" class="btn btn-sm btn-outline-primary btn-map" title="编辑平面图"><i class="fas fa-edit"></i></a>
     {% endif %}
+    {% endif %}
+    {% if 'workstation' in user_perm_set %}
     <a href="{% url 'workstation_list' root.id %}" class="btn btn-sm btn-outline-info btn-map" title="工位管理"><i class="fas fa-th"></i></a>
+    {% endif %}
 {% elif root.level == 4 %}
     <a href="{% url 'location_map' root.parent.id %}" class="btn btn-sm btn-outline-success btn-map" title="查看平面图"><i class="fas fa-map"></i></a>
+    {% if 'workstation' in user_perm_set %}
     <a href="{% url 'workstation_list' root.id %}" class="btn btn-sm btn-outline-info btn-map" title="工位管理"><i class="fas fa-th"></i></a>
+    {% endif %}
 {% endif %}
+{% if 'location_edit' in user_perm_set %}
 <a href="{% url 'location_edit' root.id %}" class="btn btn-sm btn-outline-secondary btn-map" title="编辑"><i class="fas fa-edit"></i></a>
+{% endif %}
+{% if 'location_delete' in user_perm_set %}
 <form method="post" action="{% url 'location_delete' root.id %}" style="display:inline;" onsubmit="return confirm('确定要删除位置「{{ root.name }}」吗？{% if root.children.exists %}该位置下有子位置，无法删除{% elif root.devices.exists %}该位置下有设备，无法删除{% endif %}');">
     {% csrf_token %}
     <button type="submit" class="btn btn-sm btn-outline-danger btn-map" title="删除" {% if root.children.exists or root.devices.exists %}disabled{% endif %}><i class="fas fa-trash"></i></button>
 </form>
+{% endif %}
 </td>
 </tr>
 {% if children %}

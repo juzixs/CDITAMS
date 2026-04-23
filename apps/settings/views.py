@@ -9,6 +9,7 @@ import shutil
 import sqlite3
 from datetime import datetime
 from .models import SystemConfig, Organization
+from apps.accounts.decorators import permission_required
 
 
 def get_config_value(key, default=None):
@@ -29,6 +30,7 @@ def get_config_value(key, default=None):
 
 
 @login_required
+@permission_required('config')
 def config_list(request):
     group = request.GET.get('group', 'basic')
     groups = SystemConfig.GROUP_CHOICES
@@ -41,6 +43,7 @@ def config_list(request):
 
 
 @login_required
+@permission_required('config_edit')
 def config_save(request):
     if request.method == 'POST':
         updated_count = 0
@@ -78,6 +81,7 @@ def config_save(request):
 
 
 @login_required
+@permission_required('data_backup')
 def data_backup(request):
     if request.method == 'POST':
         action = request.POST.get('action')
@@ -130,6 +134,7 @@ def data_backup(request):
 
 
 @login_required
+@permission_required('data_management')
 def data_management(request):
     backup_dir = os.path.join(settings.BASE_DIR, 'backups')
     backups = []
@@ -151,6 +156,7 @@ def download_backup(request):
 
 
 @login_required
+@permission_required('org_info')
 def org_info(request):
     org = Organization.objects.first()
     

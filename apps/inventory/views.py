@@ -20,6 +20,7 @@ from .models import InventoryPlan, InventoryTask, InventoryRecord, InventoryTask
 from apps.assets.models import Device, AssetLocation, AssetCategory
 from apps.assets.views import save_photo_with_asset_no
 from apps.accounts.models import User, Department
+from apps.accounts.decorators import permission_required
 from apps.settings.llm_service import is_llm_enabled, call_llm, get_llm_config, call_llm_vision_two_step
 from apps.settings.views import get_config_value
 
@@ -79,6 +80,7 @@ def parse_ai_json_response(ai_content):
 # ==================== 任务管理 ====================
 
 @login_required
+@permission_required('inventory_task')
 def task_list(request):
     """任务列表页"""
     status = request.GET.get('status', '')
@@ -106,6 +108,7 @@ def task_list(request):
 
 
 @login_required
+@permission_required('inventory_task_create')
 def task_create(request):
     """创建盘点任务"""
     if request.method == 'POST':
@@ -116,11 +119,14 @@ def task_create(request):
         scheduled_end = request.POST.get('scheduled_end')
         remarks = request.POST.get('remarks', '').strip()
         
+        # 动态盘点任务直接进入执行状态
+        initial_status = 'in_progress' if task_type == 'dynamic' else 'pending'
+        
         task = InventoryTask.objects.create(
             name=name,
             task_type=task_type,
             is_fixed_only=is_fixed_only,
-            status='pending',
+            status=initial_status,
             created_by=request.user,
             scheduled_start=scheduled_start if scheduled_start else None,
             scheduled_end=scheduled_end if scheduled_end else None,
@@ -132,6 +138,10 @@ def task_create(request):
             generate_task_devices(task)
         
         messages.success(request, f'盘点任务创建成功: {task.task_no}')
+        
+        # 动态盘点任务直接跳转到执行页面
+        if task_type == 'dynamic':
+            return redirect('inventory_task_execute', pk=task.pk)
         return redirect('inventory_task_detail', pk=task.pk)
     
     return render(request, 'inventory/task_create.html')
@@ -141,6 +151,10 @@ def task_create(request):
 def task_detail(request, pk):
     """任务详情页（含待盘/已盘列表）"""
     task = get_object_or_404(InventoryTask.objects.select_related('created_by', 'assignee'), pk=pk)
+    
+    # 动态盘点任务自动同步设备列表
+    if task.task_type == 'dynamic' and task.status == 'in_progress':
+        sync_dynamic_task_devices(task)
     
     # 待盘点设备 - 有位置的在前，无位置的在后，按位置排序
     pending_devices = InventoryTaskDevice.objects.filter(
@@ -180,6 +194,7 @@ def task_detail(request, pk):
 @login_required
 @csrf_exempt
 @require_http_methods(["POST"])
+@permission_required('inventory_task_delete')
 def task_delete(request, pk):
     """删除任务"""
     task = get_object_or_404(InventoryTask, pk=pk)
@@ -1401,9 +1416,14 @@ def api_manual_parse_excel(request, task_id):
 # ==================== 盘点执行 ====================
 
 @login_required
+@permission_required('inventory_execute')
 def task_execute(request, pk):
     """盘点执行页面"""
     task = get_object_or_404(InventoryTask.objects.select_related('created_by', 'assignee'), pk=pk)
+    
+    # 动态盘点任务自动同步设备列表
+    if task.task_type == 'dynamic' and task.status == 'in_progress':
+        sync_dynamic_task_devices(task)
     
     # 待盘点设备 - 有位置的在前，无位置的在后，按位置排序
     pending_devices = InventoryTaskDevice.objects.filter(
@@ -1646,13 +1666,41 @@ def api_scan_check(request, task_id):
         ).first()
         
         if not task_device:
-            return JsonResponse({
-                'success': False,
-                'message': f'设备 {asset_no} 不在待盘点列表中',
-                'device_not_in_task': True,
-                'device_id': device.id,
-                'asset_no': asset_no,
-            })
+            # 动态盘点任务自动添加新设备到任务中
+            if task.task_type == 'dynamic' and task.status == 'in_progress':
+                # 检查是否已在任务中（可能已盘点）
+                existing_task_device = InventoryTaskDevice.objects.filter(
+                    task=task, device=device
+                ).first()
+                
+                if existing_task_device:
+                    if existing_task_device.status == 'checked':
+                        return JsonResponse({
+                            'success': False,
+                            'message': f'设备 {asset_no} 已盘点完成',
+                            'device_already_checked': True,
+                        })
+                    task_device = existing_task_device
+                else:
+                    # 添加新设备到任务
+                    current_max_order = InventoryTaskDevice.objects.filter(task=task).count()
+                    task_device = InventoryTaskDevice.objects.create(
+                        task=task,
+                        device=device,
+                        status='pending',
+                        sort_order=current_max_order + 1,
+                        added_by=request.user,
+                    )
+                    task.device_count = InventoryTaskDevice.objects.filter(task=task).count()
+                    task.save(update_fields=['device_count'])
+            else:
+                return JsonResponse({
+                    'success': False,
+                    'message': f'设备 {asset_no} 不在待盘点列表中',
+                    'device_not_in_task': True,
+                    'device_id': device.id,
+                    'asset_no': asset_no,
+                })
         
         # 返回设备信息，准备盘点
         return JsonResponse({
@@ -1810,9 +1858,52 @@ def generate_task_devices(task):
     task.save()
 
 
+def sync_dynamic_task_devices(task):
+    """同步动态盘点任务的设备列表（只添加新设备，不影响已存在设备）"""
+    if task.task_type != 'dynamic' or task.status != 'in_progress':
+        return
+    
+    # 获取系统中所有符合条件的设备
+    system_devices = Device.objects.exclude(status='scrapped')
+    if task.is_fixed_only:
+        system_devices = system_devices.filter(is_fixed=True)
+    
+    # 获取任务中已存在的设备ID
+    existing_device_ids = set(
+        InventoryTaskDevice.objects.filter(task=task).values_list('device_id', flat=True)
+    )
+    
+    # 找出新增的设备（系统中有但任务中没有）
+    new_devices = system_devices.exclude(id__in=existing_device_ids)
+    
+    if not new_devices.exists():
+        return
+    
+    # 获取当前最大排序号
+    current_max_order = InventoryTaskDevice.objects.filter(task=task).count()
+    
+    # 添加新增的设备到任务中
+    task_devices = []
+    for i, device in enumerate(new_devices.order_by('location_text', 'id')):
+        task_devices.append(InventoryTaskDevice(
+            task=task,
+            device=device,
+            status='pending',
+            sort_order=current_max_order + i + 1,
+            added_by=task.created_by,
+        ))
+    
+    InventoryTaskDevice.objects.bulk_create(task_devices)
+    
+    # 更新设备总数
+    task.device_count = InventoryTaskDevice.objects.filter(task=task).count()
+    task.save(update_fields=['device_count'])
+
+
 # ==================== 兼容旧接口 ====================
 
 @login_required
+@permission_required('inventory_task')
 def plan_list(request):
     """盘点计划列表（兼容）"""
     plans = InventoryPlan.objects.all()

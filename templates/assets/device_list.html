@@ -119,21 +119,45 @@
 <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-2">
     <h4 class="mb-0">设备管理</h4>
     <div class="btn-group d-none d-md-flex" role="group">
+        {% if 'location' in user_perm_set %}
         <a href="{% url 'location_list' %}" class="btn btn-outline-secondary" title="位置管理"><i class="fas fa-map-marker-alt"></i> 位置管理</a>
+        {% endif %}
+        {% if 'device_map' in user_perm_set %}
         <a href="{% url 'device_map' %}" class="btn btn-outline-secondary" title="设备地图"><i class="fas fa-map"></i> 设备地图</a>
+        {% endif %}
+        {% if 'workstation' in user_perm_set %}
         <a href="{% url 'workstation_manage' %}" class="btn btn-outline-secondary" title="工位管理"><i class="fas fa-th"></i> 工位管理</a>
+        {% endif %}
+        {% if 'category' in user_perm_set %}
         <a href="{% url 'category_list' %}" class="btn btn-outline-secondary" title="分类管理"><i class="fas fa-tags"></i> 分类管理</a>
+        {% endif %}
+        {% if 'field_manage' in user_perm_set %}
         <a href="{% url 'field_list' %}" class="btn btn-outline-secondary" title="字段管理"><i class="fas fa-cog"></i> 字段管理</a>
+        {% endif %}
+        {% if 'label_manage' in user_perm_set %}
         <a href="{% url 'label_settings' %}" class="btn btn-outline-secondary" title="标签管理"><i class="fas fa-tag"></i> 标签管理</a>
+        {% endif %}
     </div>
 </div>
 <div class="row g-2 d-md-none mb-4">
+    {% if 'location' in user_perm_set %}
     <div class="col-4"><a href="{% url 'location_list' %}" class="btn btn-outline-secondary w-100" title="位置管理"><i class="fas fa-map-marker-alt me-1"></i>位置管理</a></div>
+    {% endif %}
+    {% if 'device_map' in user_perm_set %}
     <div class="col-4"><a href="{% url 'device_map' %}" class="btn btn-outline-secondary w-100" title="设备地图"><i class="fas fa-map me-1"></i>设备地图</a></div>
+    {% endif %}
+    {% if 'workstation' in user_perm_set %}
     <div class="col-4"><a href="{% url 'workstation_manage' %}" class="btn btn-outline-secondary w-100" title="工位管理"><i class="fas fa-th me-1"></i>工位管理</a></div>
+    {% endif %}
+    {% if 'category' in user_perm_set %}
     <div class="col-4"><a href="{% url 'category_list' %}" class="btn btn-outline-secondary w-100" title="分类管理"><i class="fas fa-tags me-1"></i>分类管理</a></div>
+    {% endif %}
+    {% if 'field_manage' in user_perm_set %}
     <div class="col-4"><a href="{% url 'field_list' %}" class="btn btn-outline-secondary w-100" title="字段管理"><i class="fas fa-cog me-1"></i>字段管理</a></div>
+    {% endif %}
+    {% if 'label_manage' in user_perm_set %}
     <div class="col-4"><a href="{% url 'label_settings' %}" class="btn btn-outline-secondary w-100" title="标签管理"><i class="fas fa-tag me-1"></i>标签管理</a></div>
+    {% endif %}
 </div>
 
 <div class="card mb-4">
@@ -214,8 +238,12 @@
                 </div>
             </div>
             <div class="col-auto ms-auto">
+                {% if 'device_fault_list' in user_perm_set %}
                 <a href="{% url 'device_fault_list' %}" class="btn btn-sm btn-outline-warning"><i class="fas fa-exclamation-triangle"></i> 故障设备</a>
+                {% endif %}
+                {% if 'device_scrap_list' in user_perm_set %}
                 <a href="{% url 'device_scrap_list' %}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-trash-alt"></i> 报废设备</a>
+                {% endif %}
             </div>
         </form>
     </div>
@@ -227,16 +255,32 @@
             {% csrf_token %}
             <div class="mb-3 d-flex flex-column flex-md-row justify-content-between gap-2">
                 <div class="d-flex flex-wrap gap-2">
+                    {% if 'device_batch_fault' in user_perm_set %}
                     <button type="button" class="btn btn-sm btn-warning" onclick="batchFault()"><i class="fas fa-exclamation-triangle"></i> 批量报障</button>
+                    {% endif %}
+                    {% if 'device_batch_scrap' in user_perm_set %}
                     <button type="button" class="btn btn-sm btn-secondary" onclick="batchScrap()"><i class="fas fa-times"></i> 批量报废</button>
+                    {% endif %}
+                    {% if 'device_batch_print' in user_perm_set %}
                     <button type="button" class="btn btn-sm btn-info" onclick="batchPrintLabels()"><i class="fas fa-print"></i> 批量打印标签</button>
+                    {% endif %}
                 </div>
                 <div class="d-flex flex-wrap gap-2">
+                    {% if 'device_create' in user_perm_set %}
                     <a href="{% url 'device_create' %}" class="btn btn-sm btn-primary"><i class="fas fa-plus"></i> 新增设备</a>
+                    {% endif %}
+                    {% if 'device_import' in user_perm_set %}
                     <a href="{% url 'device_import' %}" class="btn btn-sm btn-info"><i class="fas fa-file-import"></i> 导入设备</a>
+                    {% endif %}
+                    {% if 'device_export' in user_perm_set %}
                     <a href="{% url 'device_export' %}?search={{ request.GET.search }}&status={{ request.GET.status }}" class="btn btn-sm btn-info"><i class="fas fa-file-export"></i> 导出台账</a>
+                    {% endif %}
+                    {% if 'device_regenerate_qrcode' in user_perm_set %}
                     <button type="button" class="btn btn-sm btn-dark" onclick="regenerateAllQrcodes()"><i class="fas fa-qrcode"></i> 重新生成二维码</button>
+                    {% endif %}
+                    {% if 'device_update_card_no' in user_perm_set %}
                     <a href="{% url 'update_card_no' %}" class="btn btn-sm btn-warning"><i class="fas fa-id-card"></i> 更新卡片编号</a>
+                    {% endif %}
                 </div>
             </div>
             
@@ -307,19 +351,26 @@
                             {% endfor %}
                             <td>
                                 <a href="{% url 'device_detail' device.id %}" class="btn btn-sm btn-outline-primary" title="查看详情"><i class="fas fa-eye"></i></a>
+                                {% if 'device_edit' in user_perm_set %}
                                 <a href="{% url 'device_edit' device.id %}" class="btn btn-sm btn-outline-secondary" title="编辑"><i class="fas fa-edit"></i></a>
+                                {% endif %}
+                                {% if 'device_print' in user_perm_set %}
                                 <a href="{% url 'device_print_label' device.id %}" class="btn btn-sm btn-outline-info" title="打印标签" target="_blank"><i class="fas fa-print"></i></a>
-                                {% if device.user %}
+                                {% endif %}
+                                {% if 'device_revoke' in user_perm_set and device.user %}
                                 <button type="button" class="btn btn-sm btn-outline-warning" onclick="revokeDevice({{ device.id }})" title="回收"><i class="fas fa-user-minus"></i></button>
-                                {% else %}
+                                {% endif %}
+                                {% if 'device_assign' in user_perm_set and not device.user %}
                                 <button type="button" class="btn btn-sm btn-outline-success" onclick="openAssignModal({{ device.id }})" title="分配"><i class="fas fa-user-plus"></i></button>
                                 {% endif %}
-                                {% if device.status == 'fault' %}
+                                {% if device.status == 'fault' and 'device_repair' in user_perm_set %}
                                 <button type="button" class="btn btn-sm btn-outline-success" onclick="repairDevice({{ device.id }})" title="维修"><i class="fas fa-wrench"></i></button>
-                                {% else %}
+                                {% elif 'device_fault' in user_perm_set %}
                                 <button type="button" class="btn btn-sm btn-outline-warning" onclick="faultDevice({{ device.id }})" title="报障"><i class="fas fa-exclamation-triangle"></i></button>
                                 {% endif %}
+                                {% if 'device_scrap' in user_perm_set %}
                                 <button type="button" class="btn btn-sm btn-outline-danger" onclick="scrapDevice({{ device.id }}, '{{ device.asset_no }}', '{{ device.name }}', {% if device.is_fixed %}'{{ device.asset_card_no }}'{% else %}null{% endif %})" title="报废"><i class="fas fa-times"></i></button>
+                                {% endif %}
                             </td>
                         </tr>
                         {% empty %}

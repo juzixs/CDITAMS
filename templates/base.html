@@ -246,11 +246,14 @@
             <span>{{ system_short_name|default:'CDITAMS' }}</span>
         </div>
         <nav class="mt-2">
+            <!-- 首页 - 所有用户可见 -->
             <a href="{% url 'dashboard' %}" class="nav-link {% if request.path == '/dashboard/' %}active{% endif %}" style="background: rgba(255,255,255,0.1);">
                 <i class="fas fa-home"></i>
                 <span>首页</span>
             </a>
             
+            <!-- 待办事项 -->
+            {% if user.is_superuser or 'todo_module' in user_perm_set %}
             <div class="nav-item">
                 <a class="nav-link" href="javascript:void(0)" data-bs-toggle="collapse" data-bs-target="#todoMenu">
                     <i class="fas fa-tasks"></i>
@@ -258,11 +261,18 @@
                     <i class="fas fa-chevron-down ms-auto"></i>
                 </a>
                 <div class="submenu collapse" id="todoMenu">
+                    {% if user.is_superuser or 'todo_list' in user_perm_set %}
                     <a href="{% url 'todo_list' %}" class="nav-link">我的待办</a>
+                    {% endif %}
+                    {% if user.is_superuser or 'notification_list' in user_perm_set %}
                     <a href="{% url 'notification_list' %}" class="nav-link">通知消息</a>
+                    {% endif %}
                 </div>
             </div>
+            {% endif %}
             
+            <!-- 资产管理 -->
+            {% if user.is_superuser or 'asset' in user_perm_set %}
             <div class="nav-item">
                 <a class="nav-link" href="javascript:void(0)" data-bs-toggle="collapse" data-bs-target="#assetMenu">
                     <i class="fas fa-desktop"></i>
@@ -270,13 +280,24 @@
                     <i class="fas fa-chevron-down ms-auto"></i>
                 </a>
                 <div class="submenu collapse" id="assetMenu">
+                    {% if user.is_superuser or 'device' in user_perm_set %}
                     <a href="{% url 'device_list' %}" class="nav-link">设备管理</a>
+                    {% endif %}
+                    {% if user.is_superuser or 'software' in user_perm_set %}
                     <a href="{% url 'software_list' %}" class="nav-link">软件管理</a>
+                    {% endif %}
+                    {% if user.is_superuser or 'service_contract' in user_perm_set %}
                     <a href="{% url 'service_contract_list' %}" class="nav-link">服务管理</a>
+                    {% endif %}
+                    {% if user.is_superuser or 'consumable' in user_perm_set %}
                     <a href="{% url 'consumable_list' %}" class="nav-link">耗材管理</a>
+                    {% endif %}
                 </div>
             </div>
+            {% endif %}
             
+            <!-- 盘点管理 -->
+            {% if user.is_superuser or 'inventory' in user_perm_set %}
             <div class="nav-item">
                 <a class="nav-link" href="javascript:void(0)" data-bs-toggle="collapse" data-bs-target="#inventoryMenu">
                     <i class="fas fa-clipboard-list"></i>
@@ -284,11 +305,18 @@
                     <i class="fas fa-chevron-down ms-auto"></i>
                 </a>
                 <div class="submenu collapse" id="inventoryMenu">
+                    {% if user.is_superuser or 'inventory_task' in user_perm_set %}
                     <a href="{% url 'inventory_task_list' %}" class="nav-link">盘点任务</a>
+                    {% endif %}
+                    {% if user.is_superuser or 'inventory_report' in user_perm_set %}
                     <a href="{% url 'inventory_report' %}" class="nav-link">盘点报表</a>
+                    {% endif %}
                 </div>
             </div>
+            {% endif %}
             
+            <!-- 组织管理 -->
+            {% if user.is_superuser or 'organization' in user_perm_set %}
             <div class="nav-item">
                 <a class="nav-link" href="javascript:void(0)" data-bs-toggle="collapse" data-bs-target="#orgMenu">
                     <i class="fas fa-sitemap"></i>
@@ -296,12 +324,21 @@
                     <i class="fas fa-chevron-down ms-auto"></i>
                 </a>
                 <div class="submenu collapse" id="orgMenu">
+                    {% if user.is_superuser or 'user' in user_perm_set %}
                     <a href="{% url 'user_list' %}" class="nav-link">用户管理</a>
+                    {% endif %}
+                    {% if user.is_superuser or 'department' in user_perm_set %}
                     <a href="{% url 'department_list' %}" class="nav-link">部门管理</a>
+                    {% endif %}
+                    {% if user.is_superuser or 'role' in user_perm_set %}
                     <a href="{% url 'role_list' %}" class="nav-link">角色管理</a>
+                    {% endif %}
                 </div>
             </div>
+            {% endif %}
             
+            <!-- 工单服务 -->
+            {% if user.is_superuser or 'workorder' in user_perm_set %}
             <div class="nav-item">
                 <a class="nav-link" href="javascript:void(0)" data-bs-toggle="collapse" data-bs-target="#workOrderMenu">
                     <i class="fas fa-tools"></i>
@@ -309,11 +346,18 @@
                     <i class="fas fa-chevron-down ms-auto"></i>
                 </a>
                 <div class="submenu collapse" id="workOrderMenu">
+                    {% if user.is_superuser or 'service_create' in user_perm_set %}
                     <a href="{% url 'service_create' %}" class="nav-link">创建工单</a>
+                    {% endif %}
+                    {% if user.is_superuser or 'service_list' in user_perm_set %}
                     <a href="{% url 'service_list' %}" class="nav-link">服务请求</a>
+                    {% endif %}
                 </div>
             </div>
+            {% endif %}
             
+            <!-- 日志 -->
+            {% if user.is_superuser or 'log' in user_perm_set %}
             <div class="nav-item">
                 <a class="nav-link" href="javascript:void(0)" data-bs-toggle="collapse" data-bs-target="#logMenu">
                     <i class="fas fa-history"></i>
@@ -321,12 +365,21 @@
                     <i class="fas fa-chevron-down ms-auto"></i>
                 </a>
                 <div class="submenu collapse" id="logMenu">
+                    {% if user.is_superuser or 'login_log' in user_perm_set %}
                     <a href="{% url 'login_log_list' %}" class="nav-link">登录日志</a>
+                    {% endif %}
+                    {% if user.is_superuser or 'operation_log' in user_perm_set %}
                     <a href="{% url 'operation_log_list' %}" class="nav-link">操作日志</a>
+                    {% endif %}
+                    {% if user.is_superuser or 'asset_log' in user_perm_set %}
                     <a href="{% url 'asset_log_list' %}" class="nav-link">资产日志</a>
+                    {% endif %}
                 </div>
             </div>
+            {% endif %}
             
+            <!-- 设置 -->
+            {% if user.is_superuser or 'settings' in user_perm_set %}
             <div class="nav-item">
                 <a class="nav-link" href="javascript:void(0)" data-bs-toggle="collapse" data-bs-target="#settingMenu">
                     <i class="fas fa-cog"></i>
@@ -334,12 +387,21 @@
                     <i class="fas fa-chevron-down ms-auto"></i>
                 </a>
                 <div class="submenu collapse" id="settingMenu">
+                    {% if user.is_superuser or 'config' in user_perm_set %}
                     <a href="{% url 'config_list' %}" class="nav-link">系统配置</a>
+                    {% endif %}
+                    {% if user.is_superuser or 'org_info' in user_perm_set %}
                     <a href="{% url 'org_info' %}" class="nav-link">企业信息</a>
+                    {% endif %}
+                    {% if user.is_superuser or 'data_management' in user_perm_set %}
                     <a href="{% url 'data_management' %}" class="nav-link">数据管理</a>
+                    {% endif %}
+                    {% if user.is_superuser or 'profile' in user_perm_set %}
                     <a href="{% url 'profile' %}" class="nav-link">个人设置</a>
+                    {% endif %}
                 </div>
             </div>
+            {% endif %}
         </nav>
     </div>
     

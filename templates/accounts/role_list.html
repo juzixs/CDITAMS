@@ -75,7 +75,9 @@
 {% block content %}
 <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-2">
     <h4 class="mb-0">角色管理</h4>
+    {% if 'role_create' in user_perm_set %}
     <a href="{% url 'role_create' %}" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> 新增角色</a>
+    {% endif %}
 </div>
 
 <div class="card mb-3">
@@ -118,8 +120,10 @@
                     <td>{{ r.sort }}</td>
                     <td>
                         <a href="{% url 'role_detail' r.id %}" class="btn btn-sm btn-outline-primary"><i class="fas fa-eye"></i></a>
+                        {% if 'role_edit' in user_perm_set and r.code != 'superuser' %}
                         <a href="{% url 'role_edit' r.id %}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-edit"></i></a>
-                        {% if not r.users.exists %}
+                        {% endif %}
+                        {% if 'role_delete' in user_perm_set and not r.users.exists and r.code != 'superuser' %}
                         <form method="post" action="{% url 'role_delete' r.id %}" class="d-inline" onsubmit="return confirm('确定删除该角色？')">
                             {% csrf_token %}
                             <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>

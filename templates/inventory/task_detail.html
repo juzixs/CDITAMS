@@ -41,7 +41,7 @@
         <a href="{% url 'inventory_task_list' %}" class="btn btn-outline-secondary btn-sm">
             <i class="fas fa-arrow-left me-1"></i>返回
         </a>
-        {% if task.status == 'pending' %}
+        {% if task.status == 'pending' and task.task_type != 'dynamic' %}
         <button class="btn btn-success btn-sm" onclick="startTask()">
             <i class="fas fa-play me-1"></i>开始盘点
         </button>
@@ -49,9 +49,11 @@
         <a href="{% url 'inventory_task_execute' task.id %}" class="btn btn-primary btn-sm">
             <i class="fas fa-clipboard-check me-1"></i>执行盘点
         </a>
+        {% if task.task_type != 'dynamic' %}
         <button class="btn btn-success btn-sm" onclick="completeTask()">
             <i class="fas fa-check me-1"></i>完成任务
         </button>
+        {% endif %}
         {% endif %}
         {% if task.status == 'completed' %}
         <a href="{% url 'inventory_task_report' task.id %}" class="btn btn-info btn-sm">
@@ -155,8 +157,8 @@
 </div>
 {% endif %}
 
-<!-- 全盘/动态盘点添加设备 -->
-{% if task.task_type != 'sample' and task.status == 'pending' %}
+<!-- 全盘添加设备（动态盘点不显示） -->
+{% if task.task_type == 'full' and task.status == 'pending' %}
 <div class="card mb-3 border-info">
     <div class="card-header bg-info text-white">
         <i class="fas fa-plus me-2"></i>添加设备
@@ -243,7 +245,7 @@
                                 <td>{% if td.device.is_fixed %}<span class="badge bg-success">是</span>{% else %}<span class="text-muted">否</span>{% endif %}</td>
                                 <td>{{ td.device.asset_card_no|default:'-' }}</td>
                                 <td>
-                                    {% if task.status != 'completed' %}
+                                    {% if task.status != 'completed' and task.task_type != 'dynamic' %}
                                     <button class="btn btn-sm btn-outline-danger" onclick="removeDevice({{ td.id }})" title="移除">
                                         <i class="fas fa-times"></i>
                                     </button>
@@ -284,7 +286,7 @@
                             {% if td.device.is_fixed %}<span class="badge bg-success ms-1">固资</span>{% endif %}
                             {% if td.device.asset_card_no %}<span class="badge bg-secondary ms-1">卡片:{{ td.device.asset_card_no }}</span>{% endif %}
                         </div>
-                        {% if task.status != 'completed' %}
+                        {% if task.status != 'completed' and task.task_type != 'dynamic' %}
                         <button class="btn btn-sm btn-outline-danger" onclick="removeDevice({{ td.id }})">
                             <i class="fas fa-times me-1"></i>移除
                         </button>

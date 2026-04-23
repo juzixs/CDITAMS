@@ -58,8 +58,10 @@ def init_permissions():
         {'name': '打印标签', 'code': 'device_print', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 313},
         {'name': '分配', 'code': 'device_assign', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 314},
         {'name': '回收', 'code': 'device_revoke', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 315},
-        {'name': '故障设备', 'code': 'device_fault_list', 'type': 'menu', 'module': '资产', 'parent_code': 'asset', 'sort': 316},
-        {'name': '报废设备', 'code': 'device_scrap_list', 'type': 'menu', 'module': '资产', 'parent_code': 'asset', 'sort': 317},
+        {'name': '重新生成二维码', 'code': 'device_regenerate_qrcode', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 316},
+        {'name': '更新卡片编号', 'code': 'device_update_card_no', 'type': 'button', 'module': '资产', 'parent_code': 'device', 'sort': 317},
+        {'name': '故障设备', 'code': 'device_fault_list', 'type': 'menu', 'module': '资产', 'parent_code': 'asset', 'sort': 318},
+        {'name': '报废设备', 'code': 'device_scrap_list', 'type': 'menu', 'module': '资产', 'parent_code': 'asset', 'sort': 319},
         
         # 软件管理 (sort=320-329)
         {'name': '软件管理', 'code': 'software', 'type': 'menu', 'module': '资产', 'parent_code': 'asset', 'sort': 320},
@@ -184,12 +186,23 @@ def init_roles():
     print("初始化角色...")
     permissions = Permission.objects.all()
     
-    # 超级管理员 - 所有权限
+    # 系统超级管理员 - 内置角色，不可编辑权限
+    superuser_role, _ = Role.objects.get_or_create(
+        code='superuser',
+        defaults={
+            'name': '超级管理员',
+            'description': '系统超级管理员，拥有所有权限且不可修改',
+            'sort': 0,
+        }
+    )
+    superuser_role.permissions.set(permissions)
+    
+    # 管理员 - 所有权限
     admin_role, _ = Role.objects.get_or_create(
         code='admin',
         defaults={
-            'name': '超级管理员',
-            'description': '拥有系统所有权限',
+            'name': '管理员',
+            'description': '拥有系统所有权限的管理员',
             'sort': 1,
         }
     )
@@ -222,7 +235,7 @@ def init_roles():
     ])
     user_role.permissions.set(user_basic_perms)
     
-    return admin_role
+    return superuser_role
 
 
 def init_departments():

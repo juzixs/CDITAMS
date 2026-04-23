@@ -27,6 +27,7 @@ from .models import (
     ServiceType, ServiceRequest, ServiceLog, ServiceContract, AssetLog, LabelTemplate
 )
 from apps.accounts.models import User, Department
+from apps.accounts.decorators import permission_required
 from apps.settings.views import get_config_value
 from apps.settings.llm_service import is_llm_enabled, call_llm, get_llm_config
 
@@ -97,6 +98,7 @@ def get_location_tree_data():
 
 
 @login_required
+@permission_required('device')
 def device_list(request):
     search = request.GET.get('search', '')
     category_id = request.GET.get('category', '')
@@ -124,7 +126,9 @@ def device_list(request):
             Q(category__name__icontains=search) |
             Q(location__name__icontains=search) |
             Q(location_text__icontains=search) |
-            Q(workstation__workstation_code__icontains=search)
+            Q(workstation__workstation_code__icontains=search) |
+            Q(os_name__icontains=search) |
+            Q(asset_card_no__icontains=search)
         ).distinct()
     if category_id:
         devices = devices.filter(category_id=category_id)
@@ -238,7 +242,9 @@ def device_fault_list(request):
             Q(category__name__icontains=search) |
             Q(location__name__icontains=search) |
             Q(location_text__icontains=search) |
-            Q(workstation__workstation_code__icontains=search)
+            Q(workstation__workstation_code__icontains=search) |
+            Q(os_name__icontains=search) |
+            Q(asset_card_no__icontains=search)
         ).distinct()
     if category_id:
         devices = devices.filter(category_id=category_id)
@@ -382,7 +388,9 @@ def device_scrap_list(request):
             Q(mac_address__icontains=search) |
             Q(ip_address__icontains=search) |
             Q(remarks__icontains=search) |
-            Q(category__name__icontains=search)
+            Q(category__name__icontains=search) |
+            Q(os_name__icontains=search) |
+            Q(asset_card_no__icontains=search)
         ).distinct()
     if category_id:
         devices = devices.filter(category_id=category_id)
@@ -567,6 +575,7 @@ def api_save_field_visibility(request):
 
 
 @login_required
+@permission_required('device_create')
 def device_create(request):
     if request.method == 'POST':
         category_id = request.POST.get('category')
@@ -665,6 +674,7 @@ def device_create(request):
 
 
 @login_required
+@permission_required('device_edit')
 def device_edit(request, pk):
     device = get_object_or_404(Device, pk=pk)
     
@@ -836,6 +846,7 @@ def asset_view(request, asset_no):
 
 
 @login_required
+@permission_required('device_delete')
 def device_delete(request, pk):
     if request.method == 'POST':
         device = get_object_or_404(Device, pk=pk)
@@ -851,6 +862,7 @@ def device_delete(request, pk):
 
 
 @login_required
+@permission_required('device_batch_delete')
 def device_batch_delete(request):
     if request.method == 'POST':
         ids = request.POST.get('ids', '').split(',')
@@ -977,12 +989,78 @@ def generate_asset_no(category):
 
 
 def save_photo_with_asset_no(device, photo_file):
+    """
+    保存设备照片：
+    1. 压缩图片到1MB以内
+    2. 文件名为资产编号（不添加随机后缀）
+    3. 如果设备已有照片，覆盖旧文件而非创建新文件
+    """
     if not photo_file:
         return
     
-    ext = os.path.splitext(photo_file.name)[1].lower()
+    from PIL import Image
+    from django.core.files.base import ContentFile
+    import io
+    
+    ext = os.path.splitext(photo_file.name)[1].lower() or '.jpg'
     filename = f"{device.asset_no}{ext}"
-    device.photo.save(filename, photo_file, save=True)
+    
+    # 先删除旧文件（从磁盘真正删除，避免Django添加随机后缀）
+    if device.photo:
+        try:
+            old_path = device.photo.path
+            if os.path.isfile(old_path):
+                os.remove(old_path)
+        except Exception:
+            pass
+        device.photo.name = ''
+    
+    # 打开并处理图片
+    image = Image.open(photo_file)
+    original_format = image.format or 'JPEG'
+    
+    # 转换颜色模式（PNG支持透明，JPEG不支持）
+    if original_format == 'PNG' and image.mode in ('RGBA', 'P'):
+        # 保持PNG格式以保留透明度
+        target_format = 'PNG'
+    else:
+        target_format = 'JPEG'
+        if image.mode != 'RGB':
+            image = image.convert('RGB')
+    
+    max_size = 1024 * 1024  # 1MB
+    max_width = 1600
+    min_quality = 20
+    
+    # 第一步：先缩小尺寸，宽度限制在1600以内
+    if image.width > max_width:
+        ratio = max_width / image.width
+        new_size = (max_width, int(image.height * ratio))
+        image = image.resize(new_size, Image.LANCZOS)
+    
+    # PNG转为JPEG（PNG太大，不适合设备照片）
+    if target_format == 'PNG':
+        target_format = 'JPEG'
+        if image.mode != 'RGB':
+            image = image.convert('RGB')
+        ext = '.jpg'
+        filename = f"{device.asset_no}{ext}"
+    
+    def save_to_buffer(img, q):
+        buf = io.BytesIO()
+        img.save(buf, format='JPEG', quality=q, optimize=True)
+        return buf
+    
+    # 第二步：如果还是大于1MB，逐步降低质量
+    quality = 85
+    buffer = save_to_buffer(image, quality)
+    
+    while buffer.tell() > max_size and quality > min_quality:
+        quality -= 5
+        buffer = save_to_buffer(image, quality)
+    
+    buffer.seek(0)
+    device.photo.save(filename, ContentFile(buffer.read()), save=True)
 
 
 @login_required
@@ -1554,6 +1632,7 @@ def field_delete(request, pk):
 
 
 @login_required
+@permission_required('software')
 def software_list(request):
     search = request.GET.get('search', '')
     category_id = request.GET.get('category', '')
@@ -1636,6 +1715,7 @@ def parse_software_license_count(request):
         return None
 
 
+@permission_required('software_create')
 def software_create(request):
     if request.method == 'POST':
         software = Software.objects.create(
@@ -1982,12 +2062,14 @@ def software_field_delete(request, pk):
 
 
 @login_required
+@permission_required('consumable')
 def consumable_list(request):
     consumables = Consumable.objects.all().order_by('created_at')
     return render(request, 'assets/consumable_list.html', {'consumables': consumables})
 
 
 @login_required
+@permission_required('consumable_create')
 def consumable_create(request):
     if request.method == 'POST':
         Consumable.objects.create(
@@ -4060,6 +4142,7 @@ def software_import_progress_api(request):
 
 
 @login_required
+@permission_required('service_contract')
 def service_contract_list(request):
     search = request.GET.get('search', '')
     service_type = request.GET.get('service_type', '')
@@ -4111,6 +4194,7 @@ def service_contract_list(request):
 
 
 @login_required
+@permission_required('service_contract_create')
 def service_contract_create(request):
     if request.method == 'POST':
         name = request.POST.get('name')

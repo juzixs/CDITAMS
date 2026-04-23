@@ -70,9 +70,15 @@
 <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-2">
 <h4 class="mb-0">耗材管理</h4>
 <div class="d-flex flex-wrap gap-2">
+    {% if 'consumable_receive' in user_perm_set %}
     <a href="{% url 'consumable_receive' %}" class="btn btn-success btn-sm"><i class="fas fa-plus"></i> 入库</a>
+    {% endif %}
+    {% if 'consumable_use' in user_perm_set %}
     <a href="{% url 'consumable_use' %}" class="btn btn-warning btn-sm"><i class="fas fa-minus"></i> 领用</a>
+    {% endif %}
+    {% if 'consumable_create' in user_perm_set %}
     <a href="{% url 'consumable_create' %}" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> 新增耗材</a>
+    {% endif %}
 </div>
 </div>
 
@@ -89,11 +95,19 @@
 <td>{{ c.min_stock }}</td>
 <td>{{ c.description|default:'-' }}</td>
 <td>
-<a href="{% url 'consumable_receive' %}?consumable_id={{ c.id }}" class="btn btn-success btn-sm" title="入库"><i class="fas fa-plus"></i></a>
-<a href="{% url 'consumable_use' %}?consumable_id={{ c.id }}" class="btn btn-warning btn-sm" title="领用"><i class="fas fa-minus"></i></a>
 <a href="{% url 'consumable_detail' c.id %}" class="btn btn-info btn-sm" title="查看"><i class="fas fa-eye"></i></a>
+{% if 'consumable_receive' in user_perm_set %}
+<a href="{% url 'consumable_receive' %}?consumable_id={{ c.id }}" class="btn btn-success btn-sm" title="入库"><i class="fas fa-plus"></i></a>
+{% endif %}
+{% if 'consumable_use' in user_perm_set %}
+<a href="{% url 'consumable_use' %}?consumable_id={{ c.id }}" class="btn btn-warning btn-sm" title="领用"><i class="fas fa-minus"></i></a>
+{% endif %}
+{% if 'consumable_edit' in user_perm_set %}
 <a href="{% url 'consumable_edit' c.id %}" class="btn btn-primary btn-sm" title="编辑"><i class="fas fa-edit"></i></a>
+{% endif %}
+{% if 'consumable_delete' in user_perm_set %}
 <a href="{% url 'consumable_delete' c.id %}" class="btn btn-danger btn-sm" title="删除"><i class="fas fa-trash"></i></a>
+{% endif %}
 </td>
 </tr>{% empty %}<tr><td colspan="7" class="text-center text-muted">暂无数据</td></tr>{% endfor %}</tbody></table>
 </div>
@@ -114,11 +128,19 @@
 <div class="card-field"><span class="field-label">描述</span><span class="field-value">{{ c.description|default:'-' }}</span></div>
 </div>
 <div class="consumable-card-footer">
-<a href="{% url 'consumable_receive' %}?consumable_id={{ c.id }}" class="btn btn-success btn-sm" title="入库"><i class="fas fa-plus"></i></a>
-<a href="{% url 'consumable_use' %}?consumable_id={{ c.id }}" class="btn btn-warning btn-sm" title="领用"><i class="fas fa-minus"></i></a>
 <a href="{% url 'consumable_detail' c.id %}" class="btn btn-info btn-sm" title="查看"><i class="fas fa-eye"></i></a>
+{% if 'consumable_receive' in user_perm_set %}
+<a href="{% url 'consumable_receive' %}?consumable_id={{ c.id }}" class="btn btn-success btn-sm" title="入库"><i class="fas fa-plus"></i></a>
+{% endif %}
+{% if 'consumable_use' in user_perm_set %}
+<a href="{% url 'consumable_use' %}?consumable_id={{ c.id }}" class="btn btn-warning btn-sm" title="领用"><i class="fas fa-minus"></i></a>
+{% endif %}
+{% if 'consumable_edit' in user_perm_set %}
 <a href="{% url 'consumable_edit' c.id %}" class="btn btn-primary btn-sm" title="编辑"><i class="fas fa-edit"></i></a>
-<a href="{% url 'consumable_delete' c.id }}" class="btn btn-danger btn-sm" title="删除"><i class="fas fa-trash"></i></a>
+{% endif %}
+{% if 'consumable_delete' in user_perm_set %}
+<a href="{% url 'consumable_delete' c.id %}" class="btn btn-danger btn-sm" title="删除"><i class="fas fa-trash"></i></a>
+{% endif %}
 </div>
 </div>
 {% empty %}

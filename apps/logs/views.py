@@ -3,9 +3,11 @@ from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Q
 from .models import SystemLog, SystemAssetLog
+from apps.accounts.decorators import permission_required
 
 
 @login_required
+@permission_required('login_log')
 def login_log_list(request):
     search = request.GET.get('search', '')
     log_type = request.GET.get('type', '')
@@ -25,6 +27,7 @@ def login_log_list(request):
 
 
 @login_required
+@permission_required('operation_log')
 def operation_log_list(request):
     search = request.GET.get('search', '')
     module = request.GET.get('module', '')
@@ -44,6 +47,7 @@ def operation_log_list(request):
 
 
 @login_required
+@permission_required('asset_log')
 def asset_log_list(request):
     search = request.GET.get('search', '')
     action = request.GET.get('action', '')

@@ -3,13 +3,14 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import Group
 from django.contrib import messages
-from django.http import JsonResponse, HttpResponseRedirect
+from django.http import JsonResponse, HttpResponseRedirect, HttpResponseForbidden
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.urls import reverse
 from .models import User, Department, Role, Permission, LoginLog
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
+from .decorators import permission_required
 import json
 import threading
 import uuid
@@ -140,6 +141,7 @@ def dashboard(request):
 
 
 @login_required
+@permission_required('user')
 def user_list(request):
     search = request.GET.get('search', '')
     dept_id = request.GET.get('department', '')
@@ -194,6 +196,7 @@ def user_list(request):
 
 
 @login_required
+@permission_required('user_create')
 def user_create(request):
     if request.method == 'POST':
         emp_no = request.POST.get('emp_no')
@@ -233,6 +236,7 @@ def user_create(request):
 
 
 @login_required
+@permission_required('user_edit')
 def user_edit(request, pk):
     user = User.objects.get(pk=pk)
     
@@ -259,6 +263,7 @@ def user_edit(request, pk):
 
 
 @login_required
+@permission_required('user_delete')
 def user_delete(request, pk):
     if request.method == 'POST':
         user = User.objects.get(pk=pk)
@@ -271,12 +276,14 @@ def user_delete(request, pk):
 
 
 @login_required
+@permission_required('user')
 def user_detail(request, pk):
     user = User.objects.select_related('department', 'role').get(pk=pk)
     return render(request, 'accounts/user_detail.html', {'user': user})
 
 
 @login_required
+@permission_required('user_reset_password')
 def user_reset_password(request, pk):
     user = User.objects.get(pk=pk)
     if request.method == 'POST':
@@ -289,6 +296,7 @@ def user_reset_password(request, pk):
 
 
 @login_required
+@permission_required('user_import')
 def user_download_template(request):
     import openpyxl
     from django.http import HttpResponse
@@ -460,6 +468,7 @@ def import_progress_api(request):
 
 
 @login_required
+@permission_required('user_batch_delete')
 def user_batch_delete(request):
     if request.method == 'POST':
         ids = request.POST.get('ids', '').split(',')
@@ -469,6 +478,7 @@ def user_batch_delete(request):
 
 
 @login_required
+@permission_required('user_batch_enable')
 def user_batch_enable(request):
     if request.method == 'POST':
         ids = request.POST.get('ids', '').split(',')
@@ -478,6 +488,7 @@ def user_batch_enable(request):
 
 
 @login_required
+@permission_required('user_batch_disable')
 def user_batch_disable(request):
     if request.method == 'POST':
         ids = request.POST.get('ids', '').split(',')
@@ -487,12 +498,14 @@ def user_batch_disable(request):
 
 
 @login_required
+@permission_required('department')
 def department_list(request):
     departments = Department.objects.filter(parent__isnull=True).prefetch_related('children')
     return render(request, 'accounts/department_list.html', {'departments': departments})
 
 
 @login_required
+@permission_required('department_create')
 def department_create(request):
     if request.method == 'POST':
         name = request.POST.get('name')
@@ -519,6 +532,7 @@ def department_create(request):
 
 
 @login_required
+@permission_required('department_edit')
 def department_edit(request, pk):
     dept = Department.objects.get(pk=pk)
     
@@ -537,6 +551,7 @@ def department_edit(request, pk):
 
 
 @login_required
+@permission_required('department_delete')
 def department_delete(request, pk):
     if request.method == 'POST':
         dept = Department.objects.get(pk=pk)
@@ -549,6 +564,7 @@ def department_delete(request, pk):
 
 
 @login_required
+@permission_required('role')
 def role_list(request):
     search = request.GET.get('search', '')
     roles = Role.objects.prefetch_related('permissions', 'users')
@@ -564,6 +580,7 @@ def role_list(request):
 
 
 @login_required
+@permission_required('role_create')
 def role_create(request):
     if request.method == 'POST':
         name = request.POST.get('name')
@@ -634,8 +651,14 @@ def build_permission_tree():
 
 
 @login_required
+@permission_required('role_edit')
 def role_edit(request, pk):
     role = get_object_or_404(Role, pk=pk)
+    
+    # 禁止编辑内置超级管理员角色
+    if role.code == 'superuser':
+        messages.error(request, '系统内置角色不可编辑')
+        return redirect('role_list')
     
     if request.method == 'POST':
         role.name = request.POST.get('name')
@@ -653,11 +676,13 @@ def role_edit(request, pk):
     return render(request, 'accounts/role_form.html', {
         'role': role,
         'perm_tree': perm_tree,
-        'role_perm_ids': role_perm_ids
+        'role_perm_ids': role_perm_ids,
+        'is_system_role': role.code == 'superuser'
     })
 
 
 @login_required
+@permission_required('role')
 def role_detail(request, pk):
     role = get_object_or_404(Role.objects.prefetch_related('permissions', 'users'), pk=pk)
     users = role.users.all().select_related('department')
@@ -676,10 +701,14 @@ def role_detail(request, pk):
 
 
 @login_required
+@permission_required('role_delete')
 def role_delete(request, pk):
     if request.method == 'POST':
         role = get_object_or_404(Role, pk=pk)
-        if role.users.exists():
+        # 禁止删除内置角色
+        if role.code == 'superuser':
+            messages.error(request, '系统内置角色不可删除')
+        elif role.users.exists():
             messages.error(request, '该角色下有用户，无法删除')
         else:
             role.delete()

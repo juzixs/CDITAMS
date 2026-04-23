@@ -41,6 +41,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'apps.accounts.middleware.LoginRequiredMiddleware',
+    'apps.accounts.middleware.PermissionMiddleware',
 ]
 
 ROOT_URLCONF = 'cditams.urls'
@@ -57,6 +58,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'apps.settings.context_processors.system_config',
+                'apps.accounts.context_processors.user_permissions',
             ],
         },
     },

@@ -7,7 +7,9 @@
     <h4>字段管理</h4>
     <div>
         <a href="{% url 'device_list' %}" class="btn btn-outline-secondary me-2"><i class="fas fa-arrow-left"></i> 返回设备管理</a>
+        {% if 'field_create' in user_perm_set %}
         <a href="{% url 'field_create' %}" class="btn btn-primary"><i class="fas fa-plus"></i> 新增字段</a>
+        {% endif %}
     </div>
 </div>
 
@@ -44,8 +46,10 @@
                     <td>{% if field.is_card_visible %}<span class="badge bg-success">是</span>{% else %}否{% endif %}</td>
                     <td>{{ field.sort }}</td>
                     <td>
+                        {% if 'field_edit' in user_perm_set %}
                         <a href="{% url 'field_edit' field.id %}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-edit"></i></a>
-                        {% if not field.is_system %}
+                        {% endif %}
+                        {% if 'field_delete' in user_perm_set and not field.is_system %}
                         <a href="{% url 'field_delete' field.id %}" class="btn btn-sm btn-outline-danger" onclick="return confirm('确定删除该字段？')"><i class="fas fa-trash"></i></a>
                         {% endif %}
                     </td>
