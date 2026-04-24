@@ -416,6 +416,8 @@ def device_scrap_list(request):
     is_fixed = request.GET.get('is_fixed', '')
     is_secret = request.GET.get('is_secret', '')
     secret_category = request.GET.get('secret_category', '')
+    page_size_param = request.GET.get('page_size', '')
+    page = request.GET.get('page', 1)
     
     devices = Device.objects.filter(status='scrapped').order_by('id')
     
