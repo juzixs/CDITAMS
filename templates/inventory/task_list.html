@@ -69,6 +69,9 @@
     
     .content .task-card-footer .btn { padding: 4px 8px; font-size: 12px; }
 }
+
+.content td .btn-sm { width: 32px; height: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+.content .task-card-footer .btn-sm { width: 32px; height: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
 </style>
 {% endblock %}
 
@@ -148,16 +151,13 @@
                         <td>{{ task.created_by.realname|default:'-' }}</td>
                         <td>{{ task.created_at|date:"Y-m-d H:i" }}</td>
                         <td>
-                            <div class="btn-group btn-group-sm">
-                                <a href="{% url 'inventory_task_detail' task.id %}" class="btn btn-outline-primary" title="详情">
-                                    <i class="fas fa-eye"></i>
-                                </a>
-                                {% if task.status != 'completed' %}
-                                <a href="{% url 'inventory_task_execute' task.id %}" class="btn btn-outline-success" title="盘点">
-                                    <i class="fas fa-clipboard-check"></i>
-                                </a>
+                                <a href="{% url 'inventory_task_detail' task.id %}" class="btn btn-sm btn-outline-primary" title="详情"><i class="fas fa-eye"></i></a>
+                                {% if task.status == 'completed' %}
+                                <a href="{% url 'inventory_task_report' task.id %}" class="btn btn-sm btn-outline-info" title="盘点报告"><i class="fas fa-chart-bar"></i></a>
                                 {% endif %}
-                            </div>
+                                {% if task.status != 'completed' %}
+                                <a href="{% url 'inventory_task_execute' task.id %}" class="btn btn-sm btn-outline-success" title="盘点"><i class="fas fa-clipboard-check"></i></a>
+                                {% endif %}
                         </td>
                     </tr>
                     {% empty %}
@@ -222,9 +222,12 @@
                     </div>
                 </div>
                 <div class="task-card-footer">
-                    <a href="{% url 'inventory_task_detail' task.id %}" class="btn btn-outline-primary" title="详情"><i class="fas fa-eye"></i></a>
+                    <a href="{% url 'inventory_task_detail' task.id %}" class="btn btn-sm btn-outline-primary" title="详情"><i class="fas fa-eye"></i></a>
+                    {% if task.status == 'completed' %}
+                    <a href="{% url 'inventory_task_report' task.id %}" class="btn btn-sm btn-outline-info" title="盘点报告"><i class="fas fa-chart-bar"></i></a>
+                    {% endif %}
                     {% if task.status != 'completed' %}
-                    <a href="{% url 'inventory_task_execute' task.id %}" class="btn btn-outline-success" title="盘点"><i class="fas fa-clipboard-check"></i></a>
+                    <a href="{% url 'inventory_task_execute' task.id %}" class="btn btn-sm btn-outline-success" title="盘点"><i class="fas fa-clipboard-check"></i></a>
                     {% endif %}
                 </div>
             </div>
