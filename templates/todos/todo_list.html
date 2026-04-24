@@ -6,6 +6,47 @@
 .content .todo-table-container { display: block !important; }
 .content .todo-cards-container { display: none !important; }
 
+/* 待办标题展开/折叠 */
+.content .todo-title {
+    cursor: pointer; user-select: none; color: #333; transition: color 0.2s;
+}
+.content .todo-title:hover { color: #3498db; }
+.content .todo-title .fa-chevron-right {
+    transition: transform 0.25s ease; font-size: 11px; margin-right: 6px; color: #999;
+}
+.content .todo-title.expanded .fa-chevron-right {
+    transform: rotate(90deg); color: #3498db;
+}
+.content .todo-content-row { display: none; }
+.content .todo-content-row.show { display: table-row; }
+.content .todo-content-row td {
+    padding: 0 12px 12px 36px; background: #f8fbff; border-bottom: 1px solid #e8e8e8;
+    font-size: 13px; color: #555; line-height: 1.6;
+}
+.content .todo-content-row td .content-label {
+    font-weight: 600; color: #666; margin-right: 4px;
+}
+
+/* 卡片内容折叠 */
+.content .card-content {
+    max-height: 0; overflow: hidden; transition: max-height 0.3s ease, padding 0.3s ease;
+    padding: 0 12px; background: #f8fbff; border-top: 0 solid #e8e8e8;
+    font-size: 13px; color: #555; line-height: 1.6;
+}
+.content .card-content.show {
+    max-height: 500px; padding: 10px 12px; border-top: 1px solid #e8e8e8;
+}
+.content .card-title-expand {
+    cursor: pointer; user-select: none; display: flex; align-items: center; gap: 6px;
+}
+.content .card-title-expand:hover { color: #3498db; }
+.content .card-title-expand .fa-chevron-right {
+    transition: transform 0.25s ease; font-size: 11px; color: #999; flex-shrink: 0;
+}
+.content .card-title-expand.expanded .fa-chevron-right {
+    transform: rotate(90deg); color: #3498db;
+}
+
 @media (max-width: 992px) {
     .content .todo-table-container { display: none !important; }
     .content .todo-cards-container { display: block !important; }
@@ -82,7 +123,7 @@
 <div class="card"><div class="card-body">
 <div class="table-responsive todo-table-container">
 <table class="table table-hover"><thead><tr><th>标题</th><th>类型</th><th>优先级</th><th>状态</th><th>截止时间</th><th>创建时间</th><th>操作</th></tr></thead>
-<tbody>{% for t in todos %}<tr><td>{{ t.title }}</td><td>{{ t.get_todo_type_display }}</td>
+<tbody>{% for t in todos %}<tr><td><span class="todo-title" data-id="{{ t.id }}"><i class="fas fa-chevron-right"></i>{{ t.title }}</span></td><td>{{ t.get_todo_type_display }}</td>
 <td>{% if t.priority == 'high' %}<span class="badge bg-danger">高</span>{% elif t.priority == 'urgent' %}<span class="badge bg-warning">紧急</span>{% else %}<span class="badge bg-info">普通</span>{% endif %}</td>
 <td>{% if t.status == 'completed' %}<span class="badge bg-success">已完成</span>{% else %}<span class="badge bg-secondary">待处理</span>{% endif %}</td>
 <td>{{ t.due_date|date:"Y-m-d"|default:'-' }}</td><td>{{ t.created_at|date:"Y-m-d" }}</td>
@@ -90,14 +131,14 @@
 {% if t.status != 'completed' and 'todo_complete' in user_perm_set %}<a href="{% url 'todo_complete' t.id %}" class="btn btn-sm btn-success">完成</a>{% endif %}
 {% if 'todo_edit' in user_perm_set %}<a href="{% url 'todo_edit' t.id %}" class="btn btn-sm btn-outline-secondary">编辑</a>{% endif %}
 {% if 'todo_delete' in user_perm_set %}<a href="{% url 'todo_delete' t.id %}" class="btn btn-sm btn-outline-danger" onclick="return confirm('确定删除？')">删除</a>{% endif %}
-</td></tr>{% empty %}<tr><td colspan="7" class="text-center text-muted">暂无待办</td></tr>{% endfor %}</tbody></table>
+</td></tr>{% if t.content %}<tr class="todo-content-row" data-content-id="{{ t.id }}"><td colspan="7"><span class="content-label">内容：</span>{{ t.content|linebreaksbr }}</td></tr>{% endif %}{% empty %}<tr><td colspan="7" class="text-center text-muted">暂无待办</td></tr>{% endfor %}</tbody></table>
 </div>
 
 <div class="todo-cards-container" style="display: none;">
 {% for t in todos %}
 <div class="todo-card">
 <div class="todo-card-body">
-<div class="card-field"><span class="field-label">标题</span><span class="field-value">{{ t.title }}</span></div>
+<div class="card-field"><div class="card-title-expand" data-card-id="{{ t.id }}"><i class="fas fa-chevron-right"></i><span class="field-value" style="font-weight:500;">{{ t.title }}</span></div></div>
 <div class="card-field-row">
 <div class="card-field-half"><span class="field-label">类型</span><span class="field-value">{{ t.get_todo_type_display }}</span></div>
 <div class="card-field-half"><span class="field-label">优先级</span><span class="field-value">{% if t.priority == 'high' %}<span class="badge bg-danger">高</span>{% elif t.priority == 'urgent' %}<span class="badge bg-warning">紧急</span>{% else %}<span class="badge bg-info">普通</span>{% endif %}</span></div>
@@ -108,6 +149,7 @@
 </div>
 <div class="card-field"><span class="field-label">创建时间</span><span class="field-value">{{ t.created_at|date:"Y-m-d" }}</span></div>
 </div>
+{% if t.content %}<div class="card-content">{{ t.content|linebreaksbr }}</div>{% endif %}
 <div class="todo-card-footer">
 {% if t.status != 'completed' and 'todo_complete' in user_perm_set %}<a href="{% url 'todo_complete' t.id %}" class="btn btn-success">完成</a>{% endif %}
 {% if 'todo_edit' in user_perm_set %}<a href="{% url 'todo_edit' t.id %}" class="btn btn-outline-secondary">编辑</a>{% endif %}
@@ -119,3 +161,23 @@
 {% endfor %}
 </div>
 </div></div>{% endblock %}
+
+{% block extra_js %}
+<script>
+$(function(){
+    // 桌面端：点击标题展开/折叠内容行
+    $(document).on('click', '.todo-title', function(){
+        var id = $(this).data('id');
+        var row = $('.todo-content-row[data-content-id="'+id+'"]');
+        $(this).toggleClass('expanded');
+        row.toggleClass('show');
+    });
+    // 移动端：点击标题展开/折叠卡片内容
+    $(document).on('click', '.card-title-expand', function(){
+        var id = $(this).data('card-id');
+        $(this).toggleClass('expanded');
+        $(this).closest('.todo-card').find('.card-content').toggleClass('show');
+    });
+});
+</script>
+{% endblock %}
