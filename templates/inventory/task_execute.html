@@ -184,6 +184,22 @@
         background: linear-gradient(135deg, #28a745, #20c997);
         color: #fff;
     }
+    /* 退回徽章 */
+    .revert-badge {
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 13px;
+        padding: 6px 8px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .revert-badge:hover {
+        background-color: #dc3545 !important;
+        transform: scale(1.15);
+    }
+
     @media (max-width: 768px) {
         .device-list-container {
             max-height: 40vh;
@@ -306,7 +322,7 @@
                             </div>
                             {% if td.device.asset_card_no %}<div class="text-muted small"><i class="fas fa-id-card me-1"></i>卡片编号: {{ td.device.asset_card_no }}</div>{% endif %}
                         </div>
-                        <span class="badge bg-success"><i class="fas fa-check"></i></span>
+                        <span class="badge bg-success revert-badge" title="点击退回待盘点" onclick="revertCheck({{ td.id }}, this)"><i class="fas fa-check-circle"></i></span>
                     </div>
                 </div>
                 {% empty %}
@@ -1056,7 +1072,7 @@ function confirmCheck() {
                         </div>
                         ${assetCardNo ? '<div class="text-muted small"><i class="fas fa-id-card me-1"></i>卡片编号: ' + assetCardNo + '</div>' : ''}
                     </div>
-                    <span class="badge bg-success"><i class="fas fa-check"></i></span>
+                    <span class="badge bg-success revert-badge" title="点击退回待盘点" onclick="revertCheck(${taskDeviceId}, this)"><i class="fas fa-check-circle"></i></span>
                 </div>
             `;
             
@@ -1699,6 +1715,69 @@ function manualScan() {
             // 选择该设备
             selectDevice(data.task_device_id, data.device_id);
             alert(data.message);
+        } else {
+            alert(data.message);
+        }
+    });
+}
+
+// 退回已盘点设备到待盘点
+function revertCheck(taskDeviceId, badgeEl) {
+    if (!confirm('确定将此设备退回待盘点列表吗？退回后可重新盘点。')) return;
+
+    fetch(`/inventory/api/tasks/${TASK_ID}/revert-check/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({ task_device_id: parseInt(taskDeviceId) })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            // 从已盘点列表移除
+            var deviceItem = badgeEl.closest('.device-item');
+            var assetNo = deviceItem.querySelector('.asset-no')?.textContent || '';
+            deviceItem.remove();
+
+            // 添加到待盘点列表顶部（先用基本信息插入，再异步补全）
+            var pendingList = document.querySelector('#deviceList');
+            var newDevice = document.createElement('div');
+            newDevice.className = 'device-item';
+            newDevice.dataset.id = taskDeviceId;
+            newDevice.dataset.asset = assetNo;
+            newDevice.setAttribute('onclick', 'previewDevice(' + taskDeviceId + ', 0)');
+            newDevice.innerHTML = `
+                <div class="d-flex justify-content-between align-items-start">
+                    <div style="flex: 1; min-width: 0;">
+                        <div class="d-flex align-items-center mb-1">
+                            <span class="asset-no">${assetNo}</span>
+                        </div>
+                        <div class="mb-1 text-muted small">加载中...</div>
+                    </div>
+                    <button class="btn btn-sm btn-outline-success flex-shrink-0 ms-2" onclick="event.stopPropagation(); selectDevice(${taskDeviceId}, 0, true)">
+                        <i class="fas fa-check"></i> 盘点
+                    </button>
+                </div>
+            `;
+            var emptyMsg = pendingList.querySelector('.text-center.text-muted');
+            if (emptyMsg) emptyMsg.remove();
+            pendingList.insertBefore(newDevice, pendingList.firstChild);
+
+            // 更新计数
+            document.getElementById('checkedCount').textContent = data.checked_count;
+            document.getElementById('pendingBadge').textContent = data.pending_count;
+            document.getElementById('checkedBadge').textContent = data.checked_count;
+
+            // 更新进度
+            var total = {{ total_count }};
+            var percent = total > 0 ? Math.round(data.checked_count / total * 100) : 0;
+            document.getElementById('progressBar').style.width = percent + '%';
+            document.getElementById('progressText').textContent = percent + '%';
+
+            alert(data.message);
+            location.reload();
         } else {
             alert(data.message);
         }

@@ -29,6 +29,7 @@ urlpatterns = [
     # 盘点执行 API
     path('api/tasks/<int:task_id>/device-detail/<int:device_id>/', views.api_device_detail, name='api_device_detail'),
     path('api/tasks/<int:task_id>/check-device/', views.api_check_device, name='api_check_device'),
+    path('api/tasks/<int:task_id>/revert-check/', views.api_revert_check, name='api_revert_check'),
     path('api/tasks/<int:task_id>/scan-check/', views.api_scan_check, name='api_scan_check'),
     path('api/tasks/<int:task_id>/update-device-info/', views.api_update_device_info, name='api_update_device_info'),
     

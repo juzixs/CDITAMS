@@ -1626,6 +1626,44 @@ def api_check_device(request, task_id):
 @login_required
 @csrf_exempt
 @require_http_methods(["POST"])
+def api_revert_check(request, task_id):
+    """退回已盘点设备到待盘点"""
+    task = get_object_or_404(InventoryTask, pk=task_id)
+
+    try:
+        data = json.loads(request.body)
+        task_device_id = data.get('task_device_id')
+
+        task_device = get_object_or_404(InventoryTaskDevice, pk=task_device_id, task=task)
+
+        if task_device.status != 'checked':
+            return JsonResponse({'success': False, 'message': '该设备未盘点'})
+
+        # 删除盘点记录
+        InventoryRecord.objects.filter(task=task, task_device=task_device).delete()
+
+        # 重置设备状态
+        task_device.status = 'pending'
+        task_device.checked_at = None
+        task_device.save()
+
+        # 更新任务计数
+        task.checked_count = InventoryTaskDevice.objects.filter(task=task, status='checked').count()
+        task.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': f'设备 {task_device.device.asset_no} 已退回待盘点',
+            'checked_count': task.checked_count,
+            'pending_count': InventoryTaskDevice.objects.filter(task=task, status='pending').count(),
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+
+@login_required
+@csrf_exempt
+@require_http_methods(["POST"])
 def api_scan_check(request, task_id):
     """扫码盘点"""
     task = get_object_or_404(InventoryTask, pk=task_id)
