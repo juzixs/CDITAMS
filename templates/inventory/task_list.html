@@ -134,7 +134,7 @@
                 <tbody>
                     {% for task in tasks %}
                     <tr>
-                        <td><strong class="text-primary">{{ task.task_no }}</strong></td>
+                        <td><a href="{% url 'inventory_task_detail' task.id %}" class="text-primary fw-bold text-decoration-none">{{ task.task_no }}</a></td>
                         <td>{{ task.name|default:'-' }}</td>
                         <td>
                             {% if task.task_type == 'full' %}<span class="badge bg-primary">全盘</span>
@@ -176,7 +176,7 @@
                 <div class="task-card-body">
                     <div class="card-field">
                         <span class="field-label">任务编号</span>
-                        <span class="field-value"><strong class="text-primary">{{ task.task_no }}</strong></span>
+                        <span class="field-value"><a href="{% url 'inventory_task_detail' task.id %}" class="text-primary fw-bold text-decoration-none">{{ task.task_no }}</a></span>
                     </div>
                     <div class="card-field">
                         <span class="field-label">任务名称</span>
