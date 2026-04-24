@@ -189,7 +189,8 @@
         cursor: pointer;
         transition: all 0.2s;
         font-size: 13px;
-        padding: 6px 8px;
+        width: 30px;
+        height: 30px;
         border-radius: 50%;
         display: inline-flex;
         align-items: center;
@@ -322,7 +323,7 @@
                             </div>
                             {% if td.device.asset_card_no %}<div class="text-muted small"><i class="fas fa-id-card me-1"></i>卡片编号: {{ td.device.asset_card_no }}</div>{% endif %}
                         </div>
-                        <span class="badge bg-success revert-badge" title="点击退回待盘点" onclick="revertCheck({{ td.id }}, this)"><i class="fas fa-check-circle"></i></span>
+                        <span class="badge bg-success revert-badge" title="退回盘点" onclick="revertCheck({{ td.id }}, this)"><i class="fas fa-rotate-left"></i></span>
                     </div>
                 </div>
                 {% empty %}
@@ -511,7 +512,7 @@
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label"><i class="fas fa-camera me-1 text-success"></i>现场照片</label>
+                            <label class="form-label"><i class="fas fa-camera me-1 text-success"></i>设备照片(现场)</label>
                             <input type="file" class="form-control form-control-sm" id="checkPhoto" accept="image/*" capture="camera">
                         </div>
 
@@ -1072,7 +1073,7 @@ function confirmCheck() {
                         </div>
                         ${assetCardNo ? '<div class="text-muted small"><i class="fas fa-id-card me-1"></i>卡片编号: ' + assetCardNo + '</div>' : ''}
                     </div>
-                    <span class="badge bg-success revert-badge" title="点击退回待盘点" onclick="revertCheck(${taskDeviceId}, this)"><i class="fas fa-check-circle"></i></span>
+                    <span class="badge bg-success revert-badge" title="退回盘点" onclick="revertCheck(${taskDeviceId}, this)"><i class="fas fa-rotate-left"></i></span>
                 </div>
             `;
             
