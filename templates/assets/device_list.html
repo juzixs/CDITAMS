@@ -461,6 +461,11 @@
                             {% else %}
                             <button type="button" class="btn btn-outline-success" onclick="openAssignModal({{ device.id }})"><i class="fas fa-user-plus"></i></button>
                             {% endif %}
+                            {% if device.status == 'fault' and 'device_repair' in user_perm_set %}
+                            <button type="button" class="btn btn-outline-success" onclick="repairDevice({{ device.id }})"><i class="fas fa-wrench"></i></button>
+                            {% elif 'device_fault' in user_perm_set %}
+                            <button type="button" class="btn btn-outline-warning" onclick="faultDevice({{ device.id }})"><i class="fas fa-exclamation-triangle"></i></button>
+                            {% endif %}
                             <button type="button" class="btn btn-outline-danger" onclick="scrapDevice({{ device.id }}, '{{ device.asset_no }}', '{{ device.name }}', {% if device.is_fixed %}'{{ device.asset_card_no }}'{% else %}null{% endif %})"><i class="fas fa-times"></i></button>
                         </div>
                     </div>

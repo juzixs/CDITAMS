@@ -182,6 +182,15 @@ def user_list(request):
         if end < total_pages - 1:
             page_range.append('...')
         page_range.extend([total_pages - 1, total_pages])
+        
+        # 去重（保留顺序，解决窗口与首尾重叠问题）
+        seen = set()
+        deduped = []
+        for p in page_range:
+            if p not in seen:
+                seen.add(p)
+                deduped.append(p)
+        page_range = deduped
     
     departments = Department.objects.all()
     roles = Role.objects.all()

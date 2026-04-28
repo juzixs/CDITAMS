@@ -3,6 +3,47 @@
 
 {% block title %}报废设备 - 驰达IT资产管理系统{% endblock %}
 
+{% block extra_css %}
+<style>
+.content .device-table-container { display: block !important; }
+.content .device-cards-container { display: none !important; }
+
+@media (max-width: 992px) {
+    .content .device-table-container { display: none !important; }
+    .content .device-cards-container { display: block !important; }
+
+    .content .device-card {
+        background: #fff;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+    .content .device-card-body { padding: 12px; }
+    .content .card-field {
+        display: flex; align-items: center; padding: 8px 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    .content .card-field:last-child { border-bottom: none; }
+    .content .card-field-row {
+        display: flex; padding: 8px 0; border-bottom: 1px solid #f0f0f0;
+    }
+    .content .card-field-half { flex: 1; display: flex; align-items: center; }
+    .content .card-field-half:first-child { padding-right: 10px; border-right: 1px solid #f0f0f0; }
+    .content .card-field-half:last-child { padding-left: 10px; }
+    .content .field-label { font-size: 12px; color: #888; white-space: nowrap; margin-right: 8px; }
+    .content .field-value { font-size: 13px; color: #333; word-break: break-all; }
+    .content .device-card-footer {
+        background: #f8f9fa; padding: 10px 12px;
+        border-top: 1px solid #e0e0e0;
+        display: flex; justify-content: flex-end; gap: 4px;
+    }
+    .content .device-card-footer .btn { padding: 4px 8px; font-size: 12px; }
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h4><i class="fas fa-trash-alt me-2 text-secondary"></i>报废设备</h4>
@@ -91,7 +132,7 @@
             <div class="mb-3">
                 <button type="button" class="btn btn-sm btn-danger" onclick="batchDelete()"><i class="fas fa-trash"></i> 批量删除</button>
             </div>
-            <div class="table-responsive">
+            <div class="table-responsive device-table-container">
             <table class="table table-hover">
                 <thead>
                     <tr>
@@ -159,9 +200,63 @@
                     {% endfor %}
                 </tbody>
             </table>
+        </div>
+
+        <!-- 移动端卡片容器 -->
+        <div class="device-cards-container" style="display: none;">
+            {% for device in devices %}
+            <div class="device-card">
+                <div class="device-card-body">
+                    <div class="card-field">
+                        <span class="field-label">资产编号</span>
+                        <span class="field-value"><strong class="text-primary">{{ device.asset_no }}</strong></span>
+                    </div>
+                    <div class="card-field">
+                        <span class="field-label">设备名称</span>
+                        <span class="field-value">{{ device.name }}{% if device.model %} <span class="text-muted small">({{ device.model }})</span>{% endif %}</span>
+                    </div>
+                    <div class="card-field-row">
+                        <div class="card-field-half">
+                            <span class="field-label">分类</span>
+                            <span class="field-value">{{ device.category.name|default:'-' }}</span>
+                        </div>
+                        <div class="card-field-half">
+                            <span class="field-label">密级</span>
+                            <span class="field-value">{{ device.get_secret_level_display }}</span>
+                        </div>
+                    </div>
+                    <div class="card-field-row">
+                        <div class="card-field-half">
+                            <span class="field-label">部门</span>
+                            <span class="field-value">{{ device.pre_department.name|default:'-' }}</span>
+                        </div>
+                        <div class="card-field-half">
+                            <span class="field-label">使用人</span>
+                            <span class="field-value">{{ device.pre_user.realname|default:'-' }}</span>
+                        </div>
+                    </div>
+                    <div class="card-field">
+                        <span class="field-label">位置</span>
+                        <span class="field-value">{% if device.pre_location %}{{ device.pre_location.get_full_path }}{% if device.pre_workstation %} / {{ device.pre_workstation.workstation_code }}{% endif %}{% else %}-{% endif %}</span>
+                    </div>
+                    <div class="card-field">
+                        <span class="field-label">报废时间</span>
+                        <span class="field-value">{{ device.scrap_date|date:"Y-m-d H:i"|default:'-' }}</span>
+                    </div>
+                </div>
+                <div class="device-card-footer">
+                    <a href="{% url 'device_detail' device.id %}" class="btn btn-outline-primary"><i class="fas fa-eye"></i></a>
+                    <a href="{% url 'device_edit' device.id %}" class="btn btn-outline-secondary"><i class="fas fa-edit"></i></a>
+                    <button type="button" class="btn btn-outline-warning" onclick="recallDevice({{ device.id }})"><i class="fas fa-undo"></i></button>
+                    <button type="button" class="btn btn-outline-danger" onclick="deleteDevice({{ device.id }})"><i class="fas fa-trash"></i></button>
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center text-muted py-5">暂无报废设备</div>
+            {% endfor %}
+        </div>
         </form>
-    </div>
-        
+
         {% if devices.has_other_pages %}
         <nav>
             <ul class="pagination justify-content-center mb-0">

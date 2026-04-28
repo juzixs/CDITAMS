@@ -220,6 +220,15 @@ def device_list(request):
         
         # 总是显示后2页
         page_range.extend([total_pages - 1, total_pages])
+        
+        # 去重（保留顺序，解决窗口与首尾重叠问题）
+        seen = set()
+        deduped = []
+        for p in page_range:
+            if p not in seen:
+                seen.add(p)
+                deduped.append(p)
+        page_range = deduped
     
     categories = AssetCategory.objects.all().order_by('code')
     locations = AssetLocation.objects.filter(parent__isnull=True).prefetch_related('children')

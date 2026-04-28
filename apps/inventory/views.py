@@ -156,10 +156,10 @@ def task_detail(request, pk):
     if task.task_type == 'dynamic' and task.status == 'in_progress':
         sync_dynamic_task_devices(task)
     
-    # 待盘点设备 - 有位置的在前，无位置的在后，按位置排序
+    # 待盘点设备 - 有位置的在前，无位置的在后，按位置排序（排除报废设备）
     pending_devices = InventoryTaskDevice.objects.filter(
         task=task, status='pending'
-    ).select_related(
+    ).exclude(device__status='scrapped').select_related(
         'device__category', 'device__location', 'device__user', 'device__department', 'device__workstation'
     ).annotate(
         has_location=Case(
@@ -1425,10 +1425,10 @@ def task_execute(request, pk):
     if task.task_type == 'dynamic' and task.status == 'in_progress':
         sync_dynamic_task_devices(task)
     
-    # 待盘点设备 - 有位置的在前，无位置的在后，按位置排序
+    # 待盘点设备 - 有位置的在前，无位置的在后，按位置排序（排除报废设备）
     pending_devices = InventoryTaskDevice.objects.filter(
         task=task, status='pending'
-    ).select_related(
+    ).exclude(device__status='scrapped').select_related(
         'device__category', 'device__location', 'device__user', 'device__department', 'device__workstation'
     ).annotate(
         has_location=Case(
@@ -1897,9 +1897,18 @@ def generate_task_devices(task):
 
 
 def sync_dynamic_task_devices(task):
-    """同步动态盘点任务的设备列表（只添加新设备，不影响已存在设备）"""
+    """同步动态盘点任务的设备列表（添加新设备，移除报废的待盘点设备）"""
     if task.task_type != 'dynamic' or task.status != 'in_progress':
         return
+    
+    # 移除已报废的待盘点设备（已盘点的保留作为历史记录）
+    scrapped_pending_ids = InventoryTaskDevice.objects.filter(
+        task=task, status='pending', device__status='scrapped'
+    ).values_list('id', flat=True)
+    if scrapped_pending_ids:
+        InventoryTaskDevice.objects.filter(id__in=list(scrapped_pending_ids)).delete()
+        task.device_count = InventoryTaskDevice.objects.filter(task=task).count()
+        task.save(update_fields=['device_count'])
     
     # 获取系统中所有符合条件的设备
     system_devices = Device.objects.exclude(status='scrapped')
