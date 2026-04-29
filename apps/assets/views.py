@@ -2512,6 +2512,8 @@ def location_tree(request):
             'building_code': location.building_code,
             'floor_code': location.floor_code,
             'floor_count': location.floor_count,
+            'basement_count': location.basement_count,
+            'has_rooftop': location.has_rooftop,
             'room_code': location.room_code,
             'has_map': location.has_map,
             'map_width': location.map_width,
@@ -3051,7 +3053,8 @@ def api_device_bind_workstation(request):
                 parts = []
                 loc = workstation.location
             while loc:
-                parts.insert(0, loc.name)
+                if not loc.should_skip_in_path():
+                    parts.insert(0, loc.name)
                 loc = loc.parent
             parts.append(workstation.workstation_code)
             device.location_text = '-'.join(parts)
@@ -3279,7 +3282,8 @@ def api_workstation_bind_device(request, pk):
             parts = []
             loc = workstation.location
         while loc:
-            parts.insert(0, loc.name)
+            if not loc.should_skip_in_path():
+                parts.insert(0, loc.name)
             loc = loc.parent
         parts.append(workstation.workstation_code)
         device.location_text = '-'.join(parts)

@@ -102,13 +102,27 @@ class AssetLocation(models.Model):
         paths = []
         current = self
         while current:
-            paths.insert(0, current.name)
+            if not current.should_skip_in_path():
+                paths.insert(0, current.name)
             current = current.parent
         return ' / '.join(paths)
 
     def get_level_display_class(self):
         level_names = {1: '园区', 2: '设施', 3: '楼层', 4: '房间'}
         return level_names.get(self.level, '')
+
+    def is_single_floor_building(self):
+        """判断该2级设施是否只有一个楼层（地上1层，无地下室，无天台）"""
+        if self.level != 2:
+            return False
+        return self.floor_count == 1 and self.basement_count == 0 and not self.has_rooftop
+
+    def should_skip_in_path(self):
+        """判断在路径显示中是否应该跳过该层级"""
+        # 如果是3级节点，且父级2级设施只有一个楼层，则跳过
+        if self.level == 3 and self.parent and self.parent.is_single_floor_building():
+            return True
+        return False
 
 
 class LocationAreaBinding(models.Model):
@@ -254,7 +268,8 @@ class Device(models.Model):
             parts = []
             loc = self.location
             while loc:
-                parts.insert(0, loc.name)
+                if not loc.should_skip_in_path():
+                    parts.insert(0, loc.name)
                 loc = loc.parent
             if self.workstation_id and self.workstation:
                 parts.append(self.workstation.workstation_code)

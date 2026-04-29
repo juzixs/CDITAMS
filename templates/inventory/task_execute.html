@@ -1194,6 +1194,8 @@ function selectUser(userId, userText) {
 
 // 位置功能
 let currentWsLayer = null;
+// 缓存位置树数据
+let locationTreeData = null;
 
 function showLocationModal() {
     if (!currentDeviceData) return;
@@ -1208,6 +1210,8 @@ function initLocationSelect() {
     .then(r => r.json())
     .then(data => {
         const locations = data.data || data;
+        // 缓存位置树数据
+        locationTreeData = locations;
         const select = document.getElementById('locationSelect');
         select.innerHTML = '<option value="">请选择位置</option>';
         renderLocationOptions(locations, select, 0);
@@ -1218,14 +1222,88 @@ function initLocationSelect() {
     });
 }
 
+// 查找2级设施下的第一个地上楼层（1楼）
+function findFirstChildFloor(facilityId) {
+    if (!locationTreeData) return null;
+    
+    // 递归查找指定设施
+    function findInTree(nodes, targetId) {
+        for (var i = 0; i < nodes.length; i++) {
+            var node = nodes[i];
+            if (node.id == targetId) {
+                return node;
+            }
+            if (node.children && node.children.length > 0) {
+                var found = findInTree(node.children, targetId);
+                if (found) return found;
+            }
+        }
+        return null;
+    }
+    
+    var facility = findInTree(locationTreeData, facilityId);
+    if (!facility || !facility.children || facility.children.length === 0) {
+        return null;
+    }
+    
+    // 查找第一个地上楼层（floor_code 为 "01" 的节点，即1楼）
+    var firstFloor = null;
+    for (var j = 0; j < facility.children.length; j++) {
+        var child = facility.children[j];
+        if (child.floor_code === '01') {
+            firstFloor = child;
+            break;
+        }
+    }
+    
+    // 如果没有找到1楼，返回第一个子节点
+    if (!firstFloor && facility.children.length > 0) {
+        firstFloor = facility.children[0];
+    }
+    
+    return firstFloor;
+}
+
+// 判断是否是单层建筑
+function isSingleFloorBuilding(loc) {
+    return loc.level === 2 && loc.floor_count === 1 && loc.basement_count === 0 && !loc.has_rooftop;
+}
+
 function renderLocationOptions(locations, select, level) {
     locations.forEach(loc => {
-        const opt = document.createElement('option');
-        opt.value = loc.id;
-        opt.textContent = '\u00A0\u00A0'.repeat(level) + loc.name;
-        opt.dataset.level = loc.level;
-        opt.dataset.parentId = loc.parent_id || '';
-        select.appendChild(opt);
+        var shouldSkip = false;
+        
+        // 如果是单层建筑的3级楼层，跳过不显示，但继续处理其子节点
+        if (loc.level === 3 && loc.parent_id && locationTreeData) {
+            var parentFacility = null;
+            function findParent(nodes) {
+                for (var i = 0; i < nodes.length; i++) {
+                    if (nodes[i].id == loc.parent_id) {
+                        parentFacility = nodes[i];
+                        return;
+                    }
+                    if (nodes[i].children) {
+                        findParent(nodes[i].children);
+                    }
+                }
+            }
+            findParent(locationTreeData);
+            if (parentFacility && isSingleFloorBuilding(parentFacility)) {
+                shouldSkip = true;
+            }
+        }
+        
+        if (!shouldSkip) {
+            const opt = document.createElement('option');
+            opt.value = loc.id;
+            opt.textContent = '\u00A0\u00A0'.repeat(level) + loc.name;
+            opt.dataset.level = loc.level;
+            opt.dataset.parentId = loc.parent_id || '';
+            opt.dataset.floorCode = loc.floor_code || '';
+            select.appendChild(opt);
+        }
+        
+        // 无论是否跳过显示，都继续递归处理子节点（4级区域）
         if (loc.children && loc.children.length > 0) {
             renderLocationOptions(loc.children, select, level + 1);
         }
@@ -1252,6 +1330,12 @@ function onLocationChange() {
     if (level === '4' && parentId) {
         // 4级区域，使用其父级（3级楼层）来加载工位和地图
         wsLocationId = parentId;
+    } else if (level === '2') {
+        // 2级设施，找到其1层
+        var firstFloor = findFirstChildFloor(locationId);
+        if (firstFloor) {
+            wsLocationId = firstFloor.id;
+        }
     }
     
     // 加载工位
@@ -1295,6 +1379,12 @@ function loadLocationMap(locationId, workstationId) {
         // 4级区域，使用其父级（3级楼层）来加载地图
         mapLocationId = parentId;
         selectedAreaId = locationId;
+    } else if (level === '2') {
+        // 2级设施，找到其1层
+        var firstFloor = findFirstChildFloor(locationId);
+        if (firstFloor) {
+            mapLocationId = firstFloor.id;
+        }
     }
     
     container.innerHTML = '';
@@ -1582,8 +1672,20 @@ function createCheckMap(container, locationId, workstationId) {
 
 function saveLocation() {
     const deviceId = document.getElementById('currentDeviceId').value;
-    const locationId = document.getElementById('locationSelect').value;
+    var locationId = document.getElementById('locationSelect').value;
     const workstationId = document.getElementById('workstationSelect').value;
+    
+    // 如果选择的是2级设施，找到其1层并存储1层的ID
+    const selectedOption = document.getElementById('locationSelect').selectedOptions[0];
+    if (selectedOption) {
+        const level = selectedOption.dataset.level;
+        if (level === '2' && locationId) {
+            var firstFloor = findFirstChildFloor(locationId);
+            if (firstFloor) {
+                locationId = firstFloor.id.toString();
+            }
+        }
+    }
     
     fetch(`/inventory/api/tasks/${TASK_ID}/update-device-info/`, {
         method: 'POST',

@@ -455,6 +455,8 @@ function loadCategories() {
 var workstationsData = {};
 // 全局变量保存当前地图的工位图层
 var currentWsLayer = null;
+// 全局变量缓存位置树数据
+var locationTreeData = null;
 
 // 更新地图上工位的高亮状态
 function highlightWorkstationOnMap(wsId) {
@@ -493,6 +495,12 @@ function loadWorkstations(locationId, selectedWorkstationId) {
     if (level === 4 || level === '4') {
         // 4级区域，获取父级ID
         wsLocationId = selectedOption.data('parent-id') || locationId;
+    } else if (level === 2 || level === '2') {
+        // 2级设施，找到其1层
+        var firstFloor = findFirstChildFloor(locationId);
+        if (firstFloor) {
+            wsLocationId = firstFloor.id;
+        }
     }
     
     select.append($('<option>').text('加载中...'));
@@ -547,6 +555,12 @@ function loadLocationMap(locationId, workstationId) {
         // 4级区域，获取父级ID
         mapLocationId = selectedOption.data('parent-id') || locationId;
         selectedAreaId = locationId;
+    } else if (level === 2 || level === '2') {
+        // 2级设施，找到其1层
+        var firstFloor = findFirstChildFloor(locationId);
+        if (firstFloor) {
+            mapLocationId = firstFloor.id;
+        }
     }
     
     wrapper.style.display = 'block';
@@ -790,6 +804,8 @@ function initLocationCascade() {
         .then(r => r.json())
         .then(data => {
             const locations = data.data || data;
+            // 缓存位置树数据
+            locationTreeData = locations;
             select.empty();
             select.append($('<option>').val('').text('请选择位置'));
             renderLocationOptions(locations, 0);
@@ -822,16 +838,89 @@ function initLocationCascade() {
         });
 }
 
+// 查找2级设施下的第一个地上楼层（1楼）
+function findFirstChildFloor(facilityId) {
+    if (!locationTreeData) return null;
+    
+    // 递归查找指定设施
+    function findInTree(nodes, targetId) {
+        for (var i = 0; i < nodes.length; i++) {
+            var node = nodes[i];
+            if (node.id == targetId) {
+                return node;
+            }
+            if (node.children && node.children.length > 0) {
+                var found = findInTree(node.children, targetId);
+                if (found) return found;
+            }
+        }
+        return null;
+    }
+    
+    var facility = findInTree(locationTreeData, facilityId);
+    if (!facility || !facility.children || facility.children.length === 0) {
+        return null;
+    }
+    
+    // 查找第一个地上楼层（floor_code 为 "01" 的节点，即1楼）
+    var firstFloor = null;
+    for (var j = 0; j < facility.children.length; j++) {
+        var child = facility.children[j];
+        if (child.floor_code === '01') {
+            firstFloor = child;
+            break;
+        }
+    }
+    
+    // 如果没有找到1楼，返回第一个子节点
+    if (!firstFloor && facility.children.length > 0) {
+        firstFloor = facility.children[0];
+    }
+    
+    return firstFloor;
+}
+
+// 判断是否是单层建筑
+function isSingleFloorBuilding(loc) {
+    return loc.level === 2 && loc.floor_count === 1 && loc.basement_count === 0 && !loc.has_rooftop;
+}
+
 function renderLocationOptions(locations, level) {
     const select = $('#location-select');
     
     locations.forEach(loc => {
-        select.append($('<option>')
-            .val(loc.id)
-            .attr('data-level', loc.level)
-            .attr('data-parent-id', loc.parent_id || '')
-            .text(loc.name));
+        var shouldSkip = false;
         
+        // 如果是单层建筑的3级楼层，跳过不显示，但继续处理其子节点
+        if (loc.level === 3 && loc.parent_id && locationTreeData) {
+            var parentFacility = null;
+            function findParent(nodes) {
+                for (var i = 0; i < nodes.length; i++) {
+                    if (nodes[i].id == loc.parent_id) {
+                        parentFacility = nodes[i];
+                        return;
+                    }
+                    if (nodes[i].children) {
+                        findParent(nodes[i].children);
+                    }
+                }
+            }
+            findParent(locationTreeData);
+            if (parentFacility && isSingleFloorBuilding(parentFacility)) {
+                shouldSkip = true;
+            }
+        }
+        
+        if (!shouldSkip) {
+            select.append($('<option>')
+                .val(loc.id)
+                .attr('data-level', loc.level)
+                .attr('data-parent-id', loc.parent_id || '')
+                .attr('data-floor-code', loc.floor_code || '')
+                .text(loc.name));
+        }
+        
+        // 无论是否跳过显示，都继续递归处理子节点（4级区域）
         if (loc.children && loc.children.length > 0) {
             renderLocationOptions(loc.children, level + 1);
         }
@@ -843,7 +932,19 @@ function onLocationChange() {
     const selectedId = select.val();
     
     if (selectedId) {
-        $('#location-input').val(selectedId);
+        var selectedOption = select.find('option:selected');
+        var level = selectedOption.data('level');
+        var locationIdToStore = selectedId;
+        
+        // 如果选择的是2级设施，找到其1层并存储1层的ID
+        if (level === 2 || level === '2') {
+            var firstFloor = findFirstChildFloor(selectedId);
+            if (firstFloor) {
+                locationIdToStore = firstFloor.id;
+            }
+        }
+        
+        $('#location-input').val(locationIdToStore);
         updateLocationPath();
         loadWorkstations(selectedId, currentWorkstationId);
     } else {
@@ -874,15 +975,31 @@ function updateLocationPath() {
         });
 }
 
-function findPath(locations, targetId, path) {
+function isSingleFloorBuilding(loc) {
+    return loc.level === 2 && loc.floor_count === 1 && loc.basement_count === 0 && !loc.has_rooftop;
+}
+
+function shouldSkipInPath(loc) {
+    if (loc.level === 3 && loc.parent && isSingleFloorBuilding(loc.parent)) {
+        return true;
+    }
+    return false;
+}
+
+function findPath(locations, targetId, path, parent = null) {
     for (let loc of locations) {
+        loc.parent = parent;
         if (String(loc.id) === String(targetId)) {
-            path.unshift(loc.name);
+            if (!shouldSkipInPath(loc)) {
+                path.unshift(loc.name);
+            }
             return true;
         }
         if (loc.children && loc.children.length > 0) {
-            if (findPath(loc.children, targetId, path)) {
-                path.unshift(loc.name);
+            if (findPath(loc.children, targetId, path, loc)) {
+                if (!shouldSkipInPath(loc)) {
+                    path.unshift(loc.name);
+                }
                 return true;
             }
         }
