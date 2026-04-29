@@ -870,6 +870,8 @@ def device_detail(request, pk):
     if device.workstation_id:
         ws_id = device.workstation_id
         ws_location_id = device.workstation.location_id
+    elif device.location_id and device.location.level == 4 and device.location.parent_id:
+        ws_location_id = device.location.parent_id
     
     return render(request, 'assets/device_detail.html', {
         'device': device, 'logs': logs, 'all_fields': all_fields,
@@ -900,6 +902,8 @@ def asset_view(request, asset_no):
     if device.workstation_id:
         ws_id = device.workstation_id
         ws_location_id = device.workstation.location_id
+    elif device.location_id and device.location.level == 4 and device.location.parent_id:
+        ws_location_id = device.location.parent_id
     
     return render(request, 'assets/asset_view.html', {
         'device': device, 'all_fields': all_fields,
