@@ -803,7 +803,23 @@ document.getElementById('btnSave').addEventListener('click', function() {
     })));
     fetch('/assets/locations/elements/save/', { method: 'POST', headers: { 'X-CSRFToken': getCsrf() }, body: fd })
     .then(function(r) { return r.json(); })
-    .then(function(r) { alert(r.success ? '保存成功！' : '失败: ' + r.message); })
+    .then(function(r) {
+        if (r.success && r.id_map) {
+            // 回写数据库ID到node._d.i
+            var idx = 0;
+            [elL, objL].forEach(function(layer) {
+                layer.getChildren().forEach(function(node) {
+                    if (node._d) {
+                        if (r.id_map[idx] !== undefined) {
+                            node._d.i = r.id_map[idx];
+                        }
+                        idx++;
+                    }
+                });
+            });
+        }
+        alert(r.success ? '保存成功！' : '失败: ' + r.message);
+    })
     .catch(function(e) { alert('失败: ' + e); });
 });
 

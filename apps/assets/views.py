@@ -2627,6 +2627,7 @@ def map_data(request, pk):
 @login_required
 def map_element_save(request):
     from apps.assets.models import Workstation
+    from django.db import transaction
     
     if request.method == 'POST':
         location_id = request.POST.get('location_id')
@@ -2640,118 +2641,122 @@ def map_element_save(request):
                 return JsonResponse({'success': False, 'message': '数据格式错误'})
             
             try:
-                saved_ids = []
-                for el_data in elements_list:
-                    el_id = el_data.get('id')
-                    data = {
-                        'location_id': location_id,
-                        'element_type': {'line': 'wall', 'dashed': 'window'}.get(el_data.get('type', 'wall'), el_data.get('type', 'wall')),
-                        'x': float(el_data.get('x', 0)),
-                        'y': float(el_data.get('y', 0)),
-                        'x2': float(el_data.get('x2')) if el_data.get('x2') is not None else None,
-                        'y2': float(el_data.get('y2')) if el_data.get('y2') is not None else None,
-                        'width': float(el_data.get('width', 0)),
-                        'height': float(el_data.get('height', 0)),
-                        'rotation': float(el_data.get('rotation', 0)),
-                        'color': el_data.get('color', '#000000'),
-                        'thickness': int(el_data.get('thickness', 2)),
-                        'points': el_data.get('points', ''),
-                        'properties': el_data.get('properties', ''),
-                        'label': el_data.get('label', ''),
-                        'sort_order': int(el_data.get('sort_order', 0)),
-                        'door_direction': el_data.get('door_direction', 'right'),
-                        'door_width': float(el_data.get('door_width', 60)),
-                        'door_open_angle': int(el_data.get('door_open_angle', 90)),
-                        'doorstop_width': float(el_data.get('doorstop_width', 15)),
-                        'auto_doorstop': el_data.get('auto_doorstop', True),
-                        'snap_enabled': el_data.get('snap_enabled', True),
-                        'snap_threshold': float(el_data.get('snap_threshold', 10)),
-                    }
-                    
-                    if el_id:
-                        try:
-                            el_id_int = int(el_id)
-                            element = MapElement.objects.filter(pk=el_id_int).first()
-                            if element:
-                                for key, value in data.items():
-                                    setattr(element, key, value)
-                                element.save()
-                                saved_ids.append(element.id)
-                        except (ValueError, TypeError):
-                            pass  # 忽略无效的 ID
-                    else:
-                        element = MapElement.objects.create(**data)
-                        saved_ids.append(element.id)
-                    
-                    # Handle region type - create or update 4-level location
-                    if data['element_type'] == 'region' and data['points']:
-                        parent_location = AssetLocation.objects.filter(pk=location_id).first()
-                        if parent_location and parent_location.level == 3:
-                            region_name = data['label'] or '区域'
-                            
-                            # Get old label from el_data (set by editor when renaming)
-                            old_label = el_data.get('old_label')
-                            
-                            # Try to find existing location by old label first, then new label
-                            existing_location = None
-                            if old_label:
-                                existing_location = AssetLocation.objects.filter(parent=parent_location, level=4, name=old_label).first()
-                            if not existing_location:
-                                existing_location = AssetLocation.objects.filter(parent=parent_location, level=4, name=region_name).first()
-                            
-                            if existing_location:
-                                # Update existing location with new name and area points
-                                existing_location.name = region_name
-                                existing_location.area_points = data['points']
-                                existing_location.description = f"{parent_location.name} {region_name}"
-                                existing_location.save()
-                            else:
-                                base_code = parent_location.code
-                                num = 1
-                                while AssetLocation.objects.filter(code=f"{base_code}-{num:03d}").exists():
-                                    num += 1
-                                new_code = f"{base_code}-{num:03d}"
-                                # Create new 4-level location
-                                new_location = AssetLocation.objects.create(
-                                    name=region_name,
-                                    code=new_code,
-                                    parent=parent_location,
-                                    level=4,
-                                    park_code=parent_location.park_code,
-                                    building_code=parent_location.building_code,
-                                    floor_code=parent_location.floor_code,
-                                    area_points=data['points'],
-                                    description=f"{parent_location.name} {region_name}",
-                                    sort=num
+                with transaction.atomic():
+                    saved_ids = []
+                    id_map = {}  # 前端临时索引 -> 数据库ID 的映射
+                    for idx, el_data in enumerate(elements_list):
+                        el_id = el_data.get('id')
+                        data = {
+                            'location_id': location_id,
+                            'element_type': {'line': 'wall', 'dashed': 'window'}.get(el_data.get('type', 'wall'), el_data.get('type', 'wall')),
+                            'x': float(el_data.get('x', 0)),
+                            'y': float(el_data.get('y', 0)),
+                            'x2': float(el_data.get('x2')) if el_data.get('x2') is not None else None,
+                            'y2': float(el_data.get('y2')) if el_data.get('y2') is not None else None,
+                            'width': float(el_data.get('width', 0)),
+                            'height': float(el_data.get('height', 0)),
+                            'rotation': float(el_data.get('rotation', 0)),
+                            'color': el_data.get('color', '#000000'),
+                            'thickness': int(el_data.get('thickness', 2)),
+                            'points': el_data.get('points', ''),
+                            'properties': el_data.get('properties', ''),
+                            'label': el_data.get('label', ''),
+                            'sort_order': int(el_data.get('sort_order', 0)),
+                            'door_direction': el_data.get('door_direction', 'right'),
+                            'door_width': float(el_data.get('door_width', 60)),
+                            'door_open_angle': int(el_data.get('door_open_angle', 90)),
+                            'doorstop_width': float(el_data.get('doorstop_width', 15)),
+                            'auto_doorstop': el_data.get('auto_doorstop', True),
+                            'snap_enabled': el_data.get('snap_enabled', True),
+                            'snap_threshold': float(el_data.get('snap_threshold', 10)),
+                        }
+                        
+                        if el_id:
+                            try:
+                                el_id_int = int(el_id)
+                                element = MapElement.objects.filter(pk=el_id_int).first()
+                                if element:
+                                    for key, value in data.items():
+                                        setattr(element, key, value)
+                                    element.save()
+                                    saved_ids.append(element.id)
+                                    id_map[idx] = element.id
+                            except (ValueError, TypeError):
+                                pass  # 忽略无效的 ID
+                        else:
+                            element = MapElement.objects.create(**data)
+                            saved_ids.append(element.id)
+                            id_map[idx] = element.id
+                        
+                        # Handle region type - create or update 4-level location
+                        if data['element_type'] == 'region' and data['points']:
+                            parent_location = AssetLocation.objects.filter(pk=location_id).first()
+                            if parent_location and parent_location.level == 3:
+                                region_name = data['label'] or '区域'
+                                
+                                # Get old label from el_data (set by editor when renaming)
+                                old_label = el_data.get('old_label')
+                                
+                                # Try to find existing location by old label first, then new label
+                                existing_location = None
+                                if old_label:
+                                    existing_location = AssetLocation.objects.filter(parent=parent_location, level=4, name=old_label).first()
+                                if not existing_location:
+                                    existing_location = AssetLocation.objects.filter(parent=parent_location, level=4, name=region_name).first()
+                                
+                                if existing_location:
+                                    # Update existing location with new name and area points
+                                    existing_location.name = region_name
+                                    existing_location.area_points = data['points']
+                                    existing_location.description = f"{parent_location.name} {region_name}"
+                                    existing_location.save()
+                                else:
+                                    base_code = parent_location.code
+                                    num = 1
+                                    while AssetLocation.objects.filter(code=f"{base_code}-{num:03d}").exists():
+                                        num += 1
+                                    new_code = f"{base_code}-{num:03d}"
+                                    # Create new 4-level location
+                                    new_location = AssetLocation.objects.create(
+                                        name=region_name,
+                                        code=new_code,
+                                        parent=parent_location,
+                                        level=4,
+                                        park_code=parent_location.park_code,
+                                        building_code=parent_location.building_code,
+                                        floor_code=parent_location.floor_code,
+                                        area_points=data['points'],
+                                        description=f"{parent_location.name} {region_name}",
+                                        sort=num
+                                    )
+                                # 更新所有已存在的工位的区域关联
+                                all_workstations = Workstation.objects.filter(location=parent_location)
+                                for ws in all_workstations:
+                                    update_workstation_area(ws)
+                        
+                        # Sync workstation to Workstation table
+                        if data['element_type'] == 'workstation':
+                            location = AssetLocation.objects.filter(pk=location_id).first()
+                            if location:
+                                ws, created = Workstation.objects.get_or_create(
+                                    location=location,
+                                    workstation_code=data['label'] or f'WS-{element.id}',
+                                    defaults={
+                                        'x': data['x'],
+                                        'y': data['y'],
+                                        'width': data['width'] or 60,
+                                        'height': data['height'] or 40,
+                                        'status': 'available',
+                                    }
                                 )
-                            # 更新所有已存在的工位的区域关联
-                            all_workstations = Workstation.objects.filter(location=parent_location)
-                            for ws in all_workstations:
+                                if not created:
+                                    ws.x = data['x']
+                                    ws.y = data['y']
+                                    ws.width = data['width'] or 60
+                                    ws.height = data['height'] or 40
+                                    ws.save()
+                                # 更新工位区域关联
                                 update_workstation_area(ws)
-                    
-                    # Sync workstation to Workstation table
-                    if data['element_type'] == 'workstation':
-                        location = AssetLocation.objects.filter(pk=location_id).first()
-                        if location:
-                            ws, created = Workstation.objects.get_or_create(
-                                location=location,
-                                workstation_code=data['label'] or f'WS-{element.id}',
-                                defaults={
-                                    'x': data['x'],
-                                    'y': data['y'],
-                                    'width': data['width'] or 60,
-                                    'height': data['height'] or 40,
-                                    'status': 'available',
-                                }
-                            )
-                            if not created:
-                                ws.x = data['x']
-                                ws.y = data['y']
-                                ws.width = data['width'] or 60
-                                ws.height = data['height'] or 40
-                                ws.save()
-                            # 更新工位区域关联
-                            update_workstation_area(ws)
                 
                 # 安全地构建 existing_ids
                 existing_ids = []
@@ -2789,7 +2794,7 @@ def map_element_save(request):
                 
                 MapElement.objects.filter(location_id=location_id).exclude(id__in=saved_ids).delete()
                 
-                return JsonResponse({'success': True, 'message': f'保存成功，共 {len(saved_ids)} 个元素', 'saved_ids': saved_ids})
+                return JsonResponse({'success': True, 'message': f'保存成功，共 {len(saved_ids)} 个元素', 'saved_ids': saved_ids, 'id_map': id_map})
             except Exception as e:
                 return JsonResponse({'success': False, 'message': f'保存失败: {str(e)}'})
         
