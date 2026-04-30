@@ -236,6 +236,7 @@ function mkS(d) {
     }
     if (n) {
         n._d = d;
+        n.draggable(tool === 'select');
         n.on('click tap', function() { doSelect(this); });
         // Double click to edit label for text and region
         n.on('dblclick dbltap', function() {
@@ -505,8 +506,8 @@ stage.on('mousemove touchmove', function(e) {
     var pos = stage.getPointerPosition();
     if (!pos) return;
     if (pSt) { 
-        // 拖动工具模式下移动画布
-        if (tool === 'pan') {
+        // 拖动工具模式或空格键按下时移动画布
+        if (tool === 'pan' || spcDown) {
             stage.x(stage.x() + pos.x - pSt.x);
             stage.y(stage.y() + pos.y - pSt.y);
         }
@@ -623,6 +624,7 @@ stage.on('mouseup touchend', function(e) {
     else if (tool === 'workstation') { var w2 = Math.abs(x - sx) || 60, h2 = Math.abs(y - sy) || 40; var code = prompt('工位编号:', LOC_CODE + '-' + getNextWsNum()); if (code) d = { t: 'workstation', x: Math.min(sx, x), y: Math.min(sy, y), w: w2, h: h2, c: '#e3f2fd', label: code }; }
 
     if (d) { mkS(d); (d.t === 'workstation' ? objL : elL).draw(); saveH(); }
+    setElementsDraggable(tool === 'select');
     drawing = false; uiL.draw();
 });
 
@@ -650,6 +652,7 @@ stage.on('dblclick', function(e) {
         if (name) {
             mkS({ t: 'region', x: 0, y: 0, pt: JSON.stringify(polyP), c: '#3498db', label: name });
             objL.draw(); saveH();
+            setElementsDraggable(tool === 'select');
         }
         polyP = []; drawing = false;
     }
@@ -686,7 +689,7 @@ document.addEventListener('keydown', function(e) {
 });
 document.addEventListener('keyup', function(e) { if (e.code === 'Space') { spcDown = false; stage.container().style.cursor = tool === 'select' ? 'default' : 'crosshair'; } });
 
-function rebuildH() { [elL, objL].forEach(function(l) { l.destroyChildren(); l.draw(); }); hist[hIdx].forEach(function(d) { mkS(d); }); [elL, objL].forEach(function(l) { l.draw(); }); uHB(); }
+function rebuildH() { [elL, objL].forEach(function(l) { l.destroyChildren(); l.draw(); }); hist[hIdx].forEach(function(d) { mkS(d); }); setElementsDraggable(tool === 'select'); [elL, objL].forEach(function(l) { l.draw(); }); uHB(); }
 
 function doDelete() {
     if (selectedNodes.length > 0) {
@@ -775,14 +778,13 @@ document.getElementById('btnSave').addEventListener('click', function() {
                             }
                             line.points(newPoints);
                         }
-                        // 更新内部 Text 的坐标
+                        // 更新内部 Text 的坐标（保持左上角位置，与 mkS 一致）
                         var text = node.findOne('Text');
                         if (text && pts.length > 0) {
-                            var cx = 0, cy = 0;
-                            for (var m = 0; m < pts.length; m++) { cx += pts[m].x; cy += pts[m].y; }
-                            cx /= pts.length; cy /= pts.length;
-                            text.x(cx - 30);
-                            text.y(cy - 7);
+                            var minX = Math.min.apply(null, pts.map(function(p) { return p.x; }));
+                            var minY = Math.min.apply(null, pts.map(function(p) { return p.y; }));
+                            text.x(minX + 5);
+                            text.y(minY + 5);
                         }
                     }
                     d.x = node.x();

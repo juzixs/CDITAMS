@@ -13,6 +13,7 @@ import qrcode
 import os
 import uuid
 import string
+from shapely.geometry import Polygon, box
 from io import BytesIO
 import random
 from datetime import datetime
@@ -57,26 +58,48 @@ def is_point_in_polygon(x, y, points):
 
 
 def update_workstation_area(workstation):
-    """更新工位的区域关联"""
+    """更新工位的区域关联（基于面积重叠比例 > 50%）"""
     if not workstation.location_id or workstation.location.level != 3:
         return
     
     # 获取当前位置下的所有区域
     regions = AssetLocation.objects.filter(parent=workstation.location, level=4).exclude(area_points='')
     
+    # 工位矩形
+    ws_rect = box(workstation.x, workstation.y,
+                  workstation.x + workstation.width,
+                  workstation.y + workstation.height)
+    ws_area = ws_rect.area
+    
+    best_region = None
+    best_ratio = 0.0
+    
     for region in regions:
         try:
             points = json.loads(region.area_points)
-            if is_point_in_polygon(workstation.x, workstation.y, points):
-                if workstation.area_id != region.id:
-                    workstation.area = region
-                    workstation.save(update_fields=['area'])
-                return
+            if len(points) < 3:
+                continue
+            
+            # 构建区域多边形
+            region_polygon = Polygon([(p['x'], p['y']) for p in points])
+            
+            # 计算交集面积
+            intersection = ws_rect.intersection(region_polygon)
+            ratio = intersection.area / ws_area if ws_area > 0 else 0
+            
+            # 找到重叠比例最高的区域
+            if ratio > best_ratio:
+                best_ratio = ratio
+                best_region = region
         except:
             continue
     
-    # 如果不在任何区域内，清空area字段
-    if workstation.area_id:
+    # 如果最高重叠比例 > 50%，绑定到该区域
+    if best_region and best_ratio > 0.5:
+        if workstation.area_id != best_region.id:
+            workstation.area = best_region
+            workstation.save(update_fields=['area'])
+    elif workstation.area_id:
         workstation.area = None
         workstation.save(update_fields=['area'])
 
