@@ -87,12 +87,14 @@
 
         {% if ws_location_id or device.location_id %}
         <div class="info-section">
-            <div class="section-title" style="background: #4A90D9; color: #fff;">
-                <div class="section-title-inner"><i class="fas fa-map"></i>位置地图</div>
-            </div>
+            <div class="section-title" style="background: #4A90D9; color: #fff;"><div class="section-title-inner"><i class="fas fa-map"></i>位置地图</div></div>
             <div class="section-content p-2">
-                <div style="max-width:1200px;margin:0 auto;">
+                <div style="max-width:1200px;margin:0 auto;position:relative;">
                     <div id="mapThumbContainer" style="width:100%;height:350px;overflow:hidden;background:#f5f5f5;touch-action:none;"></div>
+                    <div style="position:absolute;top:10px;right:10px;z-index:20;">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="mapZoomIn()" title="放大"><i class="fas fa-search-plus"></i></button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="mapZoomOut()" title="缩小"><i class="fas fa-search-minus"></i></button>
+                    </div>
                     <small class="text-muted mt-1 d-block">
                         {{ device.location.get_full_path }}{% if device.workstation_id %} · {{ device.workstation.workstation_code }}{% endif %}
                     </small>
@@ -104,6 +106,19 @@
 
     {% if ws_location_id or device.location_id %}
     <script src="https://unpkg.com/konva@9/konva.min.js"></script>
+    <script>
+    var mapStage = null;
+    function mapZoomIn() {
+        if (!mapStage) return;
+        mapStage.scale({ x: mapStage.scaleX() * 1.2, y: mapStage.scaleY() * 1.2 });
+        mapStage.batchDraw();
+    }
+    function mapZoomOut() {
+        if (!mapStage) return;
+        mapStage.scale({ x: mapStage.scaleX() / 1.2, y: mapStage.scaleY() / 1.2 });
+        mapStage.batchDraw();
+    }
+    </script>
     <script>
     (function() {
         var container = document.getElementById('mapThumbContainer');
@@ -133,6 +148,7 @@
         }
         
         var stage = new Konva.Stage({ container: 'mapThumbContainer', width: container.offsetWidth, height: 350, draggable: true });
+        mapStage = stage;  // 保存到全局变量供缩放按钮使用
         var bgLayer = new Konva.Layer();
         var elLayer = new Konva.Layer();
         var wsLayer = new Konva.Layer();

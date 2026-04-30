@@ -123,6 +123,20 @@ function fitView() {
 function toggleGrid() { showGrid = !showGrid; loadMapData(LOCATION_ID); }
 stage.draggable(true);
 
+// Mouse wheel zoom - 以鼠标位置为中心缩放
+mapCanvas.addEventListener('wheel', function(e) {
+    e.preventDefault();
+    var oldScale = stage.scaleX();
+    var pointer = stage.getPointerPosition();
+    if (!pointer) return;
+    var mousePointTo = { x: (pointer.x - stage.x()) / oldScale, y: (pointer.y - stage.y()) / oldScale };
+    var direction = e.deltaY > 0 ? -1 : 1;
+    var newScale = Math.max(0.1, Math.min(direction > 0 ? oldScale * 1.1 : oldScale / 1.1, 3));
+    stage.scale({ x: newScale, y: newScale });
+    stage.position({ x: pointer.x - mousePointTo.x * newScale, y: pointer.y - mousePointTo.y * newScale });
+    stage.batchDraw();
+});
+
 // Refit on window resize
 window.addEventListener('resize', function() {
     stage.width(mc.clientWidth);
