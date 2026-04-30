@@ -1235,7 +1235,8 @@ function locationMapZoomOut() {
 function showLocationModal() {
     if (!currentDeviceData) return;
     initLocationSelect();
-    new bootstrap.Modal(document.getElementById('locationModal')).show();
+    var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('locationModal'));
+    modal.show();
 }
 
 function initLocationSelect() {
@@ -1742,6 +1743,7 @@ function saveLocation() {
         if (data.success) {
             document.getElementById('infoLocation').textContent = data.location;
             document.getElementById('infoWorkstation').textContent = data.workstation;
+            document.activeElement.blur();
             bootstrap.Modal.getInstance(document.getElementById('locationModal')).hide();
             alert(data.message);
         } else {
