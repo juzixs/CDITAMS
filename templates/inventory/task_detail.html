@@ -49,11 +49,6 @@
         <a href="{% url 'inventory_task_execute' task.id %}" class="btn btn-primary btn-sm">
             <i class="fas fa-clipboard-check me-1"></i>执行盘点
         </a>
-        {% if task.task_type != 'dynamic' %}
-        <button class="btn btn-success btn-sm" onclick="completeTask()">
-            <i class="fas fa-check me-1"></i>完成任务
-        </button>
-        {% endif %}
         {% endif %}
         {% if task.status == 'completed' %}
         <a href="{% url 'inventory_task_report' task.id %}" class="btn btn-info btn-sm">

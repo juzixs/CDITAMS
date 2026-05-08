@@ -148,10 +148,13 @@ function drawGrid() {
     bgL.getChildren().forEach(function(n) {
         if (n !== bgImageNode) n.destroy();
     });
-    var sw = stage.width(), sh = stage.height();
     if (gOn) {
-        for (var x = 0; x <= sw; x += gSize) bgL.add(new Konva.Line({ points: [x, 0, x, sh], stroke: '#e0e0e0', strokeWidth: 0.5 }));
-        for (var y = 0; y <= sh; y += gSize) bgL.add(new Konva.Line({ points: [0, y, sw, y], stroke: '#e0e0e0', strokeWidth: 0.5 }));
+        var wl = -stage.x() / scl, wt = -stage.y() / scl;
+        var wr = (stage.width() - stage.x()) / scl, wb = (stage.height() - stage.y()) / scl;
+        var sx = Math.floor(wl / gSize) * gSize, sy = Math.floor(wt / gSize) * gSize;
+        var ex = Math.ceil(wr / gSize) * gSize, ey = Math.ceil(wb / gSize) * gSize;
+        for (var x = sx; x <= ex; x += gSize) bgL.add(new Konva.Line({ points: [x, sy, x, ey], stroke: '#e0e0e0', strokeWidth: 0.5 }));
+        for (var y = sy; y <= ey; y += gSize) bgL.add(new Konva.Line({ points: [sx, y, ex, y], stroke: '#e0e0e0', strokeWidth: 0.5 }));
     }
     if (bgImageNode) bgImageNode.moveToBottom();
     bgL.draw();
@@ -511,7 +514,7 @@ stage.on('mousemove touchmove', function(e) {
             stage.x(stage.x() + pos.x - pSt.x);
             stage.y(stage.y() + pos.y - pSt.y);
         }
-        pSt = pos; stage.batchDraw(); return; 
+        pSt = pos; drawGrid(); stage.batchDraw(); return; 
     }
     document.getElementById('coord').textContent = 'X:' + Math.round((pos.x - stage.x()) / scl) + ' Y:' + Math.round((pos.y - stage.y()) / scl);
     if (!drawing || tool === 'select' || tool === 'text') return;
@@ -706,12 +709,12 @@ function doDelete() {
     document.getElementById('props').innerHTML = '<p class="text-muted mb-0">选中元素后显示</p>'; saveH();
 }
 
-function applyZoom() { stage.scale({ x: scl, y: scl }); stage.batchDraw(); document.getElementById('zl').textContent = Math.round(scl * 100) + '%'; }
+function applyZoom() { stage.scale({ x: scl, y: scl }); drawGrid(); stage.batchDraw(); document.getElementById('zl').textContent = Math.round(scl * 100) + '%'; }
 
 // ========== BUTTON HANDLERS ==========
 document.getElementById('btnZI').addEventListener('click', function() { scl *= 1.2; applyZoom(); });
 document.getElementById('btnZO').addEventListener('click', function() { scl /= 1.2; applyZoom(); });
-document.getElementById('btnZR').addEventListener('click', function() { scl = 1; stage.position({ x: 0, y: 0 }); stage.scale({ x: 1, y: 1 }); stage.batchDraw(); document.getElementById('zl').textContent = '100%'; });
+document.getElementById('btnZR').addEventListener('click', function() { scl = 1; stage.position({ x: 0, y: 0 }); stage.scale({ x: 1, y: 1 }); drawGrid(); stage.batchDraw(); document.getElementById('zl').textContent = '100%'; });
 document.getElementById('btnU').addEventListener('click', function() { if (hIdx > 0) { hIdx--; rebuildH(); } });
 document.getElementById('btnR').addEventListener('click', function() { if (hIdx < hist.length - 1) { hIdx++; rebuildH(); } });
 document.getElementById('btnDel').addEventListener('click', doDelete);

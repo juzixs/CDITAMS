@@ -108,9 +108,9 @@ var initScale = Math.min(mc.clientWidth / MAP_W, mc.clientHeight / MAP_H) * 0.65
 stage.scale({ x: initScale, y: initScale });
 
 // Zoom
-function zoomIn() { stage.scale({ x: stage.scaleX() * 1.2, y: stage.scaleY() * 1.2 }); stage.batchDraw(); }
-function zoomOut() { stage.scale({ x: stage.scaleX() / 1.2, y: stage.scaleY() / 1.2 }); stage.batchDraw(); }
-function resetView() { stage.scale({ x: 1, y: 1 }); stage.position({ x: 0, y: 0 }); stage.batchDraw(); }
+function zoomIn() { stage.scale({ x: stage.scaleX() * 1.2, y: stage.scaleY() * 1.2 }); drawViewerGrid(); stage.batchDraw(); }
+function zoomOut() { stage.scale({ x: stage.scaleX() / 1.2, y: stage.scaleY() / 1.2 }); drawViewerGrid(); stage.batchDraw(); }
+function resetView() { stage.scale({ x: 1, y: 1 }); stage.position({ x: 0, y: 0 }); drawViewerGrid(); stage.batchDraw(); }
 function fitView() {
     var cw = mc.clientWidth;
     var ch = mc.clientHeight;
@@ -118,10 +118,33 @@ function fitView() {
     var s = Math.min(cw / MAP_W, ch / MAP_H) * 0.65;
     stage.scale({ x: s, y: s });
     stage.position({ x: 0, y: 0 });
+    drawViewerGrid();
     stage.batchDraw();
 }
-function toggleGrid() { showGrid = !showGrid; loadMapData(LOCATION_ID); }
+function toggleGrid() { showGrid = !showGrid; drawViewerGrid(); stage.batchDraw(); }
 stage.draggable(true);
+
+function drawViewerGrid() {
+    var gridChildren = bgLayer.getChildren(function(node) { return node._isGrid; });
+    gridChildren.forEach(function(n) { n.destroy(); });
+    if (!showGrid) return;
+    const gridSize = {{ location.grid_size|default:30 }};
+    const s = stage.scaleX();
+    const wl = -stage.x() / s, wt = -stage.y() / s;
+    const wr = (stage.width() - stage.x()) / s, wb = (stage.height() - stage.y()) / s;
+    const startX = Math.floor(wl / gridSize) * gridSize, startY = Math.floor(wt / gridSize) * gridSize;
+    const endX = Math.ceil(wr / gridSize) * gridSize, endY = Math.ceil(wb / gridSize) * gridSize;
+    for (let x = startX; x <= endX; x += gridSize) {
+        var line = new Konva.Line({ points: [x, startY, x, endY], stroke: '#e0e0e0', strokeWidth: 0.5 });
+        line._isGrid = true;
+        bgLayer.add(line);
+    }
+    for (let y = startY; y <= endY; y += gridSize) {
+        var line = new Konva.Line({ points: [startX, y, endX, y], stroke: '#e0e0e0', strokeWidth: 0.5 });
+        line._isGrid = true;
+        bgLayer.add(line);
+    }
+}
 
 // Mouse wheel zoom - 以鼠标位置为中心缩放
 mapCanvas.addEventListener('wheel', function(e) {
@@ -134,8 +157,12 @@ mapCanvas.addEventListener('wheel', function(e) {
     var newScale = Math.max(0.1, Math.min(direction > 0 ? oldScale * 1.1 : oldScale / 1.1, 3));
     stage.scale({ x: newScale, y: newScale });
     stage.position({ x: pointer.x - mousePointTo.x * newScale, y: pointer.y - mousePointTo.y * newScale });
+    drawViewerGrid();
     stage.batchDraw();
 });
+
+// Redraw grid on pan
+stage.on('dragmove', function() { drawViewerGrid(); });
 
 // Refit on window resize
 window.addEventListener('resize', function() {
@@ -173,13 +200,7 @@ function renderMap(data) {
     objLayer.destroyChildren();
 
     // Grid
-    if (showGrid) {
-        const gridSize = {{ location.grid_size|default:30 }};
-        for (let x = 0; x <= stage.width(); x += gridSize)
-            bgLayer.add(new Konva.Line({ points: [x, 0, x, stage.height()], stroke: '#e0e0e0', strokeWidth: 0.5 }));
-        for (let y = 0; y <= stage.height(); y += gridSize)
-            bgLayer.add(new Konva.Line({ points: [0, y, stage.width(), y], stroke: '#e0e0e0', strokeWidth: 0.5 }));
-    }
+    drawViewerGrid();
 
     // Background
     if (data.background && data.background.file_path) {
