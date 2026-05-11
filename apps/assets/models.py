@@ -692,6 +692,7 @@ class AssetLog(models.Model):
 class LabelTemplate(models.Model):
     SIZE_CHOICES = [
         ('40x60', '40×60mm'),
+        ('45x70', '45×70mm'),
         ('50x80', '50×80mm'),
         ('custom', '自定义尺寸'),
     ]

@@ -1,8 +1,17 @@
 import os
 import sys
-import django
+import argparse
+import traceback
+from pathlib import Path
+
+# 确保项目根目录在 sys.path 中，支持从任意目录运行
+BASE_DIR = Path(__file__).resolve().parent
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'cditams.settings')
+
+import django
 django.setup()
 
 from django.contrib.auth import get_user_model
@@ -18,6 +27,21 @@ from apps.inventory.models import InventoryPlan, InventoryTask, InventoryRecord
 from apps.todos.models import Todo, Notification
 from apps.accounts.models import LoginLog
 from apps.settings.models import SystemConfig, Organization
+
+
+def check_prerequisites():
+    """检查数据库迁移是否已完成"""
+    from django.db import connection
+    required_tables = ['users', 'departments', 'roles', 'permissions', 'asset_categories', 'asset_locations']
+    with connection.cursor() as cursor:
+        existing_tables = connection.introspection.table_names()
+        missing = [t for t in required_tables if t not in existing_tables]
+        if missing:
+            print(f"错误: 以下数据库表不存在: {', '.join(missing)}")
+            print("请先运行迁移命令: python manage.py migrate")
+            return False
+    print("数据库表检查通过")
+    return True
 
 
 def init_permissions():
@@ -36,8 +60,11 @@ def init_permissions():
         {'name': '待办创建', 'code': 'todo_create', 'type': 'button', 'module': '待办', 'parent_code': 'todo_list', 'sort': 202},
         {'name': '待办编辑', 'code': 'todo_edit', 'type': 'button', 'module': '待办', 'parent_code': 'todo_list', 'sort': 203},
         {'name': '待办删除', 'code': 'todo_delete', 'type': 'button', 'module': '待办', 'parent_code': 'todo_list', 'sort': 204},
+        {'name': '待办完成', 'code': 'todo_complete', 'type': 'button', 'module': '待办', 'parent_code': 'todo_list', 'sort': 205},
         {'name': '通知消息', 'code': 'notification_list', 'type': 'menu', 'module': '待办', 'parent_code': 'todo_module', 'sort': 210},
         {'name': '通知删除', 'code': 'notification_delete', 'type': 'button', 'module': '待办', 'parent_code': 'notification_list', 'sort': 211},
+        {'name': '通知查看', 'code': 'notification_read', 'type': 'button', 'module': '待办', 'parent_code': 'notification_list', 'sort': 212},
+        {'name': '全部已读', 'code': 'notification_mark_all_read', 'type': 'button', 'module': '待办', 'parent_code': 'notification_list', 'sort': 213},
         
         # ==================== 3. 资产管理 (module=资产, sort=300-399) ====================
         {'name': '资产管理', 'code': 'asset', 'type': 'menu', 'module': '资产', 'sort': 300},
@@ -154,8 +181,11 @@ def init_permissions():
         # ==================== 7. 日志管理 (module=日志, sort=700-799) ====================
         {'name': '日志管理', 'code': 'log', 'type': 'menu', 'module': '日志', 'sort': 700},
         {'name': '登录日志', 'code': 'login_log', 'type': 'menu', 'module': '日志', 'parent_code': 'log', 'sort': 710},
+        {'name': '登录日志查看', 'code': 'login_log_view', 'type': 'button', 'module': '日志', 'parent_code': 'login_log', 'sort': 711},
         {'name': '操作日志', 'code': 'operation_log', 'type': 'menu', 'module': '日志', 'parent_code': 'log', 'sort': 720},
+        {'name': '操作日志查看', 'code': 'operation_log_view', 'type': 'button', 'module': '日志', 'parent_code': 'operation_log', 'sort': 721},
         {'name': '资产日志', 'code': 'asset_log', 'type': 'menu', 'module': '日志', 'parent_code': 'log', 'sort': 730},
+        {'name': '资产日志查看', 'code': 'asset_log_view', 'type': 'button', 'module': '日志', 'parent_code': 'asset_log', 'sort': 731},
         
         # ==================== 8. 系统设置 (module=设置, sort=800-899) ====================
         {'name': '系统设置', 'code': 'settings', 'type': 'menu', 'module': '设置', 'sort': 800},
@@ -168,6 +198,7 @@ def init_permissions():
         {'name': '数据恢复', 'code': 'data_restore', 'type': 'button', 'module': '设置', 'parent_code': 'data_management', 'sort': 832},
         {'name': '数据清理', 'code': 'data_cleanup', 'type': 'button', 'module': '设置', 'parent_code': 'data_management', 'sort': 833},
         {'name': '个人设置', 'code': 'profile', 'type': 'menu', 'module': '设置', 'parent_code': 'settings', 'sort': 840},
+        {'name': '个人设置编辑', 'code': 'profile_edit', 'type': 'button', 'module': '设置', 'parent_code': 'profile', 'sort': 841},
     ]
     
     created = {}
@@ -275,13 +306,13 @@ def init_categories():
     )
     
     z_xcd, _ = AssetCategory.objects.get_or_create(
-        code='Z', defaults=dict(name='总经办', parent=xcd, level=2, sort=1)
+        code='Z', parent=xcd, defaults=dict(name='总经办', level=2, sort=1)
     )
     z_xays, _ = AssetCategory.objects.get_or_create(
-        code='Z', defaults=dict(name='总经办', parent=xays, level=2, sort=1)
+        code='Z', parent=xays, defaults=dict(name='总经办', level=2, sort=1)
     )
     z_xabej, _ = AssetCategory.objects.get_or_create(
-        code='Z', defaults=dict(name='总经办', parent=xabej, level=2, sort=1)
+        code='Z', parent=xabej, defaults=dict(name='总经办', level=2, sort=1)
     )
     
     jsj_xcd, _ = AssetCategory.objects.get_or_create(
@@ -634,9 +665,9 @@ def init_label_templates():
         is_default=True,
         defaults={
             'name': '默认标签模板',
-            'size_type': '50x80',
-            'width': 50,
-            'height': 80,
+            'size_type': '45x70',
+            'width': 70,
+            'height': 45,
             'fields_config': [
                 {'field': 'asset_no', 'label': '资产编号', 'show': True},
                 {'field': 'name', 'label': '设备名称', 'show': True},
@@ -659,26 +690,66 @@ def init_label_templates():
         print("默认标签模板已存在")
 
 
-def run():
-    print("开始初始化数据...")
+def run(force=False):
+    print("=" * 50)
+    print("CDITAMS 数据初始化")
+    print("=" * 50)
     
-    init_permissions()
-    init_roles()
-    init_departments()
-    init_categories()
-    init_locations()
-    init_service_types()
-    init_system_config()
-    init_org()
-    init_device_fields()
-    init_software_fields()
-    init_software_categories()
-    init_consumable_categories()
-    init_label_templates()
-    create_superuser()
+    # 检查前置条件
+    if not check_prerequisites():
+        return False
     
-    print("数据初始化完成!")
+    init_steps = [
+        ("权限数据", init_permissions),
+        ("角色数据", init_roles),
+        ("部门数据", init_departments),
+        ("资产分类", init_categories),
+        ("位置数据", init_locations),
+        ("服务类型", init_service_types),
+        ("系统配置", init_system_config),
+        ("企业信息", init_org),
+        ("设备字段", init_device_fields),
+        ("软件字段", init_software_fields),
+        ("软件分类", init_software_categories),
+        ("耗材分类", init_consumable_categories),
+        ("标签模板", init_label_templates),
+        ("超级管理员", create_superuser),
+    ]
+    
+    success_count = 0
+    fail_count = 0
+    errors = []
+    
+    for name, func in init_steps:
+        try:
+            print(f"\n[{success_count + fail_count + 1}/{len(init_steps)}] 初始化{name}...")
+            func()
+            success_count += 1
+        except Exception as e:
+            fail_count += 1
+            error_msg = f"初始化{name}失败: {e}"
+            print(f"  错误: {error_msg}")
+            errors.append(error_msg)
+            traceback.print_exc()
+    
+    print("\n" + "=" * 50)
+    print(f"初始化完成: 成功 {success_count} 项, 失败 {fail_count} 项")
+    
+    if errors:
+        print("\n失败项目:")
+        for err in errors:
+            print(f"  - {err}")
+        return False
+    
+    print("\n所有初始化步骤执行成功!")
+    print("默认管理员账号: 86000001 / password")
+    return True
 
 
 if __name__ == '__main__':
-    run()
+    parser = argparse.ArgumentParser(description='CDITAMS 数据初始化脚本')
+    parser.add_argument('--force', action='store_true', help='强制重新初始化（覆盖已有数据）')
+    args = parser.parse_args()
+    
+    success = run(force=args.force)
+    sys.exit(0 if success else 1)

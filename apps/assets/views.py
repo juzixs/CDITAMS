@@ -3576,6 +3576,9 @@ def label_settings(request):
         if size_type == '40x60':
             template.width = 60  # 宽度60mm
             template.height = 40  # 高度40mm
+        elif size_type == '45x70':
+            template.width = 70  # 宽度70mm
+            template.height = 45  # 高度45mm
         elif size_type == '50x80':
             template.width = 80  # 宽度80mm
             template.height = 50  # 高度50mm

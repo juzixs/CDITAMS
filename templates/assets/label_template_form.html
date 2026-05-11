@@ -24,7 +24,8 @@
                         <label class="form-label">标签尺寸</label>
                         <select name="size_type" id="sizeType" class="form-select">
                             <option value="40x60" {% if template.size_type == '40x60' %}selected{% endif %}>60×40mm (小标签)</option>
-                            <option value="50x80" {% if template.size_type == '50x80' %}selected{% endif %}>80×50mm (标准标签)</option>
+                            <option value="45x70" {% if template.size_type == '45x70' %}selected{% endif %}>70×45mm (标准标签)</option>
+                            <option value="50x80" {% if template.size_type == '50x80' %}selected{% endif %}>80×50mm (大标签)</option>
                             <option value="custom" {% if template.size_type == 'custom' %}selected{% endif %}>自定义尺寸</option>
                         </select>
                     </div>
@@ -242,6 +243,8 @@ function updateSize() {
     let width, height;
     if (sizeType === '40x60') {
         width = 60; height = 40;  // 60mm宽，40mm高
+    } else if (sizeType === '45x70') {
+        width = 70; height = 45;  // 70mm宽，45mm高
     } else if (sizeType === '50x80') {
         width = 80; height = 50;  // 80mm宽，50mm高
     } else {
