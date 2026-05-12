@@ -1402,6 +1402,33 @@ def location_create(request):
     return render(request, 'assets/location_form.html', {'locations': locations})
 
 
+def _update_descendant_codes(location):
+    """递归更新子级位置编码"""
+    for child in location.children.all():
+        old_code = child.code
+        if child.level == 2:
+            parent_code = location.code if location.code else "LOC"
+            building_code = child.building_code or ''
+            child.code = f"{parent_code}{building_code}" if building_code else child.code
+            child.park_code = location.park_code or ''
+        elif child.level == 3:
+            parent_code = location.code if location.code else "LOC"
+            floor_code = child.floor_code or ''
+            child.code = f"{parent_code}{floor_code}" if floor_code else child.code
+            child.park_code = location.park_code or ''
+            child.building_code = location.building_code or ''
+        elif child.level == 4:
+            parent_code = location.code if location.code else "LOC"
+            room_code = child.room_code or ''
+            child.code = f"{parent_code}-{room_code}" if room_code else child.code
+            child.park_code = location.park_code or ''
+            child.building_code = location.building_code or ''
+        
+        if child.code != old_code:
+            child.save(update_fields=['code', 'park_code', 'building_code'])
+        _update_descendant_codes(child)
+
+
 @login_required
 def location_edit(request, pk):
     location = get_object_or_404(AssetLocation, pk=pk)
@@ -1419,14 +1446,25 @@ def location_edit(request, pk):
         floor_code = request.POST.get('floor_code', '').strip()
         room_code = request.POST.get('room_code', '').strip()
         
+        old_code = location.code
+        
         if location.level == 1:
             location.code = park_code if park_code else location.code
         elif location.level == 2:
             location.code = f"{park_code}{building_code}" if park_code and building_code else location.code
-        elif location.level == 4 and room_code:
+        elif location.level == 3:
             parent = location.parent
             prefix = parent.code if parent and parent.code else "LOC"
-            location.code = f"{prefix}-{room_code}"
+            location.code = f"{prefix}{floor_code}" if floor_code else location.code
+        elif location.level == 4:
+            parent = location.parent
+            prefix = parent.code if parent and parent.code else "LOC"
+            location.code = f"{prefix}-{room_code}" if room_code else location.code
+        
+        if AssetLocation.objects.filter(code=location.code).exclude(pk=location.pk).exists():
+            messages.error(request, f'位置编码 {location.code} 已存在，请修改编码')
+            locations = AssetLocation.objects.exclude(pk=pk)
+            return render(request, 'assets/location_form.html', {'location': location, 'locations': locations})
         
         location.park_code = park_code
         location.building_code = building_code
@@ -1445,6 +1483,11 @@ def location_edit(request, pk):
         location.description = request.POST.get('description', '')
         location.sort = int(request.POST.get('sort', 0))
         location.save()
+        
+        # 编码变更时级联更新子级编码
+        code_changed = (old_code != location.code)
+        if code_changed:
+            _update_descendant_codes(location)
         
         # 如果是2级设施，根据新的楼层数生成缺失的3级楼层
         if location.level == 2 and (location.floor_count > 0 or location.basement_count > 0 or location.has_rooftop):
@@ -1519,7 +1562,15 @@ def location_edit(request, pk):
                             sort=sort_order
                         )
         
-        messages.success(request, '位置更新成功')
+        # 统计级联更新的子级数量
+        if code_changed:
+            child_count = location.children.count()
+            if child_count > 0:
+                messages.success(request, f'位置更新成功，已同步更新 {child_count} 个子级位置编码')
+            else:
+                messages.success(request, '位置更新成功')
+        else:
+            messages.success(request, '位置更新成功')
         return redirect('location_list')
     
     locations = AssetLocation.objects.exclude(pk=pk)

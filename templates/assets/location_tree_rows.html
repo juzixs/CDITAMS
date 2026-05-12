@@ -17,7 +17,7 @@
 </td>
 <td><code>{{ root.code|default:'-' }}</code></td>
 <td><span class="badge bg-{% if root.level == 1 %}warning text-dark{% elif root.level == 2 %}primary{% elif root.level == 3 %}info{% else %}success{% endif %} level-badge">{{ root.level }}级</span></td>
-<td>{% if root.has_map %}<span class="badge bg-success"><i class="fas fa-check"></i> 有地图</span>{% else %}<span class="badge bg-secondary">无</span>{% endif %}</td>
+<td>{% if root.level == 3 %}{% if root.has_map %}<span class="badge bg-success">已启用地图</span>{% else %}<span class="badge bg-secondary">未启用地图</span>{% endif %}{% else %}<span class="text-muted">-</span>{% endif %}</td>
 <td>{% if root.level == 4 %}{{ root.area_workstations.count }}{% else %}{{ root.workstations.count }}{% endif %}</td>
 <td>{{ root.devices.count }}</td>
 <td>{{ root.sort }}</td>
